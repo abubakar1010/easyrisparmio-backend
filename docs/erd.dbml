@@ -273,7 +273,7 @@ Table users [headercolor: #3498db] {
     email [unique]
     phone
     (role, status)
-    codice_fiscale [where: `codice_fiscale IS NOT NULL`]
+    codice_fiscale
   }
 
   Note: 'Core user table. Supports personal, business, admin, agent roles. Soft-deletable via deleted_at.'
@@ -293,7 +293,7 @@ Table refresh_tokens [headercolor: #3498db] {
   indexes {
     token
     user_id
-    (user_id, revoked) [where: `revoked = false`]
+    (user_id, revoked)
   }
 }
 
@@ -311,7 +311,7 @@ Table otp_codes [headercolor: #3498db] {
   indexes {
     type
     user_id
-    (user_id, type, used) [where: `used = false`]
+    (user_id, type, used)
   }
 }
 

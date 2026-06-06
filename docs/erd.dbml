@@ -349,7 +349,7 @@ Table user_addresses [headercolor: #2ecc71] {
 
   indexes {
     user_id
-    (user_id, is_primary) [where: `is_primary = true`]
+    (user_id, is_primary)
   }
 
   Note: 'NEW - Figma Gap #1. Users may have multiple addresses (residential, supply, billing).'
@@ -384,7 +384,7 @@ Table user_agent_assignments [headercolor: #2ecc71] {
   indexes {
     user_id
     agent_id
-    (user_id) [unique, where: `is_active = true`, note: 'One active assignment per client']
+    (user_id) [unique, note: 'One active assignment per client']
   }
 
   Note: 'NEW - Tracks which agent/operator is assigned to each client.'
@@ -416,7 +416,7 @@ Table meters [headercolor: #e67e22] {
     supplier_id
     meter_code
     utility_type
-    (meter_code, utility_type) [unique, where: `deleted_at IS NULL`, note: 'No duplicate active meters']
+    (meter_code, utility_type) [unique, note: 'No duplicate active meters']
   }
 
   Note: 'NEW - Figma Gap #3. Meter/utility point registry. Central entity linking POD/PDR to users.'
@@ -451,8 +451,8 @@ Table energy_bills [headercolor: #e67e22] {
     meter_id
     status
     (user_id, status)
-    pod_number [where: `pod_number IS NOT NULL`]
-    pdr_number [where: `pdr_number IS NOT NULL`]
+    pod_number
+    pdr_number
   }
 }
 
@@ -490,7 +490,7 @@ Table suppliers [headercolor: #9b59b6] {
   updated_at timestamptz [not null, default: `now()`]
 
   indexes {
-    (is_active) [where: `deleted_at IS NULL`]
+    (is_active)
   }
 }
 
@@ -529,8 +529,8 @@ Table offers [headercolor: #9b59b6] {
     (supplier_id, energy_type)
     status
     target
-    (is_active, valid_from, valid_until) [where: `deleted_at IS NULL`]
-    parent_offer_id [where: `parent_offer_id IS NOT NULL`]
+    (is_active, valid_from, valid_until)
+    parent_offer_id
   }
 }
 
@@ -552,7 +552,7 @@ Table offer_price_versions [headercolor: #9b59b6] {
 
   indexes {
     offer_id
-    (offer_id, is_current) [where: `is_current = true`]
+    (offer_id, is_current)
   }
 
   Note: 'NEW - Figma Gap #10. Price list version history per offer.'
@@ -591,7 +591,7 @@ Table switch_cases [headercolor: #e74c3c] {
     (status, assigned_agent_id)
     case_type
     priority
-    sla_deadline [where: `status NOT IN ('activated','rejected','cancelled')`]
+    sla_deadline
   }
 
   Note: 'Central switching case entity. Tracks entire provider-switch lifecycle.'
@@ -667,7 +667,7 @@ Table contracts [headercolor: #e74c3c] {
     offer_id
     status
     (user_id, status)
-    expiry_date [where: `status = 'active'`, note: 'Expiring contract alerts']
+    expiry_date [note: 'Expiring contract alerts']
   }
 }
 
@@ -697,7 +697,7 @@ Table commissions [headercolor: #f39c12] {
     supplier_id
     status
     (agent_id, status)
-    paid_at [where: `paid_at IS NOT NULL`]
+    paid_at
   }
 }
 
@@ -720,7 +720,7 @@ Table commission_rules [headercolor: #f39c12] {
   indexes {
     supplier_id
     (supplier_id, energy_type)
-    (is_active, valid_from, valid_until) [where: `is_active = true`]
+    (is_active, valid_from, valid_until)
   }
 }
 
@@ -822,7 +822,7 @@ Table notifications [headercolor: #34495e] {
 
   indexes {
     user_id
-    (user_id, is_read) [where: `is_read = false`, note: 'Fast unread count']
+    (user_id, is_read) [note: 'Fast unread count']
     (created_at) [note: 'Partition-ready for archival']
   }
 
@@ -841,7 +841,7 @@ Table push_tokens [headercolor: #34495e] {
   indexes {
     user_id
     token [unique]
-    (user_id, is_active) [where: `is_active = true`]
+    (user_id, is_active)
   }
 }
 
@@ -910,7 +910,7 @@ Table admin_alerts [headercolor: #95a5a6] {
     status
     (alert_type, status)
     (entity_type, entity_id)
-    severity [where: `status = 'active'`]
+    severity
   }
 
   Note: 'NEW - Figma Gap #8. Duplicate POD, contract expiring, OCR verification, high value lead alerts.'
@@ -984,7 +984,7 @@ Table referrals [headercolor: #95a5a6] {
   indexes {
     referrer_id
     referral_code [unique]
-    referred_user_id [where: `referred_user_id IS NOT NULL`]
+    referred_user_id
     status
   }
 
@@ -1009,7 +1009,7 @@ Table agreements [headercolor: #95a5a6] {
   updated_at timestamptz [not null, default: `now()`]
 
   indexes {
-    (is_active, valid_from) [where: `is_active = true`]
+    (is_active, valid_from)
   }
 
   Note: 'NEW - Exclusive partner discounts shown in mobile app.'

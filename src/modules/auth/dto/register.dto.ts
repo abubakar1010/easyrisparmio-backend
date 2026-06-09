@@ -70,6 +70,16 @@ export class RegisterDto {
   })
   @IsNotEmpty()
   role: UserRole.PERSONAL | UserRole.BUSINESS;
+
+  @ApiPropertyOptional({
+    description: 'Referral code from an existing user (optional)',
+    example: 'AB3KX7WN',
+    maxLength: 20,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  referralCode?: string;
 }
 
 export class RegisterBusinessDto extends RegisterDto {

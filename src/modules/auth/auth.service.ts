@@ -22,6 +22,7 @@ import { UserRole } from '../../common/enums/role.enum';
 import { UserStatus, OtpType, AuthProvider } from '../../common/enums/user.enum';
 import { UsersService } from '../users/users.service';
 import { FirebaseService } from './firebase.service';
+import { ReferralsService } from '../referrals/referrals.service';
 
 @Injectable()
 export class AuthService {
@@ -36,6 +37,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly firebaseService: FirebaseService,
+    private readonly referralsService: ReferralsService,
   ) {}
 
   async register(dto: RegisterDto | RegisterBusinessDto) {
@@ -72,6 +74,19 @@ export class AuthService {
         atecoCode: businessDto.atecoCode,
       });
       await this.businessProfileRepository.save(businessProfile);
+    }
+
+    // Process referral code if provided
+    if (dto.referralCode) {
+      try {
+        await this.referralsService.processReferralCode(
+          dto.referralCode,
+          user.id,
+          dto.email,
+        );
+      } catch {
+        // Don't fail registration for an invalid referral code
+      }
     }
 
     await this.generateAndSaveOtp(user, OtpType.EMAIL_VERIFICATION);

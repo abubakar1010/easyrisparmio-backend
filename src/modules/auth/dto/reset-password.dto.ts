@@ -2,25 +2,40 @@ import { IsEmail, IsNotEmpty, IsString, Length, MinLength } from 'class-validato
 import { ApiProperty } from '@nestjs/swagger';
 
 export class ForgotPasswordDto {
-  @ApiProperty({ example: 'mario.rossi@email.com' })
+  @ApiProperty({
+    description: 'Email address of the account to reset. Response does not reveal whether the email exists.',
+    example: 'mario.rossi@email.com',
+  })
   @IsEmail()
   @IsNotEmpty()
   email: string;
 }
 
 export class ResetPasswordDto {
-  @ApiProperty({ example: 'mario.rossi@email.com' })
+  @ApiProperty({
+    description: 'Email address of the account to reset',
+    example: 'mario.rossi@email.com',
+  })
   @IsEmail()
   @IsNotEmpty()
   email: string;
 
-  @ApiProperty({ example: '123456', description: '6-digit OTP code' })
+  @ApiProperty({
+    description: '6-digit OTP code received from the forgot-password request',
+    example: '123456',
+    minLength: 6,
+    maxLength: 6,
+  })
   @IsString()
   @IsNotEmpty()
   @Length(6, 6)
   code: string;
 
-  @ApiProperty({ example: 'NewStrongP@ss1', minLength: 8 })
+  @ApiProperty({
+    description: 'New password (minimum 8 characters)',
+    example: 'NewStrongP@ss1',
+    minLength: 8,
+  })
   @IsString()
   @MinLength(8)
   @IsNotEmpty()

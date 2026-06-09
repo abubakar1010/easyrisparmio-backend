@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "EasyRisparmio API",
-    "description": "API collection for the EasyRisparmio Italian energy comparison & switching platform.\n\n## Modules\n- **Authentication** — Email/password + social login (Google, Facebook, Apple via Firebase)\n- **Referrals** — Invite & Earn referral program for users and admin management\n\n## Roles\n| Role | Description |\n|------|-------------|\n| `personal` | Individual user (default) |\n| `business` | Business user with company profile |\n| `admin` | Platform administrator (seeded, cannot register) |\n\n## Token Flow\n1. Login or social-login returns `accessToken` (JWT, 15 min) + `refreshToken` (UUID, 7 days)\n2. Use `accessToken` in `Authorization: Bearer <token>` header for protected endpoints\n3. When expired, call refresh-token to get a new pair\n\n## Setup\n1. Set `baseUrl` variable to your server (default: `http://localhost:3000`)\n2. Register a user, then login — tokens are auto-saved to collection variables\n3. All protected requests automatically use the saved `accessToken`",
+    "description": "API collection for the EasyRisparmio Italian energy comparison & switching platform.\n\n## Modules\n- **Authentication** — Email/password + social login (Google, Facebook, Apple via Firebase)\n- **Referrals** — Invite & Earn referral program for users and admin management\n- **Meters** — Utility meter management (electricity, gas, water, internet) with admin moderation\n\n## Roles\n| Role | Description |\n|------|-------------|\n| `personal` | Individual user (default) |\n| `business` | Business user with company profile |\n| `admin` | Platform administrator (seeded, cannot register) |\n\n## Token Flow\n1. Login or social-login returns `accessToken` (JWT, 15 min) + `refreshToken` (UUID, 7 days)\n2. Use `accessToken` in `Authorization: Bearer <token>` header for protected endpoints\n3. When expired, call refresh-token to get a new pair\n\n## Setup\n1. Set `baseUrl` variable to your server (default: `http://localhost:3000`)\n2. Register a user, then login — tokens are auto-saved to collection variables\n3. All protected requests automatically use the saved `accessToken`",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -28,6 +28,12 @@
       "value": "",
       "type": "string",
       "description": "Referral UUID (auto-set by Create Invite request)"
+    },
+    {
+      "key": "meterId",
+      "value": "",
+      "type": "string",
+      "description": "Meter UUID (auto-set by Create Meter request)"
     }
   ],
   "item": [
@@ -547,6 +553,320 @@
               "code": 400,
               "header": [{ "key": "Content-Type", "value": "application/json" }],
               "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"Cannot transition from rewarded to expired\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Meters / User",
+      "description": "User-facing meter/utility endpoints. Returns only `active` meters for the authenticated user.\n\nUsers typically have 2-5 utility meters (electricity, gas, water, internet). No pagination needed.",
+      "item": [
+        {
+          "name": "List My Active Meters",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/meters/my-meters", "host": ["{{baseUrl}}"], "path": ["api", "v1", "meters", "my-meters"] },
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "description": "Returns the authenticated user's active meters with supplier and address details.\n\nOnly meters with `active` status are returned. Meters in `pending`, `inactive`, or `terminated` status are hidden from the user.\n\nNo pagination — users typically have 2-5 utilities."
+          },
+          "response": [
+            {
+              "name": "200 - Active Meters List",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"m1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n      \"userId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"utilityType\": \"electricity\",\n      \"meterCode\": \"IT001E556779\",\n      \"supplierId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n      \"status\": \"active\",\n      \"annualConsumption\": \"12500.00\",\n      \"consumptionUnit\": \"kWh\",\n      \"contractedPowerKw\": \"3.00\",\n      \"activationDate\": \"2025-01-15\",\n      \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n      \"supplier\": {\n        \"id\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n        \"name\": \"Ener Energia\"\n      },\n      \"address\": {\n        \"id\": \"c3d4e5f6-a7b8-9012-cdef-123456789012\",\n        \"streetAddress\": \"Via Roma 42\",\n        \"city\": \"Milano\",\n        \"postalCode\": \"20121\"\n      }\n    },\n    {\n      \"id\": \"m2b3c4d5-e6f7-8901-bcde-f23456789012\",\n      \"userId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"utilityType\": \"gas\",\n      \"meterCode\": \"GS002C556677\",\n      \"supplierId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n      \"status\": \"active\",\n      \"annualConsumption\": \"850.00\",\n      \"consumptionUnit\": \"Smc\",\n      \"contractedPowerKw\": null,\n      \"activationDate\": \"2025-03-01\",\n      \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n      \"supplier\": {\n        \"id\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n        \"name\": \"Ener Energia\"\n      },\n      \"address\": null\n    }\n  ]\n}"
+            },
+            {
+              "name": "200 - No Active Meters",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": []\n}"
+            },
+            {
+              "name": "401 - Unauthorized",
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\"Unauthorized\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Meters / Admin",
+      "description": "Admin endpoints for managing utility meters. Requires `admin` role.\n\n**Utility types:** `electricity` (POD), `gas` (PDR), `water`, `internet`\n\n**Status lifecycle (moderation):**\n- `pending` → `active` or `terminated`\n- `active` → `inactive` or `terminated`\n- `inactive` → `active` or `terminated`\n- `terminated` = permanent (no further transitions)\n\nOnly `active` meters are visible to users. Admin uses status to moderate visibility.",
+      "item": [
+        {
+          "name": "Create Meter",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 201) {", "    const res = pm.response.json();", "    if (res.success && res.data && res.data.id) {", "        pm.collectionVariables.set('meterId', res.data.id);", "        console.log('meterId saved: ' + res.data.id);", "    }", "}"] } }],
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/api/v1/meters", "host": ["{{baseUrl}}"], "path": ["api", "v1", "meters"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"utilityType\": \"electricity\",\n  \"meterCode\": \"IT001E556779\",\n  \"supplierId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n  \"annualConsumption\": 12500,\n  \"consumptionUnit\": \"kWh\",\n  \"contractedPowerKw\": 3.0,\n  \"activationDate\": \"2025-01-15\",\n  \"notes\": \"Verified via supplier portal\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Creates a new meter/utility point for a user.\n\n**Required fields:**\n- `userId` — UUID of the meter owner\n- `utilityType` — `electricity`, `gas`, `water`, or `internet`\n- `meterCode` — POD/PDR identifier (max 50 chars)\n\n**Optional fields:**\n- `supplierId`, `status` (defaults to `active`), `annualConsumption`, `consumptionUnit`, `contractedPowerKw`, `addressId`, `activationDate`, `notes`\n\nThe `createdBy`/`updatedBy` audit fields are auto-set from the admin JWT.\n\n**Duplicate prevention:** The combination of `meterCode` + `utilityType` must be unique (returns 409 if duplicate).\n\n**Auto-saves** `meterId` to collection variables."
+          },
+          "response": [
+            {
+              "name": "201 - Meter Created",
+              "status": "Created",
+              "code": 201,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"m1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"userId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"utilityType\": \"electricity\",\n    \"meterCode\": \"IT001E556779\",\n    \"supplierId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n    \"status\": \"active\",\n    \"annualConsumption\": \"12500.00\",\n    \"consumptionUnit\": \"kWh\",\n    \"contractedPowerKw\": \"3.00\",\n    \"addressId\": null,\n    \"activationDate\": \"2025-01-15\",\n    \"notes\": \"Verified via supplier portal\",\n    \"createdBy\": \"admin-uuid\",\n    \"updatedBy\": \"admin-uuid\",\n    \"createdAt\": \"2026-06-09T12:00:00.000Z\",\n    \"updatedAt\": \"2026-06-09T12:00:00.000Z\"\n  }\n}"
+            },
+            {
+              "name": "400 - Validation Error",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\n    \"meterCode should not be empty\",\n    \"utilityType must be a valid enum value\"\n  ],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+            },
+            {
+              "name": "409 - Duplicate Meter Code",
+              "status": "Conflict",
+              "code": 409,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 409,\n  \"message\": [\"A meter with this code and utility type already exists\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+            },
+            {
+              "name": "403 - Forbidden (Not Admin)",
+              "status": "Forbidden",
+              "code": 403,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "List All Meters",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/meters?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "meters"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "utilityType", "value": "electricity", "disabled": true },
+                { "key": "status", "value": "active", "disabled": true },
+                { "key": "userId", "value": "", "disabled": true },
+                { "key": "supplierId", "value": "", "disabled": true },
+                { "key": "search", "value": "", "disabled": true }
+              ]
+            },
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "description": "Returns a paginated list of all meters with user, supplier, and address relations.\n\n**Filters (all optional):**\n- `utilityType` — `electricity`, `gas`, `water`, `internet`\n- `status` — `active`, `inactive`, `pending`, `terminated`\n- `userId` — filter by meter owner\n- `supplierId` — filter by supplier\n- `search` — matches meter code, user name, or email\n\nRequires **admin** role."
+          },
+          "response": [
+            {
+              "name": "200 - Paginated Meters",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"data\": [\n      {\n        \"id\": \"m1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n        \"utilityType\": \"electricity\",\n        \"meterCode\": \"IT001E556779\",\n        \"status\": \"active\",\n        \"annualConsumption\": \"12500.00\",\n        \"consumptionUnit\": \"kWh\",\n        \"contractedPowerKw\": \"3.00\",\n        \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n        \"user\": {\n          \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n          \"email\": \"mario.rossi@email.com\",\n          \"firstName\": \"Mario\",\n          \"lastName\": \"Rossi\"\n        },\n        \"supplier\": {\n          \"id\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n          \"name\": \"Ener Energia\"\n        },\n        \"address\": {\n          \"streetAddress\": \"Via Roma 42\",\n          \"city\": \"Milano\"\n        }\n      }\n    ],\n    \"meta\": {\n      \"total\": 1,\n      \"page\": 1,\n      \"limit\": 20,\n      \"totalPages\": 1\n    }\n  }\n}"
+            },
+            {
+              "name": "403 - Forbidden (Not Admin)",
+              "status": "Forbidden",
+              "code": 403,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Meter Detail",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/meters/{{meterId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "meters", "{{meterId}}"] },
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "description": "Returns a single meter with full user, supplier, and address details.\n\nRequires **admin** role. The `meterId` variable is auto-set by the Create Meter request."
+          },
+          "response": [
+            {
+              "name": "200 - Meter Detail",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"m1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"userId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"utilityType\": \"electricity\",\n    \"meterCode\": \"IT001E556779\",\n    \"supplierId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n    \"status\": \"active\",\n    \"annualConsumption\": \"12500.00\",\n    \"consumptionUnit\": \"kWh\",\n    \"contractedPowerKw\": \"3.00\",\n    \"addressId\": \"c3d4e5f6-a7b8-9012-cdef-123456789012\",\n    \"activationDate\": \"2025-01-15\",\n    \"notes\": \"Verified via supplier portal\",\n    \"createdBy\": \"admin-uuid\",\n    \"updatedBy\": \"admin-uuid\",\n    \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-09T12:00:00.000Z\",\n    \"user\": {\n      \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"email\": \"mario.rossi@email.com\",\n      \"firstName\": \"Mario\",\n      \"lastName\": \"Rossi\"\n    },\n    \"supplier\": {\n      \"id\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n      \"name\": \"Ener Energia\"\n    },\n    \"address\": {\n      \"id\": \"c3d4e5f6-a7b8-9012-cdef-123456789012\",\n      \"streetAddress\": \"Via Roma 42\",\n      \"city\": \"Milano\",\n      \"postalCode\": \"20121\"\n    }\n  }\n}"
+            },
+            {
+              "name": "404 - Meter Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Meter not found\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Meter",
+          "request": {
+            "method": "PATCH",
+            "url": { "raw": "{{baseUrl}}/api/v1/meters/{{meterId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "meters", "{{meterId}}"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"annualConsumption\": 15000,\n  \"notes\": \"Updated after annual review\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Updates meter fields. All fields are optional.\n\nFor status changes, use the dedicated `PATCH /meters/:id/status` endpoint instead.\n\nThe `updatedBy` audit field is auto-set from the admin JWT.\n\nRequires **admin** role."
+          },
+          "response": [
+            {
+              "name": "200 - Meter Updated",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"m1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"utilityType\": \"electricity\",\n    \"meterCode\": \"IT001E556779\",\n    \"status\": \"active\",\n    \"annualConsumption\": \"15000.00\",\n    \"consumptionUnit\": \"kWh\",\n    \"notes\": \"Updated after annual review\",\n    \"updatedBy\": \"admin-uuid\",\n    \"updatedAt\": \"2026-06-09T14:00:00.000Z\"\n  }\n}"
+            },
+            {
+              "name": "404 - Meter Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Meter not found\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+            },
+            {
+              "name": "409 - Duplicate Meter Code After Update",
+              "status": "Conflict",
+              "code": 409,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 409,\n  \"message\": [\"A meter with this code and utility type already exists\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Soft-Delete Meter",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/api/v1/meters/{{meterId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "meters", "{{meterId}}"] },
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "description": "Marks a meter as deleted by setting `deleted_at`. The meter is hidden from all queries but preserved in the database for audit purposes.\n\nRequires **admin** role."
+          },
+          "response": [
+            {
+              "name": "200 - Meter Deleted",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Meter deleted successfully\"\n  }\n}"
+            },
+            {
+              "name": "404 - Meter Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Meter not found\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Change Status — Activate",
+          "request": {
+            "method": "PATCH",
+            "url": { "raw": "{{baseUrl}}/api/v1/meters/{{meterId}}/status", "host": ["{{baseUrl}}"], "path": ["api", "v1", "meters", "{{meterId}}", "status"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"active\"\n}", "options": { "raw": { "language": "json" } } },
+            "description": "Activates a meter, making it visible to the user.\n\nValid from `pending` or `inactive` status.\n\nRequires **admin** role."
+          },
+          "response": [
+            {
+              "name": "200 - Meter Activated",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"m1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"meterCode\": \"IT001E556779\",\n    \"status\": \"active\",\n    \"updatedBy\": \"admin-uuid\",\n    \"updatedAt\": \"2026-06-09T14:00:00.000Z\"\n  }\n}"
+            },
+            {
+              "name": "400 - Invalid Transition",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"Cannot transition from terminated to active\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+            },
+            {
+              "name": "404 - Meter Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Meter not found\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Change Status — Deactivate",
+          "request": {
+            "method": "PATCH",
+            "url": { "raw": "{{baseUrl}}/api/v1/meters/{{meterId}}/status", "host": ["{{baseUrl}}"], "path": ["api", "v1", "meters", "{{meterId}}", "status"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"inactive\"\n}", "options": { "raw": { "language": "json" } } },
+            "description": "Deactivates a meter, hiding it from the user.\n\nValid from `active` status only. The meter can be reactivated later.\n\nRequires **admin** role."
+          },
+          "response": [
+            {
+              "name": "200 - Meter Deactivated",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"m1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"meterCode\": \"IT001E556779\",\n    \"status\": \"inactive\",\n    \"updatedBy\": \"admin-uuid\",\n    \"updatedAt\": \"2026-06-09T14:00:00.000Z\"\n  }\n}"
+            },
+            {
+              "name": "400 - Invalid Transition",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"Cannot transition from pending to inactive\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Change Status — Terminate",
+          "request": {
+            "method": "PATCH",
+            "url": { "raw": "{{baseUrl}}/api/v1/meters/{{meterId}}/status", "host": ["{{baseUrl}}"], "path": ["api", "v1", "meters", "{{meterId}}", "status"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"terminated\"\n}", "options": { "raw": { "language": "json" } } },
+            "description": "Permanently terminates a meter. This is a **terminal state** — no further status transitions are allowed.\n\nValid from `pending`, `active`, or `inactive` status.\n\nRequires **admin** role."
+          },
+          "response": [
+            {
+              "name": "200 - Meter Terminated",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"m1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"meterCode\": \"IT001E556779\",\n    \"status\": \"terminated\",\n    \"updatedBy\": \"admin-uuid\",\n    \"updatedAt\": \"2026-06-09T14:00:00.000Z\"\n  }\n}"
+            },
+            {
+              "name": "400 - Already Terminated",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"Cannot transition from terminated to terminated\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
             }
           ]
         }

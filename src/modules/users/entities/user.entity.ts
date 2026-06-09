@@ -50,6 +50,9 @@ export class User extends BaseEntity {
   @Column({ name: 'firebase_uid', type: 'varchar', length: 128, nullable: true, unique: true })
   firebaseUid: string | null;
 
+  @Column({ name: 'referral_code', type: 'varchar', length: 20, nullable: true, unique: true })
+  referralCode: string | null;
+
   @Column({
     type: 'enum',
     enum: UserRole,

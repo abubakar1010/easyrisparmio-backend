@@ -345,6 +345,7 @@ Table users [headercolor: #3498db] {
   avatar varchar(500)
   auth_provider auth_provider [not null, default: 'local']
   firebase_uid varchar(128) [unique]
+  referral_code varchar(20) [unique]
   role user_role [not null, default: 'personal']
   status user_status [not null, default: 'pending_verification']
   email_verified boolean [not null, default: false]

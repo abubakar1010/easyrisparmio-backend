@@ -122,6 +122,12 @@ export class UsersService {
     });
   }
 
+  async findByReferralCode(referralCode: string): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: { referralCode },
+    });
+  }
+
   async update(id: string, data: Partial<User>): Promise<User> {
     const user = await this.findById(id);
     if (!user) {

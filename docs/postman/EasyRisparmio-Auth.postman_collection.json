@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "EasyRisparmio - Authentication",
-    "description": "Authentication API collection for the EasyRisparmio Italian energy comparison & switching platform.\n\n## Authentication Methods\n- **Email/Password** — local registration and login with bcrypt-hashed passwords\n- **Social Login** — Google, Facebook, Apple via Firebase ID token verification\n\n## Roles\n| Role | Description |\n|------|-------------|\n| `personal` | Individual user (default) |\n| `business` | Business user with company profile |\n| `admin` | Platform administrator (seeded, cannot register) |\n\n## Token Flow\n1. Login or social-login returns `accessToken` (JWT, 15 min) + `refreshToken` (UUID, 7 days)\n2. Use `accessToken` in `Authorization: Bearer <token>` header for protected endpoints\n3. When expired, call refresh-token to get a new pair\n\n## Setup\n1. Set `baseUrl` variable to your server (default: `http://localhost:3000`)\n2. Register a user, then login — tokens are auto-saved to collection variables\n3. Protected requests (`Get Profile`) automatically use the saved `accessToken`",
+    "name": "EasyRisparmio API",
+    "description": "API collection for the EasyRisparmio Italian energy comparison & switching platform.\n\n## Modules\n- **Authentication** — Email/password + social login (Google, Facebook, Apple via Firebase)\n- **Referrals** — Invite & Earn referral program for users and admin management\n\n## Roles\n| Role | Description |\n|------|-------------|\n| `personal` | Individual user (default) |\n| `business` | Business user with company profile |\n| `admin` | Platform administrator (seeded, cannot register) |\n\n## Token Flow\n1. Login or social-login returns `accessToken` (JWT, 15 min) + `refreshToken` (UUID, 7 days)\n2. Use `accessToken` in `Authorization: Bearer <token>` header for protected endpoints\n3. When expired, call refresh-token to get a new pair\n\n## Setup\n1. Set `baseUrl` variable to your server (default: `http://localhost:3000`)\n2. Register a user, then login — tokens are auto-saved to collection variables\n3. All protected requests automatically use the saved `accessToken`",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -22,12 +22,18 @@
       "value": "",
       "type": "string",
       "description": "UUID refresh token (auto-set by login/social-login requests)"
+    },
+    {
+      "key": "referralId",
+      "value": "",
+      "type": "string",
+      "description": "Referral UUID (auto-set by Create Invite request)"
     }
   ],
   "item": [
     {
-      "name": "Registration",
-      "description": "User registration endpoints. After registration, the account status is `pending_verification` until the email OTP is verified. Admin role cannot be used.",
+      "name": "Auth / Registration",
+      "description": "User registration endpoints. After registration, the account status is `pending_verification` until the email OTP is verified. Admin role cannot be used. An optional `referralCode` can be provided to link the new user to a referrer.",
       "item": [
         {
           "name": "Register Personal User",
@@ -39,57 +45,35 @@
               "path": ["api", "v1", "auth", "register"]
             },
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
+              { "key": "Content-Type", "value": "application/json" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"mario.rossi@email.com\",\n  \"password\": \"StrongP@ss1\",\n  \"firstName\": \"Mario\",\n  \"lastName\": \"Rossi\",\n  \"phone\": \"+393331234567\",\n  \"role\": \"personal\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{\n  \"email\": \"mario.rossi@email.com\",\n  \"password\": \"StrongP@ss1\",\n  \"firstName\": \"Mario\",\n  \"lastName\": \"Rossi\",\n  \"phone\": \"+393331234567\",\n  \"role\": \"personal\",\n  \"referralCode\": \"AB3KX7WN\"\n}",
+              "options": { "raw": { "language": "json" } }
             },
-            "description": "Creates a personal user account.\n\nAfter registration, a 6-digit OTP is generated for email verification. The account status is `pending_verification` until the OTP is verified via `POST /auth/verify-otp`.\n\n**Validation Rules:**\n- `email` — must be a valid email, unique across all users\n- `password` — minimum 8 characters\n- `firstName` / `lastName` — required, max 100 characters\n- `phone` — optional, max 20 characters\n- `role` — must be `personal` or `business` (admin is blocked)"
+            "description": "Creates a personal user account.\n\nAfter registration, a 6-digit OTP is generated for email verification. The account status is `pending_verification` until the OTP is verified via `POST /auth/verify-otp`.\n\n**Validation Rules:**\n- `email` — must be a valid email, unique across all users\n- `password` — minimum 8 characters\n- `firstName` / `lastName` — required, max 100 characters\n- `phone` — optional, max 20 characters\n- `role` — must be `personal` or `business` (admin is blocked)\n- `referralCode` — optional, 8-char code from an existing user. If valid, the referral is linked automatically."
           },
           "response": [
             {
               "name": "201 - Registration Successful",
               "status": "Created",
               "code": 201,
-              "header": [
-                { "key": "Content-Type", "value": "application/json" }
-              ],
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
               "body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Registration successful. Please verify your email.\",\n    \"user\": {\n      \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"email\": \"mario.rossi@email.com\",\n      \"firstName\": \"Mario\",\n      \"lastName\": \"Rossi\",\n      \"phone\": \"+393331234567\",\n      \"role\": \"personal\",\n      \"status\": \"pending_verification\",\n      \"authProvider\": \"local\",\n      \"firebaseUid\": null,\n      \"emailVerified\": false,\n      \"phoneVerified\": false,\n      \"createdAt\": \"2026-06-09T10:00:00.000Z\",\n      \"updatedAt\": \"2026-06-09T10:00:00.000Z\"\n    }\n  }\n}"
             },
             {
               "name": "400 - Validation Error",
               "status": "Bad Request",
               "code": 400,
-              "header": [
-                { "key": "Content-Type", "value": "application/json" }
-              ],
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
               "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\n    \"email must be an email\",\n    \"password must be longer than or equal to 8 characters\"\n  ],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
-            },
-            {
-              "name": "400 - Admin Registration Blocked",
-              "status": "Bad Request",
-              "code": 400,
-              "header": [
-                { "key": "Content-Type", "value": "application/json" }
-              ],
-              "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\n    \"Cannot register as admin\"\n  ],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
             },
             {
               "name": "409 - Email Already Registered",
               "status": "Conflict",
               "code": 409,
-              "header": [
-                { "key": "Content-Type", "value": "application/json" }
-              ],
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
               "body": "{\n  \"success\": false,\n  \"statusCode\": 409,\n  \"message\": [\n    \"Email already registered\"\n  ],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
             }
           ]
@@ -104,48 +88,35 @@
               "path": ["api", "v1", "auth", "register", "business"]
             },
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
+              { "key": "Content-Type", "value": "application/json" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"info@rossi-srl.it\",\n  \"password\": \"StrongP@ss1\",\n  \"firstName\": \"Mario\",\n  \"lastName\": \"Rossi\",\n  \"phone\": \"+393331234567\",\n  \"role\": \"business\",\n  \"companyName\": \"Rossi S.r.l.\",\n  \"partitaIva\": \"12345678901\",\n  \"pecEmail\": \"rossi@pec.it\",\n  \"legalRepresentative\": \"Mario Rossi\",\n  \"companyType\": \"S.r.l.\",\n  \"atecoCode\": \"35.11.00\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{\n  \"email\": \"info@rossi-srl.it\",\n  \"password\": \"StrongP@ss1\",\n  \"firstName\": \"Mario\",\n  \"lastName\": \"Rossi\",\n  \"phone\": \"+393331234567\",\n  \"role\": \"business\",\n  \"companyName\": \"Rossi S.r.l.\",\n  \"partitaIva\": \"12345678901\",\n  \"pecEmail\": \"rossi@pec.it\",\n  \"legalRepresentative\": \"Mario Rossi\",\n  \"companyType\": \"S.r.l.\",\n  \"atecoCode\": \"35.11.00\",\n  \"referralCode\": \"AB3KX7WN\"\n}",
+              "options": { "raw": { "language": "json" } }
             },
-            "description": "Creates a business user account with a company profile.\n\nExtends personal registration with Italian business fields.\n\n**Additional Fields:**\n- `companyName` — required, max 255 characters\n- `partitaIva` — required, exactly 11 digits (Italian VAT number)\n- `pecEmail` — optional, valid email (certified PEC email)\n- `legalRepresentative` — optional, max 255 characters\n- `companyType` — optional (e.g. S.r.l., S.p.A.)\n- `atecoCode` — optional, max 10 characters (economic activity code)"
+            "description": "Creates a business user account with a company profile.\n\nExtends personal registration with Italian business fields.\n\n**Additional Fields:**\n- `companyName` — required, max 255 characters\n- `partitaIva` — required, exactly 11 digits (Italian VAT number)\n- `pecEmail` — optional, valid email (certified PEC email)\n- `legalRepresentative` — optional, max 255 characters\n- `companyType` — optional (e.g. S.r.l., S.p.A.)\n- `atecoCode` — optional, max 10 characters (economic activity code)\n- `referralCode` — optional, links the new user to a referrer"
           },
           "response": [
             {
               "name": "201 - Business Registration Successful",
               "status": "Created",
               "code": 201,
-              "header": [
-                { "key": "Content-Type", "value": "application/json" }
-              ],
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
               "body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Registration successful. Please verify your email.\",\n    \"user\": {\n      \"id\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n      \"email\": \"info@rossi-srl.it\",\n      \"firstName\": \"Mario\",\n      \"lastName\": \"Rossi\",\n      \"phone\": \"+393331234567\",\n      \"role\": \"business\",\n      \"status\": \"pending_verification\",\n      \"authProvider\": \"local\",\n      \"firebaseUid\": null,\n      \"emailVerified\": false,\n      \"phoneVerified\": false,\n      \"createdAt\": \"2026-06-09T10:00:00.000Z\",\n      \"updatedAt\": \"2026-06-09T10:00:00.000Z\"\n    }\n  }\n}"
             },
             {
               "name": "400 - Invalid Partita IVA",
               "status": "Bad Request",
               "code": 400,
-              "header": [
-                { "key": "Content-Type", "value": "application/json" }
-              ],
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
               "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\n    \"Partita IVA must be exactly 11 digits\",\n    \"companyName should not be empty\"\n  ],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
             },
             {
               "name": "409 - Email Already Registered",
               "status": "Conflict",
               "code": 409,
-              "header": [
-                { "key": "Content-Type", "value": "application/json" }
-              ],
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
               "body": "{\n  \"success\": false,\n  \"statusCode\": 409,\n  \"message\": [\n    \"Email already registered\"\n  ],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
             }
           ]
@@ -153,471 +124,429 @@
       ]
     },
     {
-      "name": "Login",
+      "name": "Auth / Login",
       "description": "Authentication endpoints for email/password and social login. Both return a JWT access token and UUID refresh token on success.",
       "item": [
         {
           "name": "Login (Email/Password)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (pm.response.code === 200) {",
-                  "    const res = pm.response.json();",
-                  "    if (res.success && res.data) {",
-                  "        pm.collectionVariables.set('accessToken', res.data.accessToken);",
-                  "        pm.collectionVariables.set('refreshToken', res.data.refreshToken);",
-                  "        console.log('Tokens saved to collection variables');",
-                  "    }",
-                  "}"
-                ]
-              }
-            }
-          ],
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 200) {", "    const res = pm.response.json();", "    if (res.success && res.data) {", "        pm.collectionVariables.set('accessToken', res.data.accessToken);", "        pm.collectionVariables.set('refreshToken', res.data.refreshToken);", "    }", "}"] } }],
           "request": {
             "method": "POST",
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/auth/login",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "auth", "login"]
-            },
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"mario.rossi@email.com\",\n  \"password\": \"StrongP@ss1\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "description": "Authenticates with email and password.\n\nReturns a JWT access token (15 min expiry) and a UUID refresh token (7 days expiry).\n\n**Login is blocked when:**\n- Email or password is incorrect\n- Account status is `pending_verification` (email not yet verified)\n- Account status is `suspended`\n- User is social-only (no password set) — returns generic invalid credentials\n\n**Post-request script** automatically saves `accessToken` and `refreshToken` to collection variables."
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "login"] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"mario.rossi@email.com\",\n  \"password\": \"StrongP@ss1\"\n}", "options": { "raw": { "language": "json" } } },
+            "description": "Authenticates with email and password. Returns JWT access token (15 min) and UUID refresh token (7 days).\n\n**Login is blocked when:**\n- Invalid credentials\n- Account `pending_verification` or `suspended`\n- Social-only user (no password set)\n\n**Auto-saves** `accessToken` and `refreshToken` to collection variables."
           },
           "response": [
-            {
-              "name": "200 - Login Successful",
-              "status": "OK",
-              "code": 200,
-              "header": [
-                { "key": "Content-Type", "value": "application/json" }
-              ],
-              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"user\": {\n      \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"email\": \"mario.rossi@email.com\",\n      \"firstName\": \"Mario\",\n      \"lastName\": \"Rossi\",\n      \"phone\": \"+393331234567\",\n      \"role\": \"personal\",\n      \"status\": \"active\",\n      \"authProvider\": \"local\",\n      \"firebaseUid\": null,\n      \"emailVerified\": true,\n      \"phoneVerified\": false,\n      \"lastLoginAt\": \"2026-06-09T12:00:00.000Z\",\n      \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n      \"updatedAt\": \"2026-06-09T12:00:00.000Z\"\n    },\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhMWIyYzNkNC1lNWY2LTc4OTAtYWJjZC1lZjEyMzQ1Njc4OTAiLCJlbWFpbCI6Im1hcmlvLnJvc3NpQGVtYWlsLmNvbSIsInJvbGUiOiJwZXJzb25hbCJ9.signature\",\n    \"refreshToken\": \"550e8400-e29b-41d4-a716-446655440000\"\n  }\n}"
-            },
-            {
-              "name": "401 - Invalid Credentials",
-              "status": "Unauthorized",
-              "code": 401,
-              "header": [
-                { "key": "Content-Type", "value": "application/json" }
-              ],
-              "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\n    \"Unauthorized\"\n  ],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
-            },
-            {
-              "name": "401 - Email Not Verified",
-              "status": "Unauthorized",
-              "code": 401,
-              "header": [
-                { "key": "Content-Type", "value": "application/json" }
-              ],
-              "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\n    \"Please verify your email before logging in\"\n  ],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
-            },
-            {
-              "name": "401 - Account Suspended",
-              "status": "Unauthorized",
-              "code": 401,
-              "header": [
-                { "key": "Content-Type", "value": "application/json" }
-              ],
-              "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\n    \"Your account has been suspended\"\n  ],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
-            }
+            { "name": "200 - Login Successful", "status": "OK", "code": 200, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": true,\n  \"data\": {\n    \"user\": {\n      \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"email\": \"mario.rossi@email.com\",\n      \"firstName\": \"Mario\",\n      \"lastName\": \"Rossi\",\n      \"role\": \"personal\",\n      \"status\": \"active\",\n      \"authProvider\": \"local\",\n      \"emailVerified\": true\n    },\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIs...\",\n    \"refreshToken\": \"550e8400-e29b-41d4-a716-446655440000\"\n  }\n}" },
+            { "name": "401 - Invalid Credentials", "status": "Unauthorized", "code": 401, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\"Unauthorized\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}" },
+            { "name": "401 - Email Not Verified", "status": "Unauthorized", "code": 401, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\"Please verify your email before logging in\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}" },
+            { "name": "401 - Account Suspended", "status": "Unauthorized", "code": 401, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\"Your account has been suspended\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}" }
           ]
         },
         {
           "name": "Social Login (Firebase)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (pm.response.code === 200) {",
-                  "    const res = pm.response.json();",
-                  "    if (res.success && res.data) {",
-                  "        pm.collectionVariables.set('accessToken', res.data.accessToken);",
-                  "        pm.collectionVariables.set('refreshToken', res.data.refreshToken);",
-                  "        console.log('Tokens saved to collection variables');",
-                  "    }",
-                  "}"
-                ]
-              }
-            }
-          ],
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 200) {", "    const res = pm.response.json();", "    if (res.success && res.data) {", "        pm.collectionVariables.set('accessToken', res.data.accessToken);", "        pm.collectionVariables.set('refreshToken', res.data.refreshToken);", "    }", "}"] } }],
           "request": {
             "method": "POST",
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/auth/social-login",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "auth", "social-login"]
-            },
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"idToken\": \"YOUR_FIREBASE_ID_TOKEN_HERE\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "description": "Login or register via Google, Facebook, or Apple using Firebase Authentication.\n\n**Flow:**\n1. Mobile app initiates social sign-in via Firebase Auth SDK\n2. Firebase returns an ID token to the mobile app\n3. Mobile app sends the ID token to this endpoint\n4. Server verifies the token with `firebase-admin` SDK\n5. Server extracts user info (email, name, avatar, provider)\n\n**Behavior:**\n- **New user** — account created with `role: personal`, `status: active`, `emailVerified: true`, `passwordHash: null`\n- **Existing email** — Firebase UID linked to existing account; user can still use email/password login\n- **Returning social user** — looked up by Firebase UID, logged in directly\n\n**Provider detection** is automatic from the decoded token:\n- `google.com` → `google`\n- `facebook.com` → `facebook`\n- `apple.com` → `apple`\n\n**Post-request script** automatically saves tokens to collection variables."
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/social-login", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "social-login"] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"idToken\": \"YOUR_FIREBASE_ID_TOKEN_HERE\"\n}", "options": { "raw": { "language": "json" } } },
+            "description": "Login or register via Google, Facebook, or Apple using Firebase Authentication.\n\n**New user** — account created with `role: personal`, `status: active`\n**Existing email** — Firebase UID linked to existing account\n\n**Auto-saves** tokens to collection variables."
           },
           "response": [
-            {
-              "name": "200 - New User Created via Google",
-              "status": "OK",
-              "code": 200,
-              "header": [
-                { "key": "Content-Type", "value": "application/json" }
-              ],
-              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"user\": {\n      \"id\": \"c3d4e5f6-a7b8-9012-cdef-123456789012\",\n      \"email\": \"mario.rossi@gmail.com\",\n      \"firstName\": \"Mario\",\n      \"lastName\": \"Rossi\",\n      \"phone\": null,\n      \"role\": \"personal\",\n      \"status\": \"active\",\n      \"authProvider\": \"google\",\n      \"firebaseUid\": \"firebase-uid-abc123\",\n      \"emailVerified\": true,\n      \"phoneVerified\": false,\n      \"avatar\": \"https://lh3.googleusercontent.com/a/photo\",\n      \"lastLoginAt\": \"2026-06-09T12:00:00.000Z\",\n      \"createdAt\": \"2026-06-09T12:00:00.000Z\",\n      \"updatedAt\": \"2026-06-09T12:00:00.000Z\"\n    },\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"refreshToken\": \"660f9500-f3ab-52e5-b827-557766551111\"\n  }\n}"
-            },
-            {
-              "name": "200 - Existing User Linked via Facebook",
-              "status": "OK",
-              "code": 200,
-              "header": [
-                { "key": "Content-Type", "value": "application/json" }
-              ],
-              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"user\": {\n      \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"email\": \"mario.rossi@email.com\",\n      \"firstName\": \"Mario\",\n      \"lastName\": \"Rossi\",\n      \"phone\": \"+393331234567\",\n      \"role\": \"personal\",\n      \"status\": \"active\",\n      \"authProvider\": \"local\",\n      \"firebaseUid\": \"firebase-uid-xyz789\",\n      \"emailVerified\": true,\n      \"phoneVerified\": false,\n      \"avatar\": null,\n      \"lastLoginAt\": \"2026-06-09T12:00:00.000Z\",\n      \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n      \"updatedAt\": \"2026-06-09T12:00:00.000Z\"\n    },\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"refreshToken\": \"770a0601-a4bc-63f6-c938-668877662222\"\n  }\n}"
-            },
-            {
-              "name": "400 - Social Account Has No Email",
-              "status": "Bad Request",
-              "code": 400,
-              "header": [
-                { "key": "Content-Type", "value": "application/json" }
-              ],
-              "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\n    \"Email is required. Please ensure your social account has a verified email.\"\n  ],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
-            },
-            {
-              "name": "400 - Invalid Firebase ID Token",
-              "status": "Bad Request",
-              "code": 400,
-              "header": [
-                { "key": "Content-Type", "value": "application/json" }
-              ],
-              "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\n    \"Firebase ID token has expired. Get a fresh token and try again.\"\n  ],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
-            },
-            {
-              "name": "401 - Account Suspended",
-              "status": "Unauthorized",
-              "code": 401,
-              "header": [
-                { "key": "Content-Type", "value": "application/json" }
-              ],
-              "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\n    \"Your account has been suspended\"\n  ],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
-            },
-            {
-              "name": "500 - Firebase Not Configured",
-              "status": "Internal Server Error",
-              "code": 500,
-              "header": [
-                { "key": "Content-Type", "value": "application/json" }
-              ],
-              "body": "{\n  \"success\": false,\n  \"statusCode\": 500,\n  \"message\": [\n    \"Firebase is not configured\"\n  ],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
-            }
+            { "name": "200 - New User via Google", "status": "OK", "code": 200, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": true,\n  \"data\": {\n    \"user\": {\n      \"id\": \"c3d4e5f6-a7b8-9012-cdef-123456789012\",\n      \"email\": \"mario.rossi@gmail.com\",\n      \"firstName\": \"Mario\",\n      \"lastName\": \"Rossi\",\n      \"role\": \"personal\",\n      \"status\": \"active\",\n      \"authProvider\": \"google\",\n      \"firebaseUid\": \"firebase-uid-abc123\",\n      \"emailVerified\": true\n    },\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIs...\",\n    \"refreshToken\": \"660f9500-f3ab-52e5-b827-557766551111\"\n  }\n}" },
+            { "name": "400 - No Email on Social Account", "status": "Bad Request", "code": 400, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"Email is required. Please ensure your social account has a verified email.\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}" },
+            { "name": "500 - Firebase Not Configured", "status": "Internal Server Error", "code": 500, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": false,\n  \"statusCode\": 500,\n  \"message\": [\"Firebase is not configured\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}" }
           ]
         }
       ]
     },
     {
-      "name": "OTP Verification",
-      "description": "OTP (One-Time Password) verification for email confirmation, phone verification, and password reset flows. Codes are 6 digits, valid for 10 minutes, and single-use.",
+      "name": "Auth / OTP & Password",
+      "description": "OTP verification and password reset flows.",
       "item": [
         {
           "name": "Verify OTP",
           "request": {
             "method": "POST",
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/auth/verify-otp",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "auth", "verify-otp"]
-            },
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"mario.rossi@email.com\",\n  \"code\": \"123456\",\n  \"type\": \"email_verification\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "description": "Verifies a 6-digit OTP code.\n\n**OTP Types:**\n- `email_verification` — activates the account (`emailVerified: true`, `status: active`)\n- `phone_verification` — marks phone as verified (`phoneVerified: true`)\n- `password_reset` — validates reset code (used by reset-password endpoint separately)\n\n**OTP Behavior:**\n- 6-digit numeric code\n- Expires after 10 minutes\n- Single-use (marked as used after successful verification)\n- Generating a new OTP invalidates any previous unused OTPs of the same type"
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/verify-otp", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "verify-otp"] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"mario.rossi@email.com\",\n  \"code\": \"123456\",\n  \"type\": \"email_verification\"\n}", "options": { "raw": { "language": "json" } } },
+            "description": "Verifies a 6-digit OTP code.\n\n**Types:** `email_verification` (activates account), `phone_verification`, `password_reset`\n\n**Behavior:** 10-minute expiry, single-use, previous unused OTPs of same type are invalidated."
           },
           "response": [
-            {
-              "name": "200 - OTP Verified Successfully",
-              "status": "OK",
-              "code": 200,
-              "header": [
-                { "key": "Content-Type", "value": "application/json" }
-              ],
-              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"OTP verified successfully\"\n  }\n}"
-            },
-            {
-              "name": "400 - Invalid or Expired OTP",
-              "status": "Bad Request",
-              "code": 400,
-              "header": [
-                { "key": "Content-Type", "value": "application/json" }
-              ],
-              "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\n    \"Invalid or expired OTP code\"\n  ],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
-            },
-            {
-              "name": "400 - User Not Found",
-              "status": "Bad Request",
-              "code": 400,
-              "header": [
-                { "key": "Content-Type", "value": "application/json" }
-              ],
-              "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\n    \"User not found\"\n  ],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
-            }
+            { "name": "200 - OTP Verified", "status": "OK", "code": 200, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"OTP verified successfully\"\n  }\n}" },
+            { "name": "400 - Invalid or Expired OTP", "status": "Bad Request", "code": 400, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"Invalid or expired OTP code\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}" }
           ]
-        }
-      ]
-    },
-    {
-      "name": "Password Reset",
-      "description": "Two-step password reset flow:\n1. Request a reset OTP via `forgot-password` (always returns the same response to prevent user enumeration)\n2. Submit the OTP + new password via `reset-password`\n\nAfter a successful reset, all existing refresh tokens are revoked for security.",
-      "item": [
+        },
         {
           "name": "Forgot Password",
           "request": {
             "method": "POST",
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/auth/forgot-password",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "auth", "forgot-password"]
-            },
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"mario.rossi@email.com\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "description": "Requests a password reset OTP to be sent to the user's email.\n\n**Security:** Always returns the same response regardless of whether the email exists in the system. This prevents user enumeration attacks.\n\nThe generated OTP is valid for 10 minutes. Any previous unused password-reset OTPs for this user are invalidated."
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/forgot-password", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "forgot-password"] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"mario.rossi@email.com\"\n}", "options": { "raw": { "language": "json" } } },
+            "description": "Requests a password reset OTP. Always returns the same response regardless of whether the email exists (prevents user enumeration)."
           },
           "response": [
-            {
-              "name": "200 - Reset OTP Sent (or email not found — same response)",
-              "status": "OK",
-              "code": 200,
-              "header": [
-                { "key": "Content-Type", "value": "application/json" }
-              ],
-              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"If the email is registered, a password reset code has been sent\"\n  }\n}"
-            }
+            { "name": "200 - Reset OTP Sent", "status": "OK", "code": 200, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"If the email is registered, a password reset code has been sent\"\n  }\n}" }
           ]
         },
         {
           "name": "Reset Password",
           "request": {
             "method": "POST",
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/auth/reset-password",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "auth", "reset-password"]
-            },
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"mario.rossi@email.com\",\n  \"code\": \"123456\",\n  \"newPassword\": \"NewStrongP@ss1\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "description": "Resets the user's password using a valid OTP code from the `forgot-password` endpoint.\n\n**Fields:**\n- `email` — the user's registered email\n- `code` — 6-digit OTP from the forgot-password email\n- `newPassword` — new password, minimum 8 characters\n\n**Security:** After a successful password reset, all existing refresh tokens for the user are revoked. The user must log in again with the new password."
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/reset-password", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "reset-password"] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"mario.rossi@email.com\",\n  \"code\": \"123456\",\n  \"newPassword\": \"NewStrongP@ss1\"\n}", "options": { "raw": { "language": "json" } } },
+            "description": "Resets password using OTP from forgot-password. After success, all refresh tokens are revoked."
           },
           "response": [
-            {
-              "name": "200 - Password Reset Successfully",
-              "status": "OK",
-              "code": 200,
-              "header": [
-                { "key": "Content-Type", "value": "application/json" }
-              ],
-              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Password reset successfully\"\n  }\n}"
-            },
-            {
-              "name": "400 - Invalid or Expired OTP",
-              "status": "Bad Request",
-              "code": 400,
-              "header": [
-                { "key": "Content-Type", "value": "application/json" }
-              ],
-              "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\n    \"Invalid or expired OTP code\"\n  ],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
-            },
-            {
-              "name": "400 - User Not Found",
-              "status": "Bad Request",
-              "code": 400,
-              "header": [
-                { "key": "Content-Type", "value": "application/json" }
-              ],
-              "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\n    \"Invalid request\"\n  ],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
-            }
+            { "name": "200 - Password Reset", "status": "OK", "code": 200, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Password reset successfully\"\n  }\n}" },
+            { "name": "400 - Invalid OTP", "status": "Bad Request", "code": 400, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"Invalid or expired OTP code\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}" }
           ]
-        }
-      ]
-    },
-    {
-      "name": "Token Management",
-      "description": "Access token refresh and authenticated profile retrieval.\n\n**Token lifecycle:**\n- Access token (JWT): 15 minutes, sent via `Authorization: Bearer` header\n- Refresh token (UUID): 7 days, stored in database, single-use with rotation",
-      "item": [
+        },
         {
           "name": "Refresh Token",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (pm.response.code === 200) {",
-                  "    const res = pm.response.json();",
-                  "    if (res.success && res.data) {",
-                  "        pm.collectionVariables.set('accessToken', res.data.accessToken);",
-                  "        pm.collectionVariables.set('refreshToken', res.data.refreshToken);",
-                  "        console.log('New tokens saved to collection variables');",
-                  "    }",
-                  "}"
-                ]
-              }
-            }
-          ],
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 200) {", "    const res = pm.response.json();", "    if (res.success && res.data) {", "        pm.collectionVariables.set('accessToken', res.data.accessToken);", "        pm.collectionVariables.set('refreshToken', res.data.refreshToken);", "    }", "}"] } }],
           "request": {
             "method": "POST",
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/auth/refresh-token",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "auth", "refresh-token"]
-            },
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "description": "Exchanges a valid refresh token for a new access token + refresh token pair.\n\n**Token rotation:** The old refresh token is revoked immediately. Each refresh token can only be used once.\n\n**Failure cases:**\n- Token does not exist in the database\n- Token has already been revoked (used)\n- Token has expired (older than 7 days)\n\n**Post-request script** automatically updates the collection variables with the new tokens."
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/refresh-token", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "refresh-token"] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}", "options": { "raw": { "language": "json" } } },
+            "description": "Exchanges a valid refresh token for a new token pair. Old token is revoked (rotation). Auto-saves new tokens."
           },
           "response": [
-            {
-              "name": "200 - New Token Pair Issued",
-              "status": "OK",
-              "code": 200,
-              "header": [
-                { "key": "Content-Type", "value": "application/json" }
-              ],
-              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhMWIyYzNkNCIsImVtYWlsIjoibWFyaW8ucm9zc2lAZW1haWwuY29tIiwicm9sZSI6InBlcnNvbmFsIn0.new_signature\",\n    \"refreshToken\": \"770a0601-a4bc-63f6-c938-668877662222\"\n  }\n}"
-            },
-            {
-              "name": "401 - Invalid or Expired Refresh Token",
-              "status": "Unauthorized",
-              "code": 401,
-              "header": [
-                { "key": "Content-Type", "value": "application/json" }
-              ],
-              "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\n    \"Invalid or expired refresh token\"\n  ],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
-            }
+            { "name": "200 - New Token Pair", "status": "OK", "code": 200, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": true,\n  \"data\": {\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIs...\",\n    \"refreshToken\": \"770a0601-a4bc-63f6-c938-668877662222\"\n  }\n}" },
+            { "name": "401 - Invalid Refresh Token", "status": "Unauthorized", "code": 401, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\"Invalid or expired refresh token\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}" }
           ]
         },
         {
           "name": "Get Profile",
           "request": {
             "method": "GET",
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/auth/me",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "auth", "me"]
-            },
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{accessToken}}",
-                "description": "JWT access token from login or refresh-token"
-              }
-            ],
-            "description": "Returns the profile of the currently authenticated user.\n\nRequires a valid JWT access token in the `Authorization: Bearer` header.\n\nThe `passwordHash` field is never included in the response. Includes `businessProfile` relation (null for personal users)."
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/me", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "me"] },
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "description": "Returns the authenticated user's profile. Requires JWT access token. `passwordHash` is never included."
+          },
+          "response": [
+            { "name": "200 - User Profile", "status": "OK", "code": 200, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"email\": \"mario.rossi@email.com\",\n    \"firstName\": \"Mario\",\n    \"lastName\": \"Rossi\",\n    \"phone\": \"+393331234567\",\n    \"role\": \"personal\",\n    \"status\": \"active\",\n    \"authProvider\": \"local\",\n    \"referralCode\": \"AB3KX7WN\",\n    \"emailVerified\": true,\n    \"phoneVerified\": false,\n    \"businessProfile\": null\n  }\n}" },
+            { "name": "401 - Unauthorized", "status": "Unauthorized", "code": 401, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\"Unauthorized\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Referrals / User",
+      "description": "User-facing referral endpoints for the Invite & Earn program. Available to `personal` and `business` users.\n\n**Flow:**\n1. Get your referral code via `GET /referrals/my-code`\n2. Share the link or send targeted invites via `POST /referrals/invite`\n3. Track your referrals via `GET /referrals/my-referrals`\n4. Earn €10 per qualified referral when admin approves",
+      "item": [
+        {
+          "name": "Get My Referral Code",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/referrals/my-code", "host": ["{{baseUrl}}"], "path": ["api", "v1", "referrals", "my-code"] },
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "description": "Returns the user's unique 8-character referral code, a shareable registration link, and aggregate referral stats.\n\nIf the user doesn't have a code yet, one is auto-generated on the first call.\n\n**Stats include:**\n- `totalInvites` — total referrals created\n- `registered` — referred users who signed up\n- `qualified` — referrals that met qualification criteria\n- `rewarded` — referrals where reward was credited\n- `totalEarnings` — total EUR earned from referrals"
           },
           "response": [
             {
-              "name": "200 - Personal User Profile",
+              "name": "200 - Referral Code with Stats",
               "status": "OK",
               "code": 200,
-              "header": [
-                { "key": "Content-Type", "value": "application/json" }
-              ],
-              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"email\": \"mario.rossi@email.com\",\n    \"firstName\": \"Mario\",\n    \"lastName\": \"Rossi\",\n    \"phone\": \"+393331234567\",\n    \"codiceFiscale\": null,\n    \"avatar\": null,\n    \"role\": \"personal\",\n    \"status\": \"active\",\n    \"authProvider\": \"local\",\n    \"firebaseUid\": null,\n    \"emailVerified\": true,\n    \"phoneVerified\": false,\n    \"lastLoginAt\": \"2026-06-09T12:00:00.000Z\",\n    \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-09T12:00:00.000Z\",\n    \"businessProfile\": null\n  }\n}"
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"referralCode\": \"AB3KX7WN\",\n    \"shareLink\": \"http://localhost:3001/register?ref=AB3KX7WN\",\n    \"stats\": {\n      \"totalInvites\": 5,\n      \"registered\": 3,\n      \"qualified\": 1,\n      \"rewarded\": 1,\n      \"totalEarnings\": 10\n    }\n  }\n}"
             },
             {
-              "name": "200 - Business User Profile",
-              "status": "OK",
-              "code": 200,
-              "header": [
-                { "key": "Content-Type", "value": "application/json" }
-              ],
-              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n    \"email\": \"info@rossi-srl.it\",\n    \"firstName\": \"Mario\",\n    \"lastName\": \"Rossi\",\n    \"phone\": \"+393331234567\",\n    \"codiceFiscale\": \"RSSMRA85M01H501Z\",\n    \"avatar\": null,\n    \"role\": \"business\",\n    \"status\": \"active\",\n    \"authProvider\": \"local\",\n    \"firebaseUid\": null,\n    \"emailVerified\": true,\n    \"phoneVerified\": false,\n    \"lastLoginAt\": \"2026-06-09T12:00:00.000Z\",\n    \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-09T12:00:00.000Z\",\n    \"businessProfile\": {\n      \"id\": \"d4e5f6a7-b890-1234-defg-234567890123\",\n      \"companyName\": \"Rossi S.r.l.\",\n      \"partitaIva\": \"12345678901\",\n      \"pecEmail\": \"rossi@pec.it\",\n      \"legalRepresentative\": \"Mario Rossi\",\n      \"companyType\": \"S.r.l.\",\n      \"atecoCode\": \"35.11.00\",\n      \"employeeCount\": null,\n      \"annualRevenueRange\": null,\n      \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n      \"updatedAt\": \"2026-06-01T10:00:00.000Z\"\n    }\n  }\n}"
-            },
-            {
-              "name": "401 - Missing or Invalid Token",
+              "name": "401 - Unauthorized",
               "status": "Unauthorized",
               "code": 401,
-              "header": [
-                { "key": "Content-Type", "value": "application/json" }
-              ],
-              "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\n    \"Unauthorized\"\n  ],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\"Unauthorized\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "List My Referrals",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/referrals/my-referrals?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "referrals", "my-referrals"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "status", "value": "registered", "disabled": true }
+              ]
+            },
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "description": "Returns a paginated list of referrals created by the authenticated user. Each referral shows status, referred email/phone, and referred user details if they registered.\n\n**Query Parameters:**\n- `page` — page number (default: 1)\n- `limit` — items per page (default: 20, max: 100)\n- `status` — optional filter: `pending`, `registered`, `qualified`, `rewarded`, `expired`"
+          },
+          "response": [
+            {
+              "name": "200 - My Referrals List",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"data\": [\n      {\n        \"id\": \"r1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n        \"referrerId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n        \"referralCode\": \"AB3KX7WN\",\n        \"referredEmail\": \"friend@email.com\",\n        \"referredPhone\": null,\n        \"referredUserId\": \"c3d4e5f6-a7b8-9012-cdef-123456789012\",\n        \"status\": \"registered\",\n        \"rewardAmount\": null,\n        \"rewardCreditedAt\": null,\n        \"expiresAt\": \"2026-09-07T12:00:00.000Z\",\n        \"createdAt\": \"2026-06-09T12:00:00.000Z\",\n        \"updatedAt\": \"2026-06-10T08:00:00.000Z\",\n        \"referredUser\": {\n          \"id\": \"c3d4e5f6-a7b8-9012-cdef-123456789012\",\n          \"email\": \"friend@email.com\",\n          \"firstName\": \"Giulia\",\n          \"lastName\": \"Bianchi\"\n        }\n      },\n      {\n        \"id\": \"r2b3c4d5-e6f7-8901-bcde-f23456789012\",\n        \"referrerId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n        \"referralCode\": \"AB3KX7WN\",\n        \"referredEmail\": \"colleague@work.it\",\n        \"referredPhone\": \"+393487654321\",\n        \"referredUserId\": null,\n        \"status\": \"pending\",\n        \"rewardAmount\": null,\n        \"rewardCreditedAt\": null,\n        \"expiresAt\": \"2026-09-15T12:00:00.000Z\",\n        \"createdAt\": \"2026-06-15T12:00:00.000Z\",\n        \"updatedAt\": \"2026-06-15T12:00:00.000Z\",\n        \"referredUser\": null\n      }\n    ],\n    \"meta\": {\n      \"total\": 2,\n      \"page\": 1,\n      \"limit\": 20,\n      \"totalPages\": 1\n    }\n  }\n}"
+            },
+            {
+              "name": "401 - Unauthorized",
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\"Unauthorized\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create Invite",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 201) {", "    const res = pm.response.json();", "    if (res.success && res.data && res.data.id) {", "        pm.collectionVariables.set('referralId', res.data.id);", "        console.log('referralId saved: ' + res.data.id);", "    }", "}"] } }],
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/api/v1/referrals/invite", "host": ["{{baseUrl}}"], "path": ["api", "v1", "referrals", "invite"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"referredEmail\": \"friend@email.com\",\n  \"referredPhone\": \"+393339876543\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Creates a new referral invite with `pending` status.\n\nBoth fields are optional:\n- **With email/phone** — targeted invite for a specific person\n- **Without** — generic invite (anyone with the code can use it)\n\nInvites expire after **90 days**. The user's referral code is auto-generated if they don't have one yet.\n\n**Auto-saves** `referralId` to collection variables for use in admin endpoints."
+          },
+          "response": [
+            {
+              "name": "201 - Invite Created (Targeted)",
+              "status": "Created",
+              "code": 201,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"r1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"referrerId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"referralCode\": \"AB3KX7WN\",\n    \"referredEmail\": \"friend@email.com\",\n    \"referredPhone\": \"+393339876543\",\n    \"referredUserId\": null,\n    \"status\": \"pending\",\n    \"rewardAmount\": null,\n    \"rewardCreditedAt\": null,\n    \"expiresAt\": \"2026-09-07T12:00:00.000Z\",\n    \"createdAt\": \"2026-06-09T12:00:00.000Z\",\n    \"updatedAt\": \"2026-06-09T12:00:00.000Z\"\n  }\n}"
+            },
+            {
+              "name": "201 - Invite Created (Generic)",
+              "status": "Created",
+              "code": 201,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"r2b3c4d5-e6f7-8901-bcde-f23456789012\",\n    \"referrerId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"referralCode\": \"AB3KX7WN\",\n    \"referredEmail\": null,\n    \"referredPhone\": null,\n    \"referredUserId\": null,\n    \"status\": \"pending\",\n    \"rewardAmount\": null,\n    \"rewardCreditedAt\": null,\n    \"expiresAt\": \"2026-09-07T12:00:00.000Z\",\n    \"createdAt\": \"2026-06-09T12:00:00.000Z\",\n    \"updatedAt\": \"2026-06-09T12:00:00.000Z\"\n  }\n}"
+            },
+            {
+              "name": "400 - Invalid Email Format",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"referredEmail must be an email\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+            },
+            {
+              "name": "401 - Unauthorized",
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\"Unauthorized\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Referrals / Admin",
+      "description": "Admin endpoints for managing the referral program. Requires `admin` role.\n\n**Status lifecycle:** PENDING → REGISTERED → QUALIFIED → REWARDED (any → EXPIRED)\n\n**KPIs** include total counts by status and total rewards paid in EUR.",
+      "item": [
+        {
+          "name": "Get Referral Stats",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/referrals/stats", "host": ["{{baseUrl}}"], "path": ["api", "v1", "referrals", "stats"] },
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "description": "Returns aggregate KPIs for the entire referral program: total referrals, breakdown by status, and total rewards paid in EUR.\n\nRequires **admin** role."
+          },
+          "response": [
+            {
+              "name": "200 - Program Statistics",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"totalReferrals\": 150,\n    \"pending\": 45,\n    \"registered\": 60,\n    \"qualified\": 25,\n    \"rewarded\": 15,\n    \"expired\": 5,\n    \"totalRewardsPaid\": 150\n  }\n}"
+            },
+            {
+              "name": "401 - Unauthorized",
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\"Unauthorized\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+            },
+            {
+              "name": "403 - Forbidden (Not Admin)",
+              "status": "Forbidden",
+              "code": 403,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "List All Referrals",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/referrals?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "referrals"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "status", "value": "registered", "disabled": true },
+                { "key": "referrerId", "value": "", "disabled": true },
+                { "key": "dateFrom", "value": "2026-01-01", "disabled": true },
+                { "key": "dateTo", "value": "2026-12-31", "disabled": true },
+                { "key": "search", "value": "", "disabled": true }
+              ]
+            },
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "description": "Returns a paginated list of all referrals with referrer and referred user details.\n\n**Filters (all optional):**\n- `status` — `pending`, `registered`, `qualified`, `rewarded`, `expired`\n- `referrerId` — UUID of the referrer user\n- `dateFrom` / `dateTo` — ISO 8601 date range on created_at\n- `search` — matches referrer name, email, or referral code\n\nRequires **admin** role."
+          },
+          "response": [
+            {
+              "name": "200 - All Referrals",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"data\": [\n      {\n        \"id\": \"r1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n        \"referralCode\": \"AB3KX7WN\",\n        \"referredEmail\": \"friend@email.com\",\n        \"status\": \"registered\",\n        \"rewardAmount\": null,\n        \"expiresAt\": \"2026-09-07T12:00:00.000Z\",\n        \"createdAt\": \"2026-06-09T12:00:00.000Z\",\n        \"referrer\": {\n          \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n          \"email\": \"mario.rossi@email.com\",\n          \"firstName\": \"Mario\",\n          \"lastName\": \"Rossi\"\n        },\n        \"referredUser\": {\n          \"id\": \"c3d4e5f6-a7b8-9012-cdef-123456789012\",\n          \"email\": \"friend@email.com\",\n          \"firstName\": \"Giulia\",\n          \"lastName\": \"Bianchi\"\n        }\n      }\n    ],\n    \"meta\": {\n      \"total\": 1,\n      \"page\": 1,\n      \"limit\": 20,\n      \"totalPages\": 1\n    }\n  }\n}"
+            },
+            {
+              "name": "403 - Forbidden (Not Admin)",
+              "status": "Forbidden",
+              "code": 403,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Referral Detail",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/referrals/{{referralId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "referrals", "{{referralId}}"] },
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "description": "Returns a single referral with full referrer and referred user details.\n\nRequires **admin** role. The `referralId` variable is auto-set by the Create Invite request."
+          },
+          "response": [
+            {
+              "name": "200 - Referral Detail",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"r1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"referrerId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"referralCode\": \"AB3KX7WN\",\n    \"referredEmail\": \"friend@email.com\",\n    \"referredPhone\": null,\n    \"referredUserId\": \"c3d4e5f6-a7b8-9012-cdef-123456789012\",\n    \"status\": \"qualified\",\n    \"rewardAmount\": null,\n    \"rewardCreditedAt\": null,\n    \"expiresAt\": \"2026-09-07T12:00:00.000Z\",\n    \"createdAt\": \"2026-06-09T12:00:00.000Z\",\n    \"updatedAt\": \"2026-06-15T10:00:00.000Z\",\n    \"referrer\": {\n      \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"email\": \"mario.rossi@email.com\",\n      \"firstName\": \"Mario\",\n      \"lastName\": \"Rossi\"\n    },\n    \"referredUser\": {\n      \"id\": \"c3d4e5f6-a7b8-9012-cdef-123456789012\",\n      \"email\": \"friend@email.com\",\n      \"firstName\": \"Giulia\",\n      \"lastName\": \"Bianchi\"\n    }\n  }\n}"
+            },
+            {
+              "name": "404 - Referral Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Referral not found\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Referral Status — Qualify",
+          "request": {
+            "method": "PATCH",
+            "url": { "raw": "{{baseUrl}}/api/v1/referrals/{{referralId}}/status", "host": ["{{baseUrl}}"], "path": ["api", "v1", "referrals", "{{referralId}}", "status"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"qualified\"\n}", "options": { "raw": { "language": "json" } } },
+            "description": "Updates a referral's status to `qualified`.\n\n**Valid transitions:**\n- `pending` → `registered` or `expired`\n- `registered` → `qualified` or `expired`\n- `qualified` → `rewarded` or `expired`\n- `rewarded` and `expired` are terminal\n\nRequires **admin** role."
+          },
+          "response": [
+            {
+              "name": "200 - Status Updated to Qualified",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"r1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"referralCode\": \"AB3KX7WN\",\n    \"status\": \"qualified\",\n    \"rewardAmount\": null,\n    \"rewardCreditedAt\": null,\n    \"updatedAt\": \"2026-06-15T10:00:00.000Z\"\n  }\n}"
+            },
+            {
+              "name": "400 - Invalid Status Transition",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"Cannot transition from pending to qualified\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+            },
+            {
+              "name": "404 - Referral Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Referral not found\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Referral Status — Reward",
+          "request": {
+            "method": "PATCH",
+            "url": { "raw": "{{baseUrl}}/api/v1/referrals/{{referralId}}/status", "host": ["{{baseUrl}}"], "path": ["api", "v1", "referrals", "{{referralId}}", "status"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"rewarded\",\n  \"rewardAmount\": 10\n}", "options": { "raw": { "language": "json" } } },
+            "description": "Updates a referral's status to `rewarded` and credits the reward amount.\n\n**`rewardAmount`** (EUR) is required when setting status to `rewarded`. The `rewardCreditedAt` timestamp is set automatically.\n\nOnly valid from `qualified` status. Requires **admin** role."
+          },
+          "response": [
+            {
+              "name": "200 - Rewarded with €10",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"r1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"referralCode\": \"AB3KX7WN\",\n    \"status\": \"rewarded\",\n    \"rewardAmount\": \"10.00\",\n    \"rewardCreditedAt\": \"2026-06-15T14:00:00.000Z\",\n    \"updatedAt\": \"2026-06-15T14:00:00.000Z\"\n  }\n}"
+            },
+            {
+              "name": "400 - Missing rewardAmount",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"rewardAmount is required when setting status to REWARDED\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+            },
+            {
+              "name": "400 - Invalid Transition (not from qualified)",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"Cannot transition from pending to rewarded\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Referral Status — Expire",
+          "request": {
+            "method": "PATCH",
+            "url": { "raw": "{{baseUrl}}/api/v1/referrals/{{referralId}}/status", "host": ["{{baseUrl}}"], "path": ["api", "v1", "referrals", "{{referralId}}", "status"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"expired\"\n}", "options": { "raw": { "language": "json" } } },
+            "description": "Marks a referral as expired. Can be done from `pending`, `registered`, or `qualified` status.\n\n`rewarded` and `expired` are terminal states and cannot be transitioned from.\n\nRequires **admin** role."
+          },
+          "response": [
+            {
+              "name": "200 - Expired",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"r1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"referralCode\": \"AB3KX7WN\",\n    \"status\": \"expired\",\n    \"rewardAmount\": null,\n    \"rewardCreditedAt\": null,\n    \"updatedAt\": \"2026-06-15T10:00:00.000Z\"\n  }\n}"
+            },
+            {
+              "name": "400 - Cannot Expire Terminal State",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"Cannot transition from rewarded to expired\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
             }
           ]
         }

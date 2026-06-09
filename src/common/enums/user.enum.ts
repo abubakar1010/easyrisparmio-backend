@@ -19,3 +19,10 @@ export enum DocumentType {
   SIGNED_CONTRACT = 'signed_contract',
   PARTITA_IVA = 'partita_iva',
 }
+
+export enum AuthProvider {
+  LOCAL = 'local',
+  GOOGLE = 'google',
+  FACEBOOK = 'facebook',
+  APPLE = 'apple',
+}

@@ -8,7 +8,7 @@ import {
 } from 'typeorm';
 import { BaseEntity } from '../../../common/entities/base.entity';
 import { UserRole } from '../../../common/enums/role.enum';
-import { UserStatus } from '../../../common/enums/user.enum';
+import { UserStatus, AuthProvider } from '../../../common/enums/user.enum';
 import { BusinessProfile } from './business-profile.entity';
 import { EnergyBill } from '../../bills/entities/energy-bill.entity';
 import { SupportTicket } from '../../support/entities/support-ticket.entity';
@@ -24,8 +24,8 @@ export class User extends BaseEntity {
   @Column({ type: 'varchar', length: 20, nullable: true })
   phone: string;
 
-  @Column({ name: 'password_hash', type: 'varchar', length: 255 })
-  passwordHash: string;
+  @Column({ name: 'password_hash', type: 'varchar', length: 255, nullable: true })
+  passwordHash: string | null;
 
   @Column({ name: 'first_name', type: 'varchar', length: 100 })
   firstName: string;
@@ -38,6 +38,17 @@ export class User extends BaseEntity {
 
   @Column({ type: 'varchar', length: 500, nullable: true })
   avatar: string;
+
+  @Column({
+    name: 'auth_provider',
+    type: 'enum',
+    enum: AuthProvider,
+    default: AuthProvider.LOCAL,
+  })
+  authProvider: AuthProvider;
+
+  @Column({ name: 'firebase_uid', type: 'varchar', length: 128, nullable: true, unique: true })
+  firebaseUid: string | null;
 
   @Column({
     type: 'enum',

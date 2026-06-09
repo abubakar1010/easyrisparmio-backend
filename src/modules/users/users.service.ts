@@ -115,6 +115,13 @@ export class UsersService {
     });
   }
 
+  async findByFirebaseUid(firebaseUid: string): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: { firebaseUid },
+      relations: ['businessProfile'],
+    });
+  }
+
   async update(id: string, data: Partial<User>): Promise<User> {
     const user = await this.findById(id);
     if (!user) {

@@ -37,6 +37,11 @@ npm run format           # Prettier
 
 Three roles: `PERSONAL`, `BUSINESS`, `ADMIN`. JWT access + refresh token rotation.
 
+- **Email/password**: Local strategy with bcrypt. Users register as PERSONAL or BUSINESS (admin cannot register).
+- **Social login**: Google, Facebook, Apple via Firebase. Mobile app sends Firebase ID token to `POST /auth/social-login`. Server verifies with `firebase-admin`.
+- **Admin**: Single admin auto-seeded on startup from `ADMIN_EMAIL`/`ADMIN_PASSWORD` env vars. Cannot register via API.
+- **Account linking**: Social login with an existing email links the Firebase account to the existing user.
+
 Protect routes with:
 ```typescript
 @UseGuards(JwtAuthGuard, RolesGuard)

@@ -11,6 +11,13 @@ Enum user_role {
   admin
 }
 
+Enum auth_provider {
+  local
+  google
+  facebook
+  apple
+}
+
 Enum user_status {
   active
   inactive
@@ -331,11 +338,13 @@ Table users [headercolor: #3498db] {
   id uuid [pk, default: `gen_random_uuid()`]
   email varchar(255) [unique, not null]
   phone varchar(20)
-  password_hash varchar(255) [not null]
+  password_hash varchar(255)
   first_name varchar(100) [not null]
   last_name varchar(100) [not null]
   codice_fiscale varchar(16)
   avatar varchar(500)
+  auth_provider auth_provider [not null, default: 'local']
+  firebase_uid varchar(128) [unique]
   role user_role [not null, default: 'personal']
   status user_status [not null, default: 'pending_verification']
   email_verified boolean [not null, default: false]
@@ -350,9 +359,10 @@ Table users [headercolor: #3498db] {
     phone
     (role, status)
     codice_fiscale
+    firebase_uid [unique]
   }
 
-  Note: 'Core user table. Supports personal, business, admin roles. Soft-deletable via deleted_at.'
+  Note: 'Core user table. Supports personal, business, admin roles. Social login via Firebase (Google, Facebook, Apple). Soft-deletable via deleted_at.'
 }
 
 Table refresh_tokens [headercolor: #3498db] {

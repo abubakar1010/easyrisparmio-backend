@@ -49,18 +49,8 @@ export class CasesService {
       .leftJoinAndSelect('sc.bill', 'bill');
 
     // Non-admin users can only see their own cases
-    if (
-      currentUser.role !== UserRole.ADMIN &&
-      currentUser.role !== UserRole.AGENT
-    ) {
+    if (currentUser.role !== UserRole.ADMIN) {
       qb.andWhere('sc.user_id = :userId', { userId: currentUser.id });
-    }
-
-    // Agents can only see cases assigned to them
-    if (currentUser.role === UserRole.AGENT) {
-      qb.andWhere('sc.assigned_agent_id = :agentId', {
-        agentId: currentUser.id,
-      });
     }
 
     if (query.status) {
@@ -122,15 +112,7 @@ export class CasesService {
     // Non-admin users can only view their own cases
     if (
       currentUser.role !== UserRole.ADMIN &&
-      currentUser.role !== UserRole.AGENT &&
       switchCase.userId !== currentUser.id
-    ) {
-      throw new ForbiddenException('Access denied');
-    }
-
-    if (
-      currentUser.role === UserRole.AGENT &&
-      switchCase.assignedAgentId !== currentUser.id
     ) {
       throw new ForbiddenException('Access denied');
     }

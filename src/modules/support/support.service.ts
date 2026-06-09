@@ -61,12 +61,8 @@ export class SupportService {
       .leftJoinAndSelect('ticket.user', 'user')
       .leftJoinAndSelect('ticket.assignedAgent', 'agent');
 
-    if (userRole !== UserRole.ADMIN && userRole !== UserRole.AGENT) {
+    if (userRole !== UserRole.ADMIN) {
       qb.andWhere('ticket.user_id = :userId', { userId });
-    }
-
-    if (userRole === UserRole.AGENT) {
-      qb.andWhere('ticket.assigned_agent_id = :userId', { userId });
     }
 
     if (query.status) {
@@ -108,11 +104,7 @@ export class SupportService {
       throw new NotFoundException('Ticket not found');
     }
 
-    if (
-      userRole !== UserRole.ADMIN &&
-      userRole !== UserRole.AGENT &&
-      ticket.userId !== userId
-    ) {
+    if (userRole !== UserRole.ADMIN && ticket.userId !== userId) {
       throw new ForbiddenException('Access denied');
     }
 
@@ -169,11 +161,7 @@ export class SupportService {
       throw new NotFoundException('Ticket not found');
     }
 
-    if (
-      userRole !== UserRole.ADMIN &&
-      userRole !== UserRole.AGENT &&
-      ticket.userId !== senderId
-    ) {
+    if (userRole !== UserRole.ADMIN && ticket.userId !== senderId) {
       throw new ForbiddenException('Access denied');
     }
 
@@ -200,11 +188,7 @@ export class SupportService {
       throw new NotFoundException('Ticket not found');
     }
 
-    if (
-      userRole !== UserRole.ADMIN &&
-      userRole !== UserRole.AGENT &&
-      ticket.userId !== userId
-    ) {
+    if (userRole !== UserRole.ADMIN && ticket.userId !== userId) {
       throw new ForbiddenException('Access denied');
     }
 

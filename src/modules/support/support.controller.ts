@@ -65,9 +65,9 @@ export class SupportController {
 
   @Patch('tickets/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.AGENT)
+  @Roles(UserRole.ADMIN)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update ticket status or assign agent (admin/agent)' })
+  @ApiOperation({ summary: 'Update ticket status or assign admin (admin)' })
   updateTicket(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('status') status?: TicketStatus,

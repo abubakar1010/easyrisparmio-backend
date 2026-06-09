@@ -6,10 +6,9 @@ import { User } from './entities/user.entity';
 import { BusinessProfile } from './entities/business-profile.entity';
 import { UserAddress } from './entities/user-address.entity';
 import { UserPreference } from './entities/user-preference.entity';
-import { UserAgentAssignment } from './entities/user-agent-assignment.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, BusinessProfile, UserAddress, UserPreference, UserAgentAssignment])],
+  imports: [TypeOrmModule.forFeature([User, BusinessProfile, UserAddress, UserPreference])],
   controllers: [UsersController],
   providers: [UsersService],
   exports: [UsersService],

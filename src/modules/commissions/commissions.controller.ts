@@ -27,7 +27,7 @@ export class CommissionsController {
   constructor(private readonly commissionsService: CommissionsService) {}
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.AGENT)
+  @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Get all commissions (admin: all; agent: own)' })
   findAll(
     @Query() query: QueryCommissionsDto,
@@ -37,7 +37,7 @@ export class CommissionsController {
   }
 
   @Get('stats')
-  @Roles(UserRole.ADMIN, UserRole.AGENT)
+  @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Get commission summary statistics' })
   getStats(@CurrentUser() user: { id: string; role: UserRole }) {
     return this.commissionsService.getCommissionStats(user);
@@ -51,7 +51,7 @@ export class CommissionsController {
   }
 
   @Get('rules')
-  @Roles(UserRole.ADMIN, UserRole.AGENT)
+  @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Get all commission rules' })
   getRules() {
     return this.commissionsService.getRules();

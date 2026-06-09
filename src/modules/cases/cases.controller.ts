@@ -56,8 +56,8 @@ export class CasesController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN, UserRole.AGENT)
-  @ApiOperation({ summary: 'Update case status, assignment, or notes (admin/agent)' })
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Update case status, assignment, or notes (admin)' })
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateCaseDto,
@@ -90,8 +90,8 @@ export class CasesController {
   }
 
   @Patch(':id/documents/:docId/verify')
-  @Roles(UserRole.ADMIN, UserRole.AGENT)
-  @ApiOperation({ summary: 'Verify a case document (admin/agent)' })
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Verify a case document (admin)' })
   verifyDocument(
     @Param('id', ParseUUIDPipe) caseId: string,
     @Param('docId', ParseUUIDPipe) docId: string,

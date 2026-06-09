@@ -110,11 +110,6 @@ export class CommissionsService {
       .leftJoinAndSelect('c.offer', 'offer')
       .leftJoinAndSelect('c.supplier', 'supplier');
 
-    // Agents can only see their own commissions
-    if (currentUser.role === UserRole.AGENT) {
-      qb.andWhere('c.agent_id = :agentId', { agentId: currentUser.id });
-    }
-
     if (query.agentId) {
       qb.andWhere('c.agent_id = :filterAgentId', {
         filterAgentId: query.agentId,
@@ -148,16 +143,6 @@ export class CommissionsService {
     return new PaginatedResponseDto(data, total, query.page, query.limit);
   }
 
-  // --- Get agent commissions ---
-
-  async getAgentCommissions(agentId: string): Promise<Commission[]> {
-    return this.commissionRepository.find({
-      where: { agentId },
-      relations: ['case', 'offer', 'supplier'],
-      order: { createdAt: 'DESC' },
-    });
-  }
-
   // --- Commission stats ---
 
   async getCommissionStats(
@@ -170,11 +155,6 @@ export class CommissionsService {
     count: number;
   }> {
     const qb = this.commissionRepository.createQueryBuilder('c');
-
-    // Agents can only see their own stats
-    if (currentUser.role === UserRole.AGENT) {
-      qb.andWhere('c.agent_id = :agentId', { agentId: currentUser.id });
-    }
 
     qb.select([
       `COALESCE(SUM(CASE WHEN c.status = '${CommissionStatus.PENDING}' THEN c.amount ELSE 0 END), 0) AS "totalPending"`,

@@ -51,20 +51,6 @@ export class DashboardService {
     };
   }
 
-  async getAgentDashboard(agentId: string) {
-    const [assignedCases, agentCommissions, recentCases] = await Promise.all([
-      this.getCasesByStatusForAgent(agentId),
-      this.getAgentCommissions(agentId),
-      this.getRecentCasesForAgent(agentId),
-    ]);
-
-    return {
-      assignedCases,
-      commissions: agentCommissions,
-      recentCases,
-    };
-  }
-
   async getUserDashboard(userId: string) {
     const [totalCases, activeContracts, recentCases] = await Promise.all([
       this.caseRepository.count({ where: { userId } }),
@@ -97,45 +83,12 @@ export class DashboardService {
     return result;
   }
 
-  private async getCasesByStatusForAgent(agentId: string) {
-    const result = await this.caseRepository
-      .createQueryBuilder('c')
-      .select('c.status', 'status')
-      .addSelect('COUNT(*)::int', 'count')
-      .where('c.assigned_agent_id = :agentId', { agentId })
-      .groupBy('c.status')
-      .getRawMany();
-
-    return result;
-  }
-
   private async getCommissionStats() {
     const result = await this.commissionRepository
       .createQueryBuilder('c')
       .select('c.status', 'status')
       .addSelect('COUNT(*)::int', 'count')
       .addSelect('COALESCE(SUM(c.amount), 0)', 'total')
-      .groupBy('c.status')
-      .getRawMany();
-
-    const pending = result.find((r) => r.status === CommissionStatus.PENDING);
-    const paid = result.find((r) => r.status === CommissionStatus.PAID);
-
-    return {
-      pendingCount: pending?.count || 0,
-      pendingTotal: parseFloat(pending?.total || '0'),
-      paidCount: paid?.count || 0,
-      paidTotal: parseFloat(paid?.total || '0'),
-    };
-  }
-
-  private async getAgentCommissions(agentId: string) {
-    const result = await this.commissionRepository
-      .createQueryBuilder('c')
-      .select('c.status', 'status')
-      .addSelect('COUNT(*)::int', 'count')
-      .addSelect('COALESCE(SUM(c.amount), 0)', 'total')
-      .where('c.agent_id = :agentId', { agentId })
       .groupBy('c.status')
       .getRawMany();
 
@@ -172,12 +125,4 @@ export class DashboardService {
     });
   }
 
-  private async getRecentCasesForAgent(agentId: string) {
-    return this.caseRepository.find({
-      where: { assignedAgentId: agentId },
-      order: { createdAt: 'DESC' },
-      take: 10,
-      relations: ['user'],
-    });
-  }
 }

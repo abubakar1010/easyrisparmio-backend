@@ -27,28 +27,28 @@ export class ContractsController {
   constructor(private readonly contractsService: ContractsService) {}
 
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.AGENT)
+  @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Create a contract for a case' })
   create(@Body() dto: CreateContractDto) {
     return this.contractsService.createContract(dto);
   }
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.AGENT)
+  @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Get all contracts (paginated)' })
   findAll(@Query() query: PaginationDto) {
     return this.contractsService.getContracts(query);
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN, UserRole.AGENT)
+  @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Get a contract by ID' })
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.contractsService.getContractById(id);
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN, UserRole.AGENT)
+  @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Update contract status, dates, or details' })
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -58,7 +58,7 @@ export class ContractsController {
   }
 
   @Get('case/:caseId')
-  @Roles(UserRole.ADMIN, UserRole.AGENT)
+  @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Get contract by case ID' })
   findByCase(@Param('caseId', ParseUUIDPipe) caseId: string) {
     return this.contractsService.getContractByCase(caseId);

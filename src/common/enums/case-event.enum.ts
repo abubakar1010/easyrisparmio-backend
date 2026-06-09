@@ -2,7 +2,7 @@ export enum CaseEventType {
   STATUS_CHANGE = 'status_change',
   DOCUMENT_UPLOADED = 'document_uploaded',
   DOCUMENT_VERIFIED = 'document_verified',
-  AGENT_ASSIGNED = 'agent_assigned',
+  ADMIN_ASSIGNED = 'admin_assigned',
   NOTE_ADDED = 'note_added',
   MESSAGE_SENT = 'message_sent',
   OCR_COMPLETED = 'ocr_completed',

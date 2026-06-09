@@ -9,7 +9,6 @@ Enum user_role {
   personal
   business
   admin
-  agent
 }
 
 Enum user_status {
@@ -200,7 +199,7 @@ Enum case_event_type {
   status_change
   document_uploaded
   document_verified
-  agent_assigned
+  admin_assigned
   note_added
   message_sent
   ocr_completed
@@ -353,7 +352,7 @@ Table users [headercolor: #3498db] {
     codice_fiscale
   }
 
-  Note: 'Core user table. Supports personal, business, admin, agent roles. Soft-deletable via deleted_at.'
+  Note: 'Core user table. Supports personal, business, admin roles. Soft-deletable via deleted_at.'
 }
 
 Table refresh_tokens [headercolor: #3498db] {
@@ -449,25 +448,6 @@ Table user_preferences [headercolor: #2ecc71] {
   updated_at timestamptz [not null, default: `now()`]
 
   Note: 'Payment method, invoice type, language preferences.'
-}
-
-Table user_agent_assignments [headercolor: #2ecc71] {
-  id uuid [pk, default: `gen_random_uuid()`]
-  user_id uuid [not null, ref: > users.id]
-  agent_id uuid [not null, ref: > users.id]
-  assigned_at timestamptz [not null, default: `now()`]
-  is_active boolean [not null, default: true]
-  assigned_by_id uuid [ref: > users.id]
-  created_at timestamptz [not null, default: `now()`]
-  updated_at timestamptz [not null, default: `now()`]
-
-  indexes {
-    user_id
-    agent_id
-    (user_id) [unique, note: 'One active assignment per client']
-  }
-
-  Note: 'Tracks which agent/operator is assigned to each client.'
 }
 
 // ===========================

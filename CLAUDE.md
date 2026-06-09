@@ -35,7 +35,7 @@ npm run format           # Prettier
 
 ### Auth & Authorization
 
-Four roles: `PERSONAL`, `BUSINESS`, `ADMIN`, `AGENT`. JWT access + refresh token rotation.
+Three roles: `PERSONAL`, `BUSINESS`, `ADMIN`. JWT access + refresh token rotation.
 
 Protect routes with:
 ```typescript

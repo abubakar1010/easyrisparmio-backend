@@ -19,9 +19,9 @@ import { RegisterDto, RegisterBusinessDto } from './dto/register.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ForgotPasswordDto, ResetPasswordDto } from './dto/reset-password.dto';
 import { UserRole } from '../../common/enums/role.enum';
-import { UserStatus } from '../../common/enums/user.enum';
-import { OtpType } from '../../common/enums/user.enum';
+import { UserStatus, OtpType, AuthProvider } from '../../common/enums/user.enum';
 import { UsersService } from '../users/users.service';
+import { FirebaseService } from './firebase.service';
 
 @Injectable()
 export class AuthService {
@@ -35,9 +35,14 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly firebaseService: FirebaseService,
   ) {}
 
   async register(dto: RegisterDto | RegisterBusinessDto) {
+    if ((dto.role as string) === UserRole.ADMIN) {
+      throw new BadRequestException('Cannot register as admin');
+    }
+
     const existingUser = await this.usersService.findByEmail(dto.email);
     if (existingUser) {
       throw new ConflictException('Email already registered');
@@ -80,7 +85,7 @@ export class AuthService {
 
   async validateUser(email: string, password: string): Promise<User | null> {
     const user = await this.usersService.findByEmail(email);
-    if (!user) {
+    if (!user || !user.passwordHash) {
       return null;
     }
 
@@ -227,6 +232,100 @@ export class AuthService {
     }
     const { passwordHash: _, ...result } = user;
     return result;
+  }
+
+  async socialLogin(idToken: string) {
+    const decodedToken = await this.firebaseService.verifyIdToken(idToken);
+
+    const email = decodedToken.email;
+    if (!email) {
+      throw new BadRequestException(
+        'Email is required. Please ensure your social account has a verified email.',
+      );
+    }
+
+    const firebaseUid = decodedToken.uid;
+    const provider = this.mapFirebaseProvider(
+      decodedToken.firebase.sign_in_provider,
+    );
+    const name = decodedToken.name || '';
+    const [firstName, ...lastParts] = name.split(' ');
+    const lastName = lastParts.join(' ') || '';
+    const avatar = decodedToken.picture || undefined;
+
+    // Look up by firebaseUid first, then by email
+    let user = await this.usersService.findByFirebaseUid(firebaseUid);
+
+    if (!user) {
+      user = await this.usersService.findByEmail(email);
+    }
+
+    if (user) {
+      // Link Firebase account if not yet linked
+      if (!user.firebaseUid) {
+        await this.usersService.update(user.id, { firebaseUid });
+      }
+      // Update avatar from social profile if user doesn't have one
+      if (!user.avatar && avatar) {
+        await this.usersService.update(user.id, { avatar });
+      }
+      // Ensure user is active and email-verified (Firebase verified it)
+      if (
+        !user.emailVerified ||
+        user.status === UserStatus.PENDING_VERIFICATION
+      ) {
+        await this.usersService.update(user.id, {
+          emailVerified: true,
+          status: UserStatus.ACTIVE,
+        });
+      }
+      // Reload user after updates
+      user = await this.usersService.findById(user.id);
+    } else {
+      // New user — create account
+      user = await this.usersService.create({
+        email,
+        passwordHash: null,
+        firstName: firstName || '',
+        lastName: lastName || '',
+        firebaseUid,
+        authProvider: provider,
+        avatar,
+        role: UserRole.PERSONAL,
+        status: UserStatus.ACTIVE,
+        emailVerified: true,
+      });
+    }
+
+    if (!user) {
+      throw new BadRequestException('Failed to create or retrieve user');
+    }
+
+    if (user.status === UserStatus.SUSPENDED) {
+      throw new UnauthorizedException('Your account has been suspended');
+    }
+
+    await this.usersService.update(user.id, { lastLoginAt: new Date() });
+    const tokens = await this.generateTokens(user);
+    const { passwordHash: _, ...userWithoutPassword } = user;
+
+    return {
+      user: userWithoutPassword,
+      ...tokens,
+    };
+  }
+
+  private mapFirebaseProvider(signInProvider: string): AuthProvider {
+    switch (signInProvider) {
+      case 'google.com':
+        return AuthProvider.GOOGLE;
+      case 'facebook.com':
+        return AuthProvider.FACEBOOK;
+      case 'apple.com':
+        return AuthProvider.APPLE;
+      default:
+        return AuthProvider.LOCAL;
+    }
   }
 
   private async generateTokens(user: User) {

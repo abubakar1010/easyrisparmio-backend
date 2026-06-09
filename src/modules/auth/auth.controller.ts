@@ -15,6 +15,7 @@ import { LoginDto } from './dto/login.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ForgotPasswordDto, ResetPasswordDto } from './dto/reset-password.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { SocialLoginDto } from './dto/social-login.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
@@ -42,6 +43,13 @@ export class AuthController {
   @ApiOperation({ summary: 'Login with email and password' })
   async login(@Body() _dto: LoginDto, @CurrentUser() user: User) {
     return this.authService.login(user);
+  }
+
+  @Post('social-login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Login or register via social provider (Google, Facebook, Apple)' })
+  async socialLogin(@Body() dto: SocialLoginDto) {
+    return this.authService.socialLogin(dto.idToken);
   }
 
   @Post('verify-otp')

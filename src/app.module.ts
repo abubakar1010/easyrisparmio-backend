@@ -6,6 +6,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import appConfig from './config/app.config';
 import databaseConfig from './config/database.config';
 import jwtConfig from './config/jwt.config';
+import firebaseConfig from './config/firebase.config';
 
 // Feature modules
 import { AuthModule } from './modules/auth/auth.module';
@@ -33,7 +34,7 @@ import { AgreementsModule } from './modules/agreements/agreements.module';
     // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, databaseConfig, jwtConfig],
+      load: [appConfig, databaseConfig, jwtConfig, firebaseConfig],
       envFilePath: '.env',
     }),
 

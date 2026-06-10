@@ -1,14 +1,21 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Offer } from './entities/offer.entity';
 import { CreateOfferDto } from './dto/create-offer.dto';
 import { UpdateOfferDto } from './dto/update-offer.dto';
+import { UpdateOfferStatusDto } from './dto/update-offer-status.dto';
 import { QueryOffersDto } from './dto/query-offers.dto';
-import { PaginatedResponseDto } from '../../common/dto/pagination.dto';
+import { PaginationDto, PaginatedResponseDto } from '../../common/dto/pagination.dto';
 import { EnergyBill } from '../bills/entities/energy-bill.entity';
 import { BillType } from '../../common/enums/bill.enum';
 import { EnergyType, UserTarget } from '../../common/enums/offer.enum';
+import { OfferStatus } from '../../common/enums/offer-status.enum';
 
 @Injectable()
 export class OffersService {
@@ -19,12 +26,51 @@ export class OffersService {
     private readonly billRepository: Repository<EnergyBill>,
   ) {}
 
-  async create(dto: CreateOfferDto): Promise<Offer> {
-    const offer = this.offerRepository.create(dto);
-    return this.offerRepository.save(offer);
+  async create(dto: CreateOfferDto, adminId: string): Promise<Offer> {
+    const offer = this.offerRepository.create({
+      ...dto,
+      createdBy: adminId,
+      updatedBy: adminId,
+    });
+    try {
+      return await this.offerRepository.save(offer);
+    } catch (error: any) {
+      if (error.code === '23505') {
+        throw new ConflictException(
+          'An offer with this offer code already exists',
+        );
+      }
+      throw error;
+    }
   }
 
-  async findAll(query: QueryOffersDto): Promise<PaginatedResponseDto<Offer>> {
+  async findAllPublic(
+    query: PaginationDto,
+  ): Promise<PaginatedResponseDto<Offer>> {
+    const qb = this.offerRepository
+      .createQueryBuilder('offer')
+      .leftJoinAndSelect('offer.supplier', 'supplier')
+      .where('offer.is_active = :isActive', { isActive: true })
+      .andWhere('offer.offer_status = :status', { status: OfferStatus.ACTIVE });
+
+    if (query.search) {
+      qb.andWhere(
+        '(offer.name ILIKE :search OR offer.description ILIKE :search OR offer.offer_code ILIKE :search)',
+        { search: `%${query.search}%` },
+      );
+    }
+
+    qb.orderBy('offer.created_at', 'DESC')
+      .skip(query.skip)
+      .take(query.limit);
+
+    const [data, total] = await qb.getManyAndCount();
+    return new PaginatedResponseDto(data, total, query.page, query.limit);
+  }
+
+  async findAllAdmin(
+    query: QueryOffersDto,
+  ): Promise<PaginatedResponseDto<Offer>> {
     const qb = this.offerRepository
       .createQueryBuilder('offer')
       .leftJoinAndSelect('offer.supplier', 'supplier');
@@ -58,9 +104,15 @@ export class OffersService {
       });
     }
 
+    if (query.offerStatus) {
+      qb.andWhere('offer.offer_status = :offerStatus', {
+        offerStatus: query.offerStatus,
+      });
+    }
+
     if (query.search) {
       qb.andWhere(
-        '(LOWER(offer.name) LIKE LOWER(:search) OR LOWER(offer.description) LIKE LOWER(:search))',
+        '(offer.name ILIKE :search OR offer.description ILIKE :search OR offer.offer_code ILIKE :search)',
         { search: `%${query.search}%` },
       );
     }
@@ -69,9 +121,8 @@ export class OffersService {
       .skip(query.skip)
       .take(query.limit);
 
-    const [offers, total] = await qb.getManyAndCount();
-
-    return new PaginatedResponseDto(offers, total, query.page, query.limit);
+    const [data, total] = await qb.getManyAndCount();
+    return new PaginatedResponseDto(data, total, query.page, query.limit);
   }
 
   async findById(id: string): Promise<Offer> {
@@ -87,15 +138,40 @@ export class OffersService {
     return offer;
   }
 
-  async update(id: string, dto: UpdateOfferDto): Promise<Offer> {
+  async update(
+    id: string,
+    dto: UpdateOfferDto,
+    adminId: string,
+  ): Promise<Offer> {
     const offer = await this.findById(id);
     Object.assign(offer, dto);
-    return this.offerRepository.save(offer);
+    offer.updatedBy = adminId;
+    try {
+      return await this.offerRepository.save(offer);
+    } catch (error: any) {
+      if (error.code === '23505') {
+        throw new ConflictException(
+          'An offer with this offer code already exists',
+        );
+      }
+      throw error;
+    }
   }
 
-  async softDelete(id: string): Promise<Offer> {
+  async softDelete(id: string): Promise<void> {
     const offer = await this.findById(id);
-    offer.isActive = false;
+    await this.offerRepository.softRemove(offer);
+  }
+
+  async updateStatus(
+    id: string,
+    dto: UpdateOfferStatusDto,
+    adminId: string,
+  ): Promise<Offer> {
+    const offer = await this.findById(id);
+    this.validateStatusTransition(offer.offerStatus, dto.offerStatus);
+    offer.offerStatus = dto.offerStatus;
+    offer.updatedBy = adminId;
     return this.offerRepository.save(offer);
   }
 
@@ -112,7 +188,10 @@ export class OffersService {
     return offers;
   }
 
-  async getRecommendedOffers(billId: string, userId: string): Promise<Offer[]> {
+  async getRecommendedOffers(
+    billId: string,
+    userId: string,
+  ): Promise<Offer[]> {
     const bill = await this.billRepository.findOne({
       where: { id: billId, userId },
     });
@@ -121,7 +200,6 @@ export class OffersService {
       throw new NotFoundException('Bill not found');
     }
 
-    // Map bill type to energy type for filtering
     const energyType =
       bill.billType === BillType.ELECTRICITY
         ? EnergyType.ELECTRICITY
@@ -136,14 +214,12 @@ export class OffersService {
         { energyType, dual: EnergyType.DUAL },
       );
 
-    // Exclude the current supplier if present
     if (bill.supplierId) {
       qb.andWhere('offer.supplier_id != :currentSupplier', {
         currentSupplier: bill.supplierId,
       });
     }
 
-    // Order by price (cheaper first)
     if (bill.billType === BillType.ELECTRICITY) {
       qb.orderBy('offer.price_per_kwh', 'ASC', 'NULLS LAST');
     } else {
@@ -153,5 +229,24 @@ export class OffersService {
     qb.take(10);
 
     return qb.getMany();
+  }
+
+  private validateStatusTransition(
+    current: OfferStatus,
+    next: OfferStatus,
+  ): void {
+    const validTransitions: Record<OfferStatus, OfferStatus[]> = {
+      [OfferStatus.DRAFT]: [OfferStatus.ACTIVE, OfferStatus.ARCHIVED],
+      [OfferStatus.ACTIVE]: [OfferStatus.EXPIRING, OfferStatus.ARCHIVED],
+      [OfferStatus.EXPIRING]: [OfferStatus.EXPIRED, OfferStatus.ARCHIVED],
+      [OfferStatus.EXPIRED]: [OfferStatus.ARCHIVED],
+      [OfferStatus.ARCHIVED]: [],
+    };
+
+    if (!validTransitions[current]?.includes(next)) {
+      throw new BadRequestException(
+        `Cannot transition from ${current} to ${next}`,
+      );
+    }
   }
 }

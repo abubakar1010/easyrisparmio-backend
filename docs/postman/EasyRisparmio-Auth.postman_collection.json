@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "EasyRisparmio API",
-    "description": "API collection for the EasyRisparmio Italian energy comparison & switching platform.\n\n## Modules\n- **Authentication** — Email/password + social login (Google, Facebook, Apple via Firebase)\n- **Referrals** — Invite & Earn referral program for users and admin management\n- **Meters** — Utility meter management (electricity, gas, water, internet) with admin moderation\n- **Suppliers** — Energy supplier management with public listing and admin CRUD\n\n## Roles\n| Role | Description |\n|------|-------------|\n| `personal` | Individual user (default) |\n| `business` | Business user with company profile |\n| `admin` | Platform administrator (seeded, cannot register) |\n\n## Token Flow\n1. Login or social-login returns `accessToken` (JWT, 15 min) + `refreshToken` (UUID, 7 days)\n2. Use `accessToken` in `Authorization: Bearer <token>` header for protected endpoints\n3. When expired, call refresh-token to get a new pair\n\n## Setup\n1. Set `baseUrl` variable to your server (default: `http://localhost:3000`)\n2. Register a user, then login — tokens are auto-saved to collection variables\n3. All protected requests automatically use the saved `accessToken`",
+    "description": "API collection for the EasyRisparmio Italian energy comparison & switching platform.\n\n## Modules\n- **Authentication** — Email/password + social login (Google, Facebook, Apple via Firebase)\n- **Referrals** — Invite & Earn referral program for users and admin management\n- **Meters** — Utility meter management (electricity, gas, water, internet) with admin moderation\n- **Suppliers** — Energy supplier management with public listing and admin CRUD\n- **Offers** — Energy offer management, comparison, recommendations, and admin moderation\n\n## Roles\n| Role | Description |\n|------|-------------|\n| `personal` | Individual user (default) |\n| `business` | Business user with company profile |\n| `admin` | Platform administrator (seeded, cannot register) |\n\n## Token Flow\n1. Login or social-login returns `accessToken` (JWT, 15 min) + `refreshToken` (UUID, 7 days)\n2. Use `accessToken` in `Authorization: Bearer <token>` header for protected endpoints\n3. When expired, call refresh-token to get a new pair\n\n## Setup\n1. Set `baseUrl` variable to your server (default: `http://localhost:3000`)\n2. Register a user, then login — tokens are auto-saved to collection variables\n3. All protected requests automatically use the saved `accessToken`",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -40,6 +40,12 @@
       "value": "",
       "type": "string",
       "description": "Supplier UUID (auto-set by Create Supplier request)"
+    },
+    {
+      "key": "offerId",
+      "value": "",
+      "type": "string",
+      "description": "Offer UUID (auto-set by Create Offer request)"
     }
   ],
   "item": [
@@ -2570,6 +2576,420 @@
                     }
                   ],
                   "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Supplier not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Offers",
+      "description": "Energy offer management. Public users browse active offers, compare them, and get bill-based recommendations. Admins manage the full lifecycle including creation, updates, status moderation (draft → active → expiring → expired → archived), and soft-deletion.",
+      "item": [
+        {
+          "name": "Public",
+          "description": "Public offer endpoints. No authentication required (except recommendations which require a user JWT).",
+          "item": [
+            {
+              "name": "List Active Offers",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/offers?page=1&limit=20",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "offers"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "20" },
+                    { "key": "search", "value": "luce", "disabled": true }
+                  ]
+                },
+                "description": "Returns a paginated list of published, active offers with supplier details. No authentication required.\n\n**Query parameters:**\n- `page` — Page number (default: 1)\n- `limit` — Items per page (default: 20, max: 100)\n- `search` — Search by name, description, or offer code"
+              },
+              "response": [
+                {
+                  "name": "200 - Active Offers List",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"data\": [\n      {\n        \"id\": \"o1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n        \"name\": \"Casa Luce Fix 12\",\n        \"description\": \"Fixed-price electricity plan for residential customers with 12-month lock-in\",\n        \"energyType\": \"electricity\",\n        \"marketType\": \"fixed\",\n        \"pricePerKwh\": \"0.085000\",\n        \"pricePerSmc\": null,\n        \"fixedMonthlyFee\": \"9.90\",\n        \"activationCost\": \"0.00\",\n        \"contractDurationMonths\": 12,\n        \"isGreenEnergy\": true,\n        \"isActive\": true,\n        \"validFrom\": \"2026-01-01\",\n        \"validUntil\": \"2026-12-31\",\n        \"target\": \"personal\",\n        \"highlights\": [\"Fixed price for 12 months\", \"No activation fee\", \"100% green energy\"],\n        \"offerCode\": \"CLF-12-2026\",\n        \"offerStatus\": \"active\",\n        \"supplierId\": \"s1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n        \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n        \"supplier\": {\n          \"id\": \"s1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n          \"name\": \"Enel Energia\",\n          \"logoUrl\": \"https://cdn.easyresparmio.it/logos/enel-energia.png\"\n        }\n      }\n    ],\n    \"meta\": { \"total\": 1, \"page\": 1, \"limit\": 20, \"totalPages\": 1 }\n  }\n}"
+                },
+                {
+                  "name": "200 - Empty List",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"data\": [],\n    \"meta\": { \"total\": 0, \"page\": 1, \"limit\": 20, \"totalPages\": 0 }\n  }\n}"
+                }
+              ]
+            },
+            {
+              "name": "Get Offer Detail",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/offers/{{offerId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "offers", "{{offerId}}"]
+                },
+                "description": "Returns a single offer with full supplier details. No authentication required.\n\n**Path parameters:**\n- `id` — Offer UUID"
+              },
+              "response": [
+                {
+                  "name": "200 - Offer Detail",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"o1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"name\": \"Casa Luce Fix 12\",\n    \"description\": \"Fixed-price electricity plan for residential customers with 12-month lock-in\",\n    \"energyType\": \"electricity\",\n    \"marketType\": \"fixed\",\n    \"pricePerKwh\": \"0.085000\",\n    \"pricePerSmc\": null,\n    \"fixedMonthlyFee\": \"9.90\",\n    \"activationCost\": \"0.00\",\n    \"contractDurationMonths\": 12,\n    \"isGreenEnergy\": true,\n    \"isActive\": true,\n    \"validFrom\": \"2026-01-01\",\n    \"validUntil\": \"2026-12-31\",\n    \"termsUrl\": \"https://www.enelenergia.it/terms/casa-luce-fix\",\n    \"target\": \"personal\",\n    \"highlights\": [\"Fixed price for 12 months\", \"No activation fee\", \"100% green energy\"],\n    \"offerCode\": \"CLF-12-2026\",\n    \"offerStatus\": \"active\",\n    \"version\": 1,\n    \"parentOfferId\": null,\n    \"supplierId\": \"s1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"createdBy\": \"admin-uuid\",\n    \"updatedBy\": \"admin-uuid\",\n    \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-01T10:00:00.000Z\",\n    \"supplier\": {\n      \"id\": \"s1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n      \"name\": \"Enel Energia\",\n      \"logoUrl\": \"https://cdn.easyresparmio.it/logos/enel-energia.png\"\n    }\n  }\n}"
+                },
+                {
+                  "name": "404 - Offer Not Found",
+                  "status": "Not Found",
+                  "code": 404,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Offer not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Compare Offers",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/offers/compare?ids={{offerId}},o2b3c4d5-e6f7-8901-bcde-f23456789012",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "offers", "compare"],
+                  "query": [
+                    { "key": "ids", "value": "{{offerId}},o2b3c4d5-e6f7-8901-bcde-f23456789012" }
+                  ]
+                },
+                "description": "Returns full details of multiple offers for side-by-side comparison.\n\nPass a comma-separated list of offer UUIDs. Maximum practical limit: 5 offers."
+              },
+              "response": [
+                {
+                  "name": "200 - Comparison Result",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"o1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n      \"name\": \"Casa Luce Fix 12\",\n      \"energyType\": \"electricity\",\n      \"marketType\": \"fixed\",\n      \"pricePerKwh\": \"0.085000\",\n      \"fixedMonthlyFee\": \"9.90\",\n      \"contractDurationMonths\": 12,\n      \"isGreenEnergy\": true,\n      \"supplier\": { \"id\": \"s1a2b3c4...\", \"name\": \"Enel Energia\" }\n    },\n    {\n      \"id\": \"o2b3c4d5-e6f7-8901-bcde-f23456789012\",\n      \"name\": \"Gas Sicuro 24\",\n      \"energyType\": \"gas\",\n      \"marketType\": \"fixed\",\n      \"pricePerSmc\": \"0.450000\",\n      \"fixedMonthlyFee\": \"7.50\",\n      \"contractDurationMonths\": 24,\n      \"isGreenEnergy\": false,\n      \"supplier\": { \"id\": \"s2b3c4d5...\", \"name\": \"Edison Energia\" }\n    }\n  ]\n}"
+                },
+                {
+                  "name": "404 - No Offers Found",
+                  "status": "Not Found",
+                  "code": 404,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"No offers found for the provided IDs\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Recommended Offers by Bill",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/offers/recommended/a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "offers", "recommended", "a1b2c3d4-e5f6-7890-abcd-ef1234567890"]
+                },
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "description": "Returns up to 10 recommended offers based on the user's energy bill.\n\nMatches by energy type (electricity/gas), excludes the current supplier, and sorts by price ascending (cheapest first).\n\n**Path parameters:**\n- `billId` — UUID of the user's energy bill\n\n**Requires:** JWT authentication (user must own the bill)"
+              },
+              "response": [
+                {
+                  "name": "200 - Recommended Offers",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"o1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n      \"name\": \"Energia Verde Fix\",\n      \"energyType\": \"electricity\",\n      \"pricePerKwh\": \"0.078000\",\n      \"fixedMonthlyFee\": \"8.50\",\n      \"isGreenEnergy\": true,\n      \"supplier\": { \"id\": \"s2b3c4d5...\", \"name\": \"Edison Energia\" }\n    },\n    {\n      \"id\": \"o2b3c4d5-e6f7-8901-bcde-f23456789012\",\n      \"name\": \"Casa Luce Fix 12\",\n      \"energyType\": \"electricity\",\n      \"pricePerKwh\": \"0.085000\",\n      \"fixedMonthlyFee\": \"9.90\",\n      \"isGreenEnergy\": true,\n      \"supplier\": { \"id\": \"s1a2b3c4...\", \"name\": \"Enel Energia\" }\n    }\n  ]\n}"
+                },
+                {
+                  "name": "404 - Bill Not Found",
+                  "status": "Not Found",
+                  "code": 404,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Bill not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "401 - Unauthorized",
+                  "status": "Unauthorized",
+                  "code": 401,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\"Unauthorized\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Admin",
+          "description": "Admin endpoints for managing energy offers. Requires `admin` role.\n\n**Offer status lifecycle (moderation):**\n- `draft` → `active` or `archived`\n- `active` → `expiring` or `archived`\n- `expiring` → `expired` or `archived`\n- `expired` → `archived`\n- `archived` = permanent (no further transitions)\n\nOnly `active` and `expiring` offers are visible to public users.",
+          "item": [
+            {
+              "name": "Create Offer",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code === 201) {",
+                      "    const res = pm.response.json();",
+                      "    if (res.success && res.data && res.data.id) {",
+                      "        pm.collectionVariables.set('offerId', res.data.id);",
+                      "        console.log('offerId saved: ' + res.data.id);",
+                      "    }",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/offers",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "offers"]
+                },
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Casa Luce Fix 12\",\n  \"description\": \"Fixed-price electricity plan for residential customers with 12-month lock-in\",\n  \"energyType\": \"electricity\",\n  \"marketType\": \"fixed\",\n  \"pricePerKwh\": 0.085,\n  \"fixedMonthlyFee\": 9.9,\n  \"activationCost\": 0,\n  \"contractDurationMonths\": 12,\n  \"isGreenEnergy\": true,\n  \"validFrom\": \"2026-01-01\",\n  \"validUntil\": \"2026-12-31\",\n  \"termsUrl\": \"https://www.enelenergia.it/terms/casa-luce-fix\",\n  \"target\": \"personal\",\n  \"highlights\": [\"Fixed price for 12 months\", \"No activation fee\", \"100% green energy\"],\n  \"supplierId\": \"{{supplierId}}\",\n  \"offerCode\": \"CLF-12-2026\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "description": "Creates a new energy offer linked to a supplier.\n\n**Required fields:**\n- `name` — Offer name (max 255)\n- `energyType` — `electricity`, `gas`, or `dual`\n- `marketType` — `fixed`, `variable`, or `indexed`\n- `fixedMonthlyFee` — Monthly fee (default: 0)\n- `activationCost` — One-time setup cost (default: 0)\n- `contractDurationMonths` — Contract length (min: 1)\n- `validFrom` — ISO 8601 date\n- `supplierId` — Supplier UUID\n\n**Optional fields:**\n- `description`, `pricePerKwh`, `pricePerSmc`, `isGreenEnergy`, `validUntil`, `termsUrl`, `target`, `highlights`, `offerCode`, `offerStatus`\n\nThe `createdBy`/`updatedBy` audit fields are auto-set from the admin JWT.\n\n**Auto-saves** `offerId` to collection variables."
+              },
+              "response": [
+                {
+                  "name": "201 - Offer Created",
+                  "status": "Created",
+                  "code": 201,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"o1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"name\": \"Casa Luce Fix 12\",\n    \"description\": \"Fixed-price electricity plan for residential customers with 12-month lock-in\",\n    \"energyType\": \"electricity\",\n    \"marketType\": \"fixed\",\n    \"pricePerKwh\": \"0.085000\",\n    \"pricePerSmc\": null,\n    \"fixedMonthlyFee\": \"9.90\",\n    \"activationCost\": \"0.00\",\n    \"contractDurationMonths\": 12,\n    \"isGreenEnergy\": true,\n    \"isActive\": true,\n    \"validFrom\": \"2026-01-01\",\n    \"validUntil\": \"2026-12-31\",\n    \"termsUrl\": \"https://www.enelenergia.it/terms/casa-luce-fix\",\n    \"target\": \"personal\",\n    \"highlights\": [\"Fixed price for 12 months\", \"No activation fee\", \"100% green energy\"],\n    \"offerCode\": \"CLF-12-2026\",\n    \"offerStatus\": \"draft\",\n    \"version\": 1,\n    \"parentOfferId\": null,\n    \"supplierId\": \"s1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"createdBy\": \"admin-uuid\",\n    \"updatedBy\": \"admin-uuid\",\n    \"createdAt\": \"2026-06-10T12:00:00.000Z\",\n    \"updatedAt\": \"2026-06-10T12:00:00.000Z\"\n  }\n}"
+                },
+                {
+                  "name": "400 - Validation Error",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\n    \"name should not be empty\",\n    \"energyType must be a valid enum value\",\n    \"supplierId must be a UUID\"\n  ],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "409 - Duplicate Offer Code",
+                  "status": "Conflict",
+                  "code": 409,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 409,\n  \"message\": [\"An offer with this offer code already exists\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "403 - Forbidden (Not Admin)",
+                  "status": "Forbidden",
+                  "code": 403,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "List All Offers (Admin)",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/offers/admin?page=1&limit=20",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "offers", "admin"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "20" },
+                    { "key": "energyType", "value": "electricity", "disabled": true },
+                    { "key": "marketType", "value": "fixed", "disabled": true },
+                    { "key": "target", "value": "personal", "disabled": true },
+                    { "key": "isActive", "value": "true", "disabled": true },
+                    { "key": "offerStatus", "value": "draft", "disabled": true },
+                    { "key": "supplierId", "value": "{{supplierId}}", "disabled": true },
+                    { "key": "search", "value": "luce", "disabled": true }
+                  ]
+                },
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "description": "Returns a paginated list of all offers (including drafts, inactive, archived). Requires admin role.\n\n**Query parameters:**\n- `page` — Page number (default: 1)\n- `limit` — Items per page (default: 20, max: 100)\n- `energyType` — `electricity`, `gas`, `dual`\n- `marketType` — `fixed`, `variable`, `indexed`\n- `target` — `personal`, `business`, `both`\n- `isActive` — `true` or `false`\n- `offerStatus` — `draft`, `active`, `expiring`, `expired`, `archived`\n- `supplierId` — Supplier UUID\n- `search` — Search name, description, or offer code"
+              },
+              "response": [
+                {
+                  "name": "200 - All Offers (Admin)",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"data\": [\n      {\n        \"id\": \"o1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n        \"name\": \"Casa Luce Fix 12\",\n        \"energyType\": \"electricity\",\n        \"marketType\": \"fixed\",\n        \"offerStatus\": \"active\",\n        \"isActive\": true,\n        \"pricePerKwh\": \"0.085000\",\n        \"fixedMonthlyFee\": \"9.90\",\n        \"contractDurationMonths\": 12,\n        \"supplier\": { \"id\": \"s1a2b3c4...\", \"name\": \"Enel Energia\" },\n        \"createdAt\": \"2026-06-01T10:00:00.000Z\"\n      },\n      {\n        \"id\": \"o2b3c4d5-e6f7-8901-bcde-f23456789012\",\n        \"name\": \"Gas Business Pro\",\n        \"energyType\": \"gas\",\n        \"marketType\": \"variable\",\n        \"offerStatus\": \"draft\",\n        \"isActive\": true,\n        \"pricePerSmc\": \"0.380000\",\n        \"fixedMonthlyFee\": \"7.50\",\n        \"contractDurationMonths\": 24,\n        \"supplier\": { \"id\": \"s2b3c4d5...\", \"name\": \"Edison Energia\" },\n        \"createdAt\": \"2026-05-20T08:00:00.000Z\"\n      }\n    ],\n    \"meta\": { \"total\": 2, \"page\": 1, \"limit\": 20, \"totalPages\": 1 }\n  }\n}"
+                },
+                {
+                  "name": "403 - Forbidden (Not Admin)",
+                  "status": "Forbidden",
+                  "code": 403,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Update Offer",
+              "request": {
+                "method": "PATCH",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/offers/{{offerId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "offers", "{{offerId}}"]
+                },
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"pricePerKwh\": 0.079,\n  \"description\": \"Updated price after market review\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "description": "Updates offer fields. All fields are optional (partial update).\n\nUse `PATCH /:id/status` for offer status moderation.\n\nThe `updatedBy` audit field is auto-set from the admin JWT."
+              },
+              "response": [
+                {
+                  "name": "200 - Offer Updated",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"o1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"name\": \"Casa Luce Fix 12\",\n    \"description\": \"Updated price after market review\",\n    \"pricePerKwh\": \"0.079000\",\n    \"offerStatus\": \"active\",\n    \"updatedBy\": \"admin-uuid\",\n    \"updatedAt\": \"2026-06-10T14:00:00.000Z\"\n  }\n}"
+                },
+                {
+                  "name": "404 - Offer Not Found",
+                  "status": "Not Found",
+                  "code": 404,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Offer not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "409 - Duplicate Offer Code",
+                  "status": "Conflict",
+                  "code": 409,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 409,\n  \"message\": [\"An offer with this offer code already exists\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Soft-Delete Offer",
+              "request": {
+                "method": "DELETE",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/offers/{{offerId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "offers", "{{offerId}}"]
+                },
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "description": "Soft-deletes an offer by setting `deleted_at` timestamp. The offer is hidden from all queries but preserved in the database.\n\nThis is a permanent action — soft-deleted offers cannot be recovered via the API."
+              },
+              "response": [
+                {
+                  "name": "200 - Offer Deleted",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Offer deleted successfully\"\n  }\n}"
+                },
+                {
+                  "name": "404 - Offer Not Found",
+                  "status": "Not Found",
+                  "code": 404,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Offer not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Change Status — Publish (Draft → Active)",
+              "request": {
+                "method": "PATCH",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/offers/{{offerId}}/status",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "offers", "{{offerId}}", "status"]
+                },
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"offerStatus\": \"active\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "description": "Publishes a draft offer, making it visible to public users.\n\n**Valid transitions:**\n- `draft` → `active` or `archived`\n- `active` → `expiring` or `archived`\n- `expiring` → `expired` or `archived`\n- `expired` → `archived`\n- `archived` = terminal (no further transitions)"
+              },
+              "response": [
+                {
+                  "name": "200 - Offer Published",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"o1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"name\": \"Casa Luce Fix 12\",\n    \"offerStatus\": \"active\",\n    \"updatedBy\": \"admin-uuid\",\n    \"updatedAt\": \"2026-06-10T14:00:00.000Z\"\n  }\n}"
+                },
+                {
+                  "name": "400 - Invalid Transition",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"Cannot transition from archived to active\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "404 - Offer Not Found",
+                  "status": "Not Found",
+                  "code": 404,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Offer not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Change Status — Archive",
+              "request": {
+                "method": "PATCH",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/offers/{{offerId}}/status",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "offers", "{{offerId}}", "status"]
+                },
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"offerStatus\": \"archived\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "description": "Archives an offer permanently. `archived` is a terminal state — no further transitions are possible.\n\nCan be called from any non-archived status (draft, active, expiring, expired)."
+              },
+              "response": [
+                {
+                  "name": "200 - Offer Archived",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"o1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"name\": \"Casa Luce Fix 12\",\n    \"offerStatus\": \"archived\",\n    \"updatedBy\": \"admin-uuid\",\n    \"updatedAt\": \"2026-06-10T14:00:00.000Z\"\n  }\n}"
+                },
+                {
+                  "name": "400 - Invalid Transition",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"Cannot transition from archived to archived\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
                 }
               ]
             }

@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -9,8 +10,10 @@ import { SupportTicket } from './entities/support-ticket.entity';
 import { TicketMessage } from './entities/ticket-message.entity';
 import { Faq } from './entities/faq.entity';
 import { CreateTicketDto } from './dto/create-ticket.dto';
+import { UpdateTicketDto } from './dto/update-ticket.dto';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { CreateFaqDto } from './dto/create-faq.dto';
+import { UpdateFaqDto } from './dto/update-faq.dto';
 import { QueryTicketsDto } from './dto/query-tickets.dto';
 import { TicketStatus, TicketPriority } from '../../common/enums/support.enum';
 import { PaginatedResponseDto } from '../../common/dto/pagination.dto';
@@ -111,9 +114,9 @@ export class SupportService {
     return ticket;
   }
 
-  async updateTicketStatus(
+  async updateTicket(
     ticketId: string,
-    status: TicketStatus,
+    dto: UpdateTicketDto,
   ): Promise<SupportTicket> {
     const ticket = await this.ticketRepository.findOne({
       where: { id: ticketId },
@@ -123,25 +126,23 @@ export class SupportService {
       throw new NotFoundException('Ticket not found');
     }
 
-    ticket.status = status;
-    return this.ticketRepository.save(ticket);
-  }
-
-  async assignAgent(
-    ticketId: string,
-    agentId: string,
-  ): Promise<SupportTicket> {
-    const ticket = await this.ticketRepository.findOne({
-      where: { id: ticketId },
-    });
-
-    if (!ticket) {
-      throw new NotFoundException('Ticket not found');
+    if (dto.assignedAgentId) {
+      ticket.assignedAgentId = dto.assignedAgentId;
+      if (ticket.status === TicketStatus.OPEN) {
+        ticket.status = TicketStatus.IN_PROGRESS;
+      }
     }
 
-    ticket.assignedAgentId = agentId;
-    if (ticket.status === TicketStatus.OPEN) {
-      ticket.status = TicketStatus.IN_PROGRESS;
+    if (dto.status) {
+      this.validateStatusTransition(ticket.status, dto.status);
+      ticket.status = dto.status;
+
+      if (dto.status === TicketStatus.RESOLVED) {
+        ticket.resolvedAt = new Date();
+      }
+      if (dto.status === TicketStatus.CLOSED) {
+        ticket.closedAt = new Date();
+      }
     }
 
     return this.ticketRepository.save(ticket);
@@ -212,17 +213,11 @@ export class SupportService {
   }
 
   async createFaq(dto: CreateFaqDto): Promise<Faq> {
-    const faq = this.faqRepository.create({
-      category: dto.category,
-      question: dto.question,
-      answer: dto.answer,
-      sortOrder: dto.sortOrder ?? 0,
-    });
-
+    const faq = this.faqRepository.create(dto);
     return this.faqRepository.save(faq);
   }
 
-  async updateFaq(faqId: string, dto: Partial<CreateFaqDto>): Promise<Faq> {
+  async updateFaq(faqId: string, dto: UpdateFaqDto): Promise<Faq> {
     const faq = await this.faqRepository.findOne({ where: { id: faqId } });
 
     if (!faq) {
@@ -241,5 +236,23 @@ export class SupportService {
     }
 
     await this.faqRepository.remove(faq);
+  }
+
+  private validateStatusTransition(
+    current: TicketStatus,
+    next: TicketStatus,
+  ): void {
+    const validTransitions: Record<TicketStatus, TicketStatus[]> = {
+      [TicketStatus.OPEN]: [TicketStatus.IN_PROGRESS, TicketStatus.CLOSED],
+      [TicketStatus.IN_PROGRESS]: [TicketStatus.RESOLVED, TicketStatus.CLOSED],
+      [TicketStatus.RESOLVED]: [TicketStatus.CLOSED],
+      [TicketStatus.CLOSED]: [],
+    };
+
+    if (!validTransitions[current]?.includes(next)) {
+      throw new BadRequestException(
+        `Cannot transition from ${current} to ${next}`,
+      );
+    }
   }
 }

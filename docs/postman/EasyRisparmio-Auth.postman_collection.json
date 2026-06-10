@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "EasyRisparmio API",
-    "description": "API collection for the EasyRisparmio Italian energy comparison & switching platform.\n\n## Modules\n- **Authentication** — Email/password + social login (Google, Facebook, Apple via Firebase)\n- **Referrals** — Invite & Earn referral program for users and admin management\n- **Meters** — Utility meter management (electricity, gas, water, internet) with admin moderation\n- **Suppliers** — Energy supplier management with public listing and admin CRUD\n- **Offers** — Energy offer management, comparison, recommendations, and admin moderation\n- **Agreements** — Exclusive partner discounts & agreements for mobile app users\n\n## Roles\n| Role | Description |\n|------|-------------|\n| `personal` | Individual user (default) |\n| `business` | Business user with company profile |\n| `admin` | Platform administrator (seeded, cannot register) |\n\n## Token Flow\n1. Login or social-login returns `accessToken` (JWT, 15 min) + `refreshToken` (UUID, 7 days)\n2. Use `accessToken` in `Authorization: Bearer <token>` header for protected endpoints\n3. When expired, call refresh-token to get a new pair\n\n## Setup\n1. Set `baseUrl` variable to your server (default: `http://localhost:3000`)\n2. Register a user, then login — tokens are auto-saved to collection variables\n3. All protected requests automatically use the saved `accessToken`",
+    "description": "API collection for the EasyRisparmio Italian energy comparison & switching platform.\n\n## Modules\n- **Authentication** — Email/password + social login (Google, Facebook, Apple via Firebase)\n- **Referrals** — Invite & Earn referral program for users and admin management\n- **Meters** — Utility meter management (electricity, gas, water, internet) with admin moderation\n- **Suppliers** — Energy supplier management with public listing and admin CRUD\n- **Offers** — Energy offer management, comparison, recommendations, and admin moderation\n- **Agreements** — Exclusive partner discounts & agreements for mobile app users\n- **Support** — Support tickets, messaging, and FAQ management\n\n## Roles\n| Role | Description |\n|------|-------------|\n| `personal` | Individual user (default) |\n| `business` | Business user with company profile |\n| `admin` | Platform administrator (seeded, cannot register) |\n\n## Token Flow\n1. Login or social-login returns `accessToken` (JWT, 15 min) + `refreshToken` (UUID, 7 days)\n2. Use `accessToken` in `Authorization: Bearer <token>` header for protected endpoints\n3. When expired, call refresh-token to get a new pair\n\n## Setup\n1. Set `baseUrl` variable to your server (default: `http://localhost:3000`)\n2. Register a user, then login — tokens are auto-saved to collection variables\n3. All protected requests automatically use the saved `accessToken`",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -52,6 +52,18 @@
       "value": "",
       "type": "string",
       "description": "Agreement UUID (auto-set by Create Agreement request)"
+    },
+    {
+      "key": "ticketId",
+      "value": "",
+      "type": "string",
+      "description": "Support ticket UUID (auto-set by Create Ticket request)"
+    },
+    {
+      "key": "faqId",
+      "value": "",
+      "type": "string",
+      "description": "FAQ UUID (auto-set by Create FAQ request)"
     }
   ],
   "item": [
@@ -3355,6 +3367,443 @@
                   "code": 404,
                   "header": [{ "key": "Content-Type", "value": "application/json" }],
                   "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Agreement not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Support",
+      "description": "Support ticketing system and FAQ. Users create tickets and exchange messages with support agents. Admins manage tickets (assign agents, update status) and maintain FAQs. Accessed from Profile → Supporto in the mobile app.",
+      "item": [
+        {
+          "name": "Tickets",
+          "description": "Support ticket management. Any authenticated user can create tickets and add messages. Admins can view all tickets, assign agents, and update status.",
+          "item": [
+            {
+              "name": "Create Ticket",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code === 201) {",
+                      "    const res = pm.response.json();",
+                      "    if (res.success && res.data && res.data.id) {",
+                      "        pm.collectionVariables.set('ticketId', res.data.id);",
+                      "        console.log('ticketId saved: ' + res.data.id);",
+                      "    }",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/support/tickets",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "support", "tickets"]
+                },
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"subject\": \"Unable to upload my electricity bill\",\n  \"category\": \"billing_payments\",\n  \"priority\": \"medium\",\n  \"message\": \"I keep getting an error when trying to upload my Enel electricity bill as PDF.\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "description": "Creates a new support ticket with an initial message.\n\n**Required fields:**\n- `subject` — Ticket subject (max 255)\n- `category` — `technical_support`, `billing_payments`, `switching`, `general`\n- `message` — Initial message text\n\n**Optional fields:**\n- `priority` — `low`, `medium` (default), `high`, `urgent`\n\nTicket starts in `open` status. The `userId` is auto-set from the JWT.\n\n**Auto-saves** `ticketId` to collection variables."
+              },
+              "response": [
+                {
+                  "name": "201 - Ticket Created",
+                  "status": "Created",
+                  "code": 201,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"tk1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"userId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"assignedAgentId\": null,\n    \"subject\": \"Unable to upload my electricity bill\",\n    \"category\": \"billing_payments\",\n    \"priority\": \"medium\",\n    \"status\": \"open\",\n    \"resolvedAt\": null,\n    \"closedAt\": null,\n    \"createdAt\": \"2026-06-10T10:00:00.000Z\",\n    \"user\": { \"id\": \"a1b2c3d4...\", \"email\": \"mario.rossi@email.com\", \"firstName\": \"Mario\", \"lastName\": \"Rossi\" },\n    \"assignedAgent\": null,\n    \"messages\": [\n      {\n        \"id\": \"msg1a2b3-d5e6-7890-abcd-ef1234567890\",\n        \"ticketId\": \"tk1a2b3c-d5e6-7890-abcd-ef1234567890\",\n        \"senderId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n        \"message\": \"I keep getting an error when trying to upload my Enel electricity bill as PDF.\",\n        \"attachments\": null,\n        \"createdAt\": \"2026-06-10T10:00:00.000Z\",\n        \"sender\": { \"id\": \"a1b2c3d4...\", \"firstName\": \"Mario\", \"lastName\": \"Rossi\" }\n      }\n    ]\n  }\n}"
+                },
+                {
+                  "name": "400 - Validation Error",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"subject should not be empty\", \"category must be a valid enum value\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "401 - Unauthorized",
+                  "status": "Unauthorized",
+                  "code": 401,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\"Unauthorized\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "List Tickets",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/support/tickets?page=1&limit=20",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "support", "tickets"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "20" },
+                    { "key": "status", "value": "open", "disabled": true },
+                    { "key": "priority", "value": "high", "disabled": true },
+                    { "key": "category", "value": "billing_payments", "disabled": true },
+                    { "key": "search", "value": "upload", "disabled": true }
+                  ]
+                },
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "description": "Returns a paginated list of support tickets.\n\nRegular users see only their own tickets. Admins see all tickets.\n\n**Query parameters:**\n- `page`, `limit`, `search` (subject)\n- `status` — `open`, `in_progress`, `resolved`, `closed`\n- `priority` — `low`, `medium`, `high`, `urgent`\n- `category` — `technical_support`, `billing_payments`, `switching`, `general`"
+              },
+              "response": [
+                {
+                  "name": "200 - Ticket List",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"data\": [\n      {\n        \"id\": \"tk1a2b3c-d5e6-7890-abcd-ef1234567890\",\n        \"userId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n        \"subject\": \"Unable to upload my electricity bill\",\n        \"category\": \"billing_payments\",\n        \"priority\": \"medium\",\n        \"status\": \"open\",\n        \"createdAt\": \"2026-06-10T10:00:00.000Z\",\n        \"user\": { \"id\": \"a1b2c3d4...\", \"email\": \"mario.rossi@email.com\", \"firstName\": \"Mario\", \"lastName\": \"Rossi\" },\n        \"assignedAgent\": null\n      }\n    ],\n    \"meta\": { \"total\": 1, \"page\": 1, \"limit\": 20, \"totalPages\": 1 }\n  }\n}"
+                }
+              ]
+            },
+            {
+              "name": "Get Ticket Detail",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/support/tickets/{{ticketId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "support", "tickets", "{{ticketId}}"]
+                },
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "description": "Returns a single ticket with full conversation thread (messages with sender details).\n\nUsers can only access their own tickets. Admins can access any ticket."
+              },
+              "response": [
+                {
+                  "name": "200 - Ticket with Messages",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"tk1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"userId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"subject\": \"Unable to upload my electricity bill\",\n    \"category\": \"billing_payments\",\n    \"priority\": \"medium\",\n    \"status\": \"in_progress\",\n    \"assignedAgentId\": \"admin-uuid\",\n    \"resolvedAt\": null,\n    \"closedAt\": null,\n    \"user\": { \"id\": \"a1b2c3d4...\", \"firstName\": \"Mario\", \"lastName\": \"Rossi\" },\n    \"assignedAgent\": { \"id\": \"admin-uuid\", \"firstName\": \"Admin\", \"lastName\": \"Support\" },\n    \"messages\": [\n      {\n        \"id\": \"msg1a2b3-d5e6-7890-abcd-ef1234567890\",\n        \"senderId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n        \"message\": \"I keep getting an error when trying to upload my Enel electricity bill as PDF.\",\n        \"attachments\": null,\n        \"createdAt\": \"2026-06-10T10:00:00.000Z\",\n        \"sender\": { \"id\": \"a1b2c3d4...\", \"firstName\": \"Mario\", \"lastName\": \"Rossi\" }\n      },\n      {\n        \"id\": \"msg2b3c4d-e6f7-8901-bcde-f23456789012\",\n        \"senderId\": \"admin-uuid\",\n        \"message\": \"Thank you for reporting this. Could you share which browser you are using?\",\n        \"attachments\": null,\n        \"createdAt\": \"2026-06-10T11:00:00.000Z\",\n        \"sender\": { \"id\": \"admin-uuid\", \"firstName\": \"Admin\", \"lastName\": \"Support\" }\n      }\n    ]\n  }\n}"
+                },
+                {
+                  "name": "404 - Ticket Not Found",
+                  "status": "Not Found",
+                  "code": 404,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Ticket not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "403 - Access Denied",
+                  "status": "Forbidden",
+                  "code": 403,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Access denied\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Update Ticket — Assign Agent (Admin)",
+              "request": {
+                "method": "PATCH",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/support/tickets/{{ticketId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "support", "tickets", "{{ticketId}}"]
+                },
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"assignedAgentId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "description": "Assigns an admin agent to a ticket. When assigned to an `open` ticket, status auto-transitions to `in_progress`.\n\nRequires `admin` role."
+              },
+              "response": [
+                {
+                  "name": "200 - Agent Assigned (auto in_progress)",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"tk1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"assignedAgentId\": \"admin-uuid\",\n    \"status\": \"in_progress\",\n    \"updatedAt\": \"2026-06-10T12:00:00.000Z\"\n  }\n}"
+                },
+                {
+                  "name": "404 - Ticket Not Found",
+                  "status": "Not Found",
+                  "code": 404,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Ticket not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Update Ticket — Resolve (Admin)",
+              "request": {
+                "method": "PATCH",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/support/tickets/{{ticketId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "support", "tickets", "{{ticketId}}"]
+                },
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"resolved\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "description": "Resolves a ticket. Sets `resolvedAt` timestamp.\n\nValid from `in_progress` status only. Requires `admin` role."
+              },
+              "response": [
+                {
+                  "name": "200 - Ticket Resolved",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"tk1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"status\": \"resolved\",\n    \"resolvedAt\": \"2026-06-10T16:00:00.000Z\",\n    \"updatedAt\": \"2026-06-10T16:00:00.000Z\"\n  }\n}"
+                },
+                {
+                  "name": "400 - Invalid Transition",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"Cannot transition from closed to resolved\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Add Message to Ticket",
+              "request": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/support/tickets/{{ticketId}}/messages",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "support", "tickets", "{{ticketId}}", "messages"]
+                },
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"message\": \"I tried again and the upload still fails. Here is a screenshot.\",\n  \"attachments\": [\"https://cdn.easyresparmio.it/uploads/screenshot-error.png\"]\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "description": "Adds a message to a ticket conversation.\n\nUsers can only message their own tickets. Admins can message any ticket.\n\n**Fields:**\n- `message` (required) — Message text\n- `attachments` (optional) — Array of file URLs"
+              },
+              "response": [
+                {
+                  "name": "201 - Message Added",
+                  "status": "Created",
+                  "code": 201,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"msg2b3c4d-e6f7-8901-bcde-f23456789012\",\n    \"ticketId\": \"tk1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"senderId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"message\": \"I tried again and the upload still fails. Here is a screenshot.\",\n    \"attachments\": [\"https://cdn.easyresparmio.it/uploads/screenshot-error.png\"],\n    \"createdAt\": \"2026-06-10T12:00:00.000Z\"\n  }\n}"
+                },
+                {
+                  "name": "403 - Access Denied",
+                  "status": "Forbidden",
+                  "code": 403,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Access denied\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Get Ticket Messages",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/support/tickets/{{ticketId}}/messages",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "support", "tickets", "{{ticketId}}", "messages"]
+                },
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "description": "Returns all messages in a ticket conversation, ordered by creation date ascending.\n\nUsers can only view messages from their own tickets. Admins can view any ticket."
+              },
+              "response": [
+                {
+                  "name": "200 - Message Thread",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"msg1a2b3-d5e6-7890-abcd-ef1234567890\",\n      \"ticketId\": \"tk1a2b3c-d5e6-7890-abcd-ef1234567890\",\n      \"senderId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"message\": \"I keep getting an error when trying to upload my Enel electricity bill as PDF.\",\n      \"attachments\": null,\n      \"createdAt\": \"2026-06-10T10:00:00.000Z\",\n      \"sender\": { \"id\": \"a1b2c3d4...\", \"firstName\": \"Mario\", \"lastName\": \"Rossi\" }\n    },\n    {\n      \"id\": \"msg2b3c4d-e6f7-8901-bcde-f23456789012\",\n      \"senderId\": \"admin-uuid\",\n      \"message\": \"Thank you for reporting this. Could you share which browser you are using?\",\n      \"attachments\": null,\n      \"createdAt\": \"2026-06-10T11:00:00.000Z\",\n      \"sender\": { \"id\": \"admin-uuid\", \"firstName\": \"Admin\", \"lastName\": \"Support\" }\n    }\n  ]\n}"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "FAQs",
+          "description": "Frequently Asked Questions. Public listing (no auth). Admin CRUD for managing FAQ entries. Supports categories, locale, and target audience.",
+          "item": [
+            {
+              "name": "List FAQs (Public)",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/support/faqs",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "support", "faqs"],
+                  "query": [
+                    { "key": "category", "value": "billing", "disabled": true }
+                  ]
+                },
+                "description": "Returns active FAQs sorted by category and display order. No authentication required.\n\n**Query parameters:**\n- `category` — Filter by FAQ category (optional)"
+              },
+              "response": [
+                {
+                  "name": "200 - FAQ List",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"fq1a2b3c-d5e6-7890-abcd-ef1234567890\",\n      \"category\": \"billing\",\n      \"question\": \"How does the switching process work?\",\n      \"answer\": \"The switching process takes 2-4 weeks. We handle all paperwork with your new supplier and ensure no service interruption.\",\n      \"sortOrder\": 1,\n      \"isActive\": true,\n      \"locale\": \"it\",\n      \"targetAudience\": \"both\",\n      \"createdAt\": \"2026-06-01T10:00:00.000Z\"\n    },\n    {\n      \"id\": \"fq2b3c4d-e6f7-8901-bcde-f23456789012\",\n      \"category\": \"billing\",\n      \"question\": \"Will my service be interrupted?\",\n      \"answer\": \"No. Your service continues uninterrupted during the switch.\",\n      \"sortOrder\": 2,\n      \"isActive\": true,\n      \"locale\": \"it\",\n      \"targetAudience\": \"both\",\n      \"createdAt\": \"2026-06-01T10:00:00.000Z\"\n    }\n  ]\n}"
+                }
+              ]
+            },
+            {
+              "name": "Create FAQ (Admin)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code === 201) {",
+                      "    const res = pm.response.json();",
+                      "    if (res.success && res.data && res.data.id) {",
+                      "        pm.collectionVariables.set('faqId', res.data.id);",
+                      "        console.log('faqId saved: ' + res.data.id);",
+                      "    }",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/support/faqs",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "support", "faqs"]
+                },
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"category\": \"billing\",\n  \"question\": \"How does the switching process work?\",\n  \"answer\": \"The switching process takes 2-4 weeks. We handle all paperwork with your new supplier and ensure no service interruption.\",\n  \"sortOrder\": 1,\n  \"locale\": \"it\",\n  \"targetAudience\": \"both\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "description": "Creates a new FAQ entry. Requires `admin` role.\n\n**Required:** `category`, `question`, `answer`\n**Optional:** `sortOrder` (default: 0), `locale` (default: it), `targetAudience` (default: both), `isActive` (default: true)\n\n**Auto-saves** `faqId` to collection variables."
+              },
+              "response": [
+                {
+                  "name": "201 - FAQ Created",
+                  "status": "Created",
+                  "code": 201,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"fq1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"category\": \"billing\",\n    \"question\": \"How does the switching process work?\",\n    \"answer\": \"The switching process takes 2-4 weeks. We handle all paperwork with your new supplier and ensure no service interruption.\",\n    \"sortOrder\": 1,\n    \"isActive\": true,\n    \"locale\": \"it\",\n    \"targetAudience\": \"both\",\n    \"createdAt\": \"2026-06-10T12:00:00.000Z\",\n    \"updatedAt\": \"2026-06-10T12:00:00.000Z\"\n  }\n}"
+                },
+                {
+                  "name": "400 - Validation Error",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"category should not be empty\", \"question should not be empty\", \"answer should not be empty\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "403 - Forbidden (Not Admin)",
+                  "status": "Forbidden",
+                  "code": 403,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Update FAQ (Admin)",
+              "request": {
+                "method": "PATCH",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/support/faqs/{{faqId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "support", "faqs", "{{faqId}}"]
+                },
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"answer\": \"Updated answer with more details about the switching timeline.\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "description": "Updates FAQ fields. All fields are optional (partial update). Requires `admin` role."
+              },
+              "response": [
+                {
+                  "name": "200 - FAQ Updated",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"fq1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"category\": \"billing\",\n    \"question\": \"How does the switching process work?\",\n    \"answer\": \"Updated answer with more details about the switching timeline.\",\n    \"sortOrder\": 1,\n    \"updatedAt\": \"2026-06-10T14:00:00.000Z\"\n  }\n}"
+                },
+                {
+                  "name": "404 - FAQ Not Found",
+                  "status": "Not Found",
+                  "code": 404,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"FAQ not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Delete FAQ (Admin)",
+              "request": {
+                "method": "DELETE",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/support/faqs/{{faqId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "support", "faqs", "{{faqId}}"]
+                },
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "description": "Permanently deletes a FAQ entry. Requires `admin` role."
+              },
+              "response": [
+                {
+                  "name": "200 - FAQ Deleted",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"FAQ deleted successfully\"\n  }\n}"
+                },
+                {
+                  "name": "404 - FAQ Not Found",
+                  "status": "Not Found",
+                  "code": 404,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"FAQ not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
                 }
               ]
             }

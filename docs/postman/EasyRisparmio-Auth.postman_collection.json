@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "EasyRisparmio API",
-    "description": "API collection for the EasyRisparmio Italian energy comparison & switching platform.\n\n## Modules\n- **Authentication** — Email/password + social login (Google, Facebook, Apple via Firebase)\n- **Referrals** — Invite & Earn referral program for users and admin management\n- **Meters** — Utility meter management (electricity, gas, water, internet) with admin moderation\n\n## Roles\n| Role | Description |\n|------|-------------|\n| `personal` | Individual user (default) |\n| `business` | Business user with company profile |\n| `admin` | Platform administrator (seeded, cannot register) |\n\n## Token Flow\n1. Login or social-login returns `accessToken` (JWT, 15 min) + `refreshToken` (UUID, 7 days)\n2. Use `accessToken` in `Authorization: Bearer <token>` header for protected endpoints\n3. When expired, call refresh-token to get a new pair\n\n## Setup\n1. Set `baseUrl` variable to your server (default: `http://localhost:3000`)\n2. Register a user, then login — tokens are auto-saved to collection variables\n3. All protected requests automatically use the saved `accessToken`",
+    "description": "API collection for the EasyRisparmio Italian energy comparison & switching platform.\n\n## Modules\n- **Authentication** — Email/password + social login (Google, Facebook, Apple via Firebase)\n- **Referrals** — Invite & Earn referral program for users and admin management\n- **Meters** — Utility meter management (electricity, gas, water, internet) with admin moderation\n- **Suppliers** — Energy supplier management with public listing and admin CRUD\n\n## Roles\n| Role | Description |\n|------|-------------|\n| `personal` | Individual user (default) |\n| `business` | Business user with company profile |\n| `admin` | Platform administrator (seeded, cannot register) |\n\n## Token Flow\n1. Login or social-login returns `accessToken` (JWT, 15 min) + `refreshToken` (UUID, 7 days)\n2. Use `accessToken` in `Authorization: Bearer <token>` header for protected endpoints\n3. When expired, call refresh-token to get a new pair\n\n## Setup\n1. Set `baseUrl` variable to your server (default: `http://localhost:3000`)\n2. Register a user, then login — tokens are auto-saved to collection variables\n3. All protected requests automatically use the saved `accessToken`",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -34,6 +34,12 @@
       "value": "",
       "type": "string",
       "description": "Meter UUID (auto-set by Create Meter request)"
+    },
+    {
+      "key": "supplierId",
+      "value": "",
+      "type": "string",
+      "description": "Supplier UUID (auto-set by Create Supplier request)"
     }
   ],
   "item": [
@@ -1998,6 +2004,572 @@
                     }
                   ],
                   "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"Cannot transition from terminated to terminated\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Suppliers",
+      "description": "Energy supplier management. Public users browse active suppliers. Admins manage the full lifecycle including creation, updates, activation/deactivation, and soft-deletion.",
+      "item": [
+        {
+          "name": "Public",
+          "description": "Public supplier endpoints. No authentication required. Returns only active suppliers.",
+          "item": [
+            {
+              "name": "List Active Suppliers",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/suppliers?page=1&limit=20",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "suppliers"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20"
+                    },
+                    {
+                      "key": "search",
+                      "value": "enel",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Returns a paginated list of active suppliers. No authentication required.\n\nSupports text search by supplier name and supplier code.\n\n**Query parameters:**\n- `page` — Page number (default: 1)\n- `limit` — Items per page (default: 20, max: 100)\n- `search` — Search by supplier name or supplier code"
+              },
+              "response": [
+                {
+                  "name": "200 - Active Suppliers List",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"data\": [\n      {\n        \"id\": \"s1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n        \"name\": \"Enel Energia\",\n        \"logoUrl\": \"https://cdn.easyresparmio.it/logos/enel-energia.png\",\n        \"description\": \"Leading Italian energy supplier since 1962\",\n        \"rating\": \"4.50\",\n        \"isActive\": true,\n        \"contactEmail\": \"info@enelenergia.it\",\n        \"contactPhone\": \"+39023456789\",\n        \"website\": \"https://www.enelenergia.it\",\n        \"supplierCode\": \"ENEL-001\",\n        \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n        \"updatedAt\": \"2026-06-01T10:00:00.000Z\"\n      },\n      {\n        \"id\": \"s2b3c4d5-e6f7-8901-bcde-f23456789012\",\n        \"name\": \"Eni Plenitude\",\n        \"logoUrl\": \"https://cdn.easyresparmio.it/logos/eni-plenitude.png\",\n        \"description\": \"Italian energy and gas supplier\",\n        \"rating\": \"4.20\",\n        \"isActive\": true,\n        \"contactEmail\": \"info@eniplenitude.it\",\n        \"contactPhone\": \"+39024567890\",\n        \"website\": \"https://www.eniplenitude.com\",\n        \"supplierCode\": \"ENI-001\",\n        \"createdAt\": \"2026-05-20T08:00:00.000Z\",\n        \"updatedAt\": \"2026-05-20T08:00:00.000Z\"\n      }\n    ],\n    \"meta\": {\n      \"total\": 2,\n      \"page\": 1,\n      \"limit\": 20,\n      \"totalPages\": 1\n    }\n  }\n}"
+                },
+                {
+                  "name": "200 - Empty List",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"data\": [],\n    \"meta\": {\n      \"total\": 0,\n      \"page\": 1,\n      \"limit\": 20,\n      \"totalPages\": 0\n    }\n  }\n}"
+                }
+              ]
+            },
+            {
+              "name": "Get Supplier Detail",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/suppliers/{{supplierId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "suppliers",
+                    "{{supplierId}}"
+                  ]
+                },
+                "description": "Returns a single supplier with its associated offers. No authentication required.\n\n**Path parameters:**\n- `id` — Supplier UUID"
+              },
+              "response": [
+                {
+                  "name": "200 - Supplier Detail",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"s1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"name\": \"Enel Energia\",\n    \"logoUrl\": \"https://cdn.easyresparmio.it/logos/enel-energia.png\",\n    \"description\": \"Leading Italian energy supplier since 1962\",\n    \"rating\": \"4.50\",\n    \"isActive\": true,\n    \"contactEmail\": \"info@enelenergia.it\",\n    \"contactPhone\": \"+39023456789\",\n    \"website\": \"https://www.enelenergia.it\",\n    \"supplierCode\": \"ENEL-001\",\n    \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-01T10:00:00.000Z\",\n    \"offers\": [\n      {\n        \"id\": \"o1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n        \"name\": \"Casa Luce Fix\",\n        \"energyType\": \"electricity\",\n        \"status\": \"active\"\n      }\n    ]\n  }\n}"
+                },
+                {
+                  "name": "404 - Supplier Not Found",
+                  "status": "Not Found",
+                  "code": 404,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Supplier not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Admin",
+          "description": "Admin endpoints for managing energy suppliers. Requires `admin` role.\n\nAdmin can create, update, soft-delete, and toggle active/inactive status of suppliers. Inactive suppliers are hidden from the public listing but remain visible to admins.",
+          "item": [
+            {
+              "name": "Create Supplier",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code === 201) {",
+                      "    const res = pm.response.json();",
+                      "    if (res.success && res.data && res.data.id) {",
+                      "        pm.collectionVariables.set('supplierId', res.data.id);",
+                      "        console.log('supplierId saved: ' + res.data.id);",
+                      "    }",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/suppliers",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "suppliers"
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Enel Energia\",\n  \"logoUrl\": \"https://cdn.easyresparmio.it/logos/enel-energia.png\",\n  \"description\": \"Leading Italian energy supplier since 1962\",\n  \"rating\": 4.5,\n  \"contactEmail\": \"info@enelenergia.it\",\n  \"contactPhone\": \"+39023456789\",\n  \"website\": \"https://www.enelenergia.it\",\n  \"supplierCode\": \"ENEL-001\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Creates a new energy supplier.\n\n**Required fields:**\n- `name` — Supplier name (max 255 chars)\n\n**Optional fields:**\n- `logoUrl` — Logo URL (max 500)\n- `description` — Supplier description\n- `rating` — 0 to 5 with up to 2 decimal places (default: 0)\n- `contactEmail` — Valid email (max 255)\n- `contactPhone` — Phone number (max 20)\n- `website` — Valid URL (max 500)\n- `supplierCode` — Unique supplier code (max 50, returns 409 if duplicate)\n\nThe `createdBy`/`updatedBy` audit fields are auto-set from the admin JWT.\n\n**Auto-saves** `supplierId` to collection variables."
+              },
+              "response": [
+                {
+                  "name": "201 - Supplier Created",
+                  "status": "Created",
+                  "code": 201,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"s1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"name\": \"Enel Energia\",\n    \"logoUrl\": \"https://cdn.easyresparmio.it/logos/enel-energia.png\",\n    \"description\": \"Leading Italian energy supplier since 1962\",\n    \"rating\": \"4.50\",\n    \"isActive\": true,\n    \"contactEmail\": \"info@enelenergia.it\",\n    \"contactPhone\": \"+39023456789\",\n    \"website\": \"https://www.enelenergia.it\",\n    \"supplierCode\": \"ENEL-001\",\n    \"createdBy\": \"admin-uuid\",\n    \"updatedBy\": \"admin-uuid\",\n    \"createdAt\": \"2026-06-10T12:00:00.000Z\",\n    \"updatedAt\": \"2026-06-10T12:00:00.000Z\"\n  }\n}"
+                },
+                {
+                  "name": "400 - Validation Error",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\n    \"name should not be empty\",\n    \"name must be a string\"\n  ],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "409 - Duplicate Supplier Code",
+                  "status": "Conflict",
+                  "code": 409,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 409,\n  \"message\": [\"A supplier with this supplier code already exists\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "401 - Unauthorized",
+                  "status": "Unauthorized",
+                  "code": 401,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\"Unauthorized\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "403 - Forbidden (Not Admin)",
+                  "status": "Forbidden",
+                  "code": 403,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "List All Suppliers (Admin)",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/suppliers/admin?page=1&limit=20",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "suppliers",
+                    "admin"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20"
+                    },
+                    {
+                      "key": "isActive",
+                      "value": "true",
+                      "disabled": true
+                    },
+                    {
+                      "key": "search",
+                      "value": "enel",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "description": "Returns a paginated list of all suppliers (active and inactive). Requires admin role.\n\n**Query parameters:**\n- `page` — Page number (default: 1)\n- `limit` — Items per page (default: 20, max: 100)\n- `isActive` — Filter by active status (`true` or `false`)\n- `search` — Search by name, email, or supplier code"
+              },
+              "response": [
+                {
+                  "name": "200 - All Suppliers (Admin)",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"data\": [\n      {\n        \"id\": \"s1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n        \"name\": \"Enel Energia\",\n        \"logoUrl\": \"https://cdn.easyresparmio.it/logos/enel-energia.png\",\n        \"description\": \"Leading Italian energy supplier since 1962\",\n        \"rating\": \"4.50\",\n        \"isActive\": true,\n        \"contactEmail\": \"info@enelenergia.it\",\n        \"contactPhone\": \"+39023456789\",\n        \"website\": \"https://www.enelenergia.it\",\n        \"supplierCode\": \"ENEL-001\",\n        \"createdBy\": \"admin-uuid\",\n        \"updatedBy\": \"admin-uuid\",\n        \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n        \"updatedAt\": \"2026-06-01T10:00:00.000Z\"\n      },\n      {\n        \"id\": \"s2b3c4d5-e6f7-8901-bcde-f23456789012\",\n        \"name\": \"Edison Energia\",\n        \"logoUrl\": null,\n        \"description\": null,\n        \"rating\": \"3.80\",\n        \"isActive\": false,\n        \"contactEmail\": \"info@edison.it\",\n        \"contactPhone\": null,\n        \"website\": \"https://www.edison.it\",\n        \"supplierCode\": \"EDIS-001\",\n        \"createdBy\": \"admin-uuid\",\n        \"updatedBy\": \"admin-uuid\",\n        \"createdAt\": \"2026-05-15T08:00:00.000Z\",\n        \"updatedAt\": \"2026-06-05T14:00:00.000Z\"\n      }\n    ],\n    \"meta\": {\n      \"total\": 2,\n      \"page\": 1,\n      \"limit\": 20,\n      \"totalPages\": 1\n    }\n  }\n}"
+                },
+                {
+                  "name": "403 - Forbidden (Not Admin)",
+                  "status": "Forbidden",
+                  "code": 403,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Update Supplier",
+              "request": {
+                "method": "PATCH",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/suppliers/{{supplierId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "suppliers",
+                    "{{supplierId}}"
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Updated description after rebrand\",\n  \"rating\": 4.7\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Updates supplier fields. All fields are optional (partial update).\n\nUse `PATCH /:id/toggle-status` for active/inactive toggling.\n\nThe `updatedBy` audit field is auto-set from the admin JWT."
+              },
+              "response": [
+                {
+                  "name": "200 - Supplier Updated",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"s1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"name\": \"Enel Energia\",\n    \"logoUrl\": \"https://cdn.easyresparmio.it/logos/enel-energia.png\",\n    \"description\": \"Updated description after rebrand\",\n    \"rating\": \"4.70\",\n    \"isActive\": true,\n    \"contactEmail\": \"info@enelenergia.it\",\n    \"contactPhone\": \"+39023456789\",\n    \"website\": \"https://www.enelenergia.it\",\n    \"supplierCode\": \"ENEL-001\",\n    \"createdBy\": \"admin-uuid\",\n    \"updatedBy\": \"admin-uuid\",\n    \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-10T14:00:00.000Z\"\n  }\n}"
+                },
+                {
+                  "name": "404 - Supplier Not Found",
+                  "status": "Not Found",
+                  "code": 404,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Supplier not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "409 - Duplicate Supplier Code",
+                  "status": "Conflict",
+                  "code": 409,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 409,\n  \"message\": [\"A supplier with this supplier code already exists\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Soft-Delete Supplier",
+              "request": {
+                "method": "DELETE",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/suppliers/{{supplierId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "suppliers",
+                    "{{supplierId}}"
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "description": "Soft-deletes a supplier by setting `deleted_at` timestamp. The supplier is hidden from all queries but preserved in the database.\n\nThis is a permanent action — unlike toggling `isActive`, soft-deleted suppliers cannot be recovered via the API."
+              },
+              "response": [
+                {
+                  "name": "200 - Supplier Deleted",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Supplier deleted successfully\"\n  }\n}"
+                },
+                {
+                  "name": "404 - Supplier Not Found",
+                  "status": "Not Found",
+                  "code": 404,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Supplier not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Toggle Status — Activate",
+              "request": {
+                "method": "PATCH",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/suppliers/{{supplierId}}/toggle-status",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "suppliers",
+                    "{{supplierId}}",
+                    "toggle-status"
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"isActive\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Activates a supplier, making it visible in the public listing.\n\nActive suppliers appear in `GET /suppliers`. Inactive suppliers are hidden from public but still visible to admins via `GET /suppliers/admin`."
+              },
+              "response": [
+                {
+                  "name": "200 - Supplier Activated",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"s1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"name\": \"Enel Energia\",\n    \"logoUrl\": \"https://cdn.easyresparmio.it/logos/enel-energia.png\",\n    \"description\": \"Leading Italian energy supplier since 1962\",\n    \"rating\": \"4.50\",\n    \"isActive\": true,\n    \"contactEmail\": \"info@enelenergia.it\",\n    \"contactPhone\": \"+39023456789\",\n    \"website\": \"https://www.enelenergia.it\",\n    \"supplierCode\": \"ENEL-001\",\n    \"createdBy\": \"admin-uuid\",\n    \"updatedBy\": \"admin-uuid\",\n    \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-10T14:00:00.000Z\"\n  }\n}"
+                },
+                {
+                  "name": "404 - Supplier Not Found",
+                  "status": "Not Found",
+                  "code": 404,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Supplier not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Toggle Status — Deactivate",
+              "request": {
+                "method": "PATCH",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/suppliers/{{supplierId}}/toggle-status",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "suppliers",
+                    "{{supplierId}}",
+                    "toggle-status"
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"isActive\": false\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Deactivates a supplier, hiding it from the public listing.\n\nInactive suppliers are still visible to admins via `GET /suppliers/admin` and can be reactivated at any time."
+              },
+              "response": [
+                {
+                  "name": "200 - Supplier Deactivated",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"s1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"name\": \"Enel Energia\",\n    \"logoUrl\": \"https://cdn.easyresparmio.it/logos/enel-energia.png\",\n    \"description\": \"Leading Italian energy supplier since 1962\",\n    \"rating\": \"4.50\",\n    \"isActive\": false,\n    \"contactEmail\": \"info@enelenergia.it\",\n    \"contactPhone\": \"+39023456789\",\n    \"website\": \"https://www.enelenergia.it\",\n    \"supplierCode\": \"ENEL-001\",\n    \"createdBy\": \"admin-uuid\",\n    \"updatedBy\": \"admin-uuid\",\n    \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-10T14:00:00.000Z\"\n  }\n}"
+                },
+                {
+                  "name": "404 - Supplier Not Found",
+                  "status": "Not Found",
+                  "code": 404,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Supplier not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
                 }
               ]
             }

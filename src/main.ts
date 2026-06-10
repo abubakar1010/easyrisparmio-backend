@@ -62,6 +62,7 @@ async function bootstrap() {
     .addTag('Market Data', 'Italian energy market indices')
     .addTag('Upload', 'File upload service')
     .addTag('Referrals', 'Referral program & invite tracking')
+    .addTag('Agreements', 'Exclusive partner discounts & agreements')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);

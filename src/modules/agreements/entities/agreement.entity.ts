@@ -1,4 +1,4 @@
-import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, DeleteDateColumn } from 'typeorm';
 import { BaseEntity } from '../../../common/entities/base.entity';
 import { UserTarget } from '../../../common/enums/offer.enum';
 import { User } from '../../users/entities/user.entity';
@@ -40,6 +40,12 @@ export class Agreement extends BaseEntity {
 
   @Column({ name: 'created_by', type: 'uuid', nullable: true })
   createdBy: string | null;
+
+  @Column({ name: 'updated_by', type: 'uuid', nullable: true })
+  updatedBy: string | null;
+
+  @DeleteDateColumn({ name: 'deleted_at' })
+  deletedAt: Date | null;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'created_by' })

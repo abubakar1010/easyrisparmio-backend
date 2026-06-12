@@ -7,6 +7,7 @@ import appConfig from './config/app.config';
 import databaseConfig from './config/database.config';
 import jwtConfig from './config/jwt.config';
 import firebaseConfig from './config/firebase.config';
+import emailConfig from './config/email.config';
 
 // Feature modules
 import { AuthModule } from './modules/auth/auth.module';
@@ -28,13 +29,14 @@ import { AlertsModule } from './modules/alerts/alerts.module';
 import { ReconciliationModule } from './modules/reconciliation/reconciliation.module';
 import { ReferralsModule } from './modules/referrals/referrals.module';
 import { AgreementsModule } from './modules/agreements/agreements.module';
+import { EmailModule } from './modules/email/email.module';
 
 @Module({
   imports: [
     // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, databaseConfig, jwtConfig, firebaseConfig],
+      load: [appConfig, databaseConfig, jwtConfig, firebaseConfig, emailConfig],
       envFilePath: '.env',
     }),
 
@@ -77,6 +79,9 @@ import { AgreementsModule } from './modules/agreements/agreements.module';
         limit: 100,
       },
     ]),
+
+    // Global modules
+    EmailModule,
 
     // Feature modules
     AuthModule,

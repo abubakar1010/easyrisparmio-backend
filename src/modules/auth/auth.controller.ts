@@ -3,10 +3,12 @@ import {
   Post,
   Get,
   Body,
+  Req,
   UseGuards,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -285,8 +287,15 @@ export class AuthController {
       },
     },
   })
-  async login(@Body() _dto: LoginDto, @CurrentUser() user: User) {
-    return this.authService.login(user);
+  async login(
+    @Body() _dto: LoginDto,
+    @CurrentUser() user: User,
+    @Req() req: Request,
+  ) {
+    return this.authService.login(user, {
+      ipAddress: req.ip,
+      deviceInfo: req.headers['user-agent'],
+    });
   }
 
   // ─── Social Login ─────────────────────────────────────────
@@ -422,8 +431,11 @@ export class AuthController {
       },
     },
   })
-  async socialLogin(@Body() dto: SocialLoginDto) {
-    return this.authService.socialLogin(dto.idToken);
+  async socialLogin(@Body() dto: SocialLoginDto, @Req() req: Request) {
+    return this.authService.socialLogin(dto.idToken, {
+      ipAddress: req.ip,
+      deviceInfo: req.headers['user-agent'],
+    });
   }
 
   // ─── OTP Verification ─────────────────────────────────────
@@ -609,8 +621,11 @@ export class AuthController {
       },
     },
   })
-  async refreshToken(@Body() dto: RefreshTokenDto) {
-    return this.authService.refreshToken(dto.refreshToken);
+  async refreshToken(@Body() dto: RefreshTokenDto, @Req() req: Request) {
+    return this.authService.refreshToken(dto.refreshToken, {
+      ipAddress: req.ip,
+      deviceInfo: req.headers['user-agent'],
+    });
   }
 
   // ─── Profile ──────────────────────────────────────────────

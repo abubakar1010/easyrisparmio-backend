@@ -23,6 +23,7 @@ import { UserStatus, OtpType, AuthProvider } from '../../common/enums/user.enum'
 import { UsersService } from '../users/users.service';
 import { FirebaseService } from './firebase.service';
 import { ReferralsService } from '../referrals/referrals.service';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class AuthService {
@@ -38,6 +39,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly firebaseService: FirebaseService,
     private readonly referralsService: ReferralsService,
+    private readonly emailService: EmailService,
   ) {}
 
   async register(dto: RegisterDto | RegisterBusinessDto) {
@@ -112,7 +114,10 @@ export class AuthService {
     return user;
   }
 
-  async login(user: User) {
+  async login(
+    user: User,
+    meta?: { ipAddress?: string; deviceInfo?: string },
+  ) {
     if (user.status === UserStatus.PENDING_VERIFICATION) {
       throw new UnauthorizedException('Please verify your email before logging in');
     }
@@ -121,7 +126,7 @@ export class AuthService {
       throw new UnauthorizedException('Your account has been suspended');
     }
 
-    const tokens = await this.generateTokens(user);
+    const tokens = await this.generateTokens(user, meta);
     const { passwordHash: _, ...userWithoutPassword } = user;
 
     return {
@@ -216,7 +221,10 @@ export class AuthService {
     return { message: 'Password reset successfully' };
   }
 
-  async refreshToken(token: string) {
+  async refreshToken(
+    token: string,
+    meta?: { ipAddress?: string; deviceInfo?: string },
+  ) {
     const existingToken = await this.refreshTokenRepository.findOne({
       where: {
         token,
@@ -235,7 +243,7 @@ export class AuthService {
     await this.refreshTokenRepository.save(existingToken);
 
     // Generate new tokens
-    const tokens = await this.generateTokens(existingToken.user);
+    const tokens = await this.generateTokens(existingToken.user, meta);
 
     return tokens;
   }
@@ -249,7 +257,10 @@ export class AuthService {
     return result;
   }
 
-  async socialLogin(idToken: string) {
+  async socialLogin(
+    idToken: string,
+    meta?: { ipAddress?: string; deviceInfo?: string },
+  ) {
     const decodedToken = await this.firebaseService.verifyIdToken(idToken);
 
     const email = decodedToken.email;
@@ -321,7 +332,7 @@ export class AuthService {
     }
 
     await this.usersService.update(user.id, { lastLoginAt: new Date() });
-    const tokens = await this.generateTokens(user);
+    const tokens = await this.generateTokens(user, meta);
     const { passwordHash: _, ...userWithoutPassword } = user;
 
     return {
@@ -343,7 +354,10 @@ export class AuthService {
     }
   }
 
-  private async generateTokens(user: User) {
+  private async generateTokens(
+    user: User,
+    meta?: { ipAddress?: string; deviceInfo?: string },
+  ) {
     const payload = { sub: user.id, email: user.email, role: user.role };
 
     const accessToken = this.jwtService.sign(payload);
@@ -359,6 +373,8 @@ export class AuthService {
       token: refreshTokenValue,
       userId: user.id,
       expiresAt: refreshTokenExpiry,
+      ipAddress: meta?.ipAddress || null,
+      deviceInfo: meta?.deviceInfo || null,
     });
     await this.refreshTokenRepository.save(refreshToken);
 
@@ -387,7 +403,18 @@ export class AuthService {
     });
     await this.otpCodeRepository.save(otpCode);
 
-    // TODO: Send OTP via email/SMS service
+    // Send OTP via email
+    if (
+      type === OtpType.EMAIL_VERIFICATION ||
+      type === OtpType.PASSWORD_RESET
+    ) {
+      const emailType =
+        type === OtpType.EMAIL_VERIFICATION
+          ? 'email_verification'
+          : 'password_reset';
+      await this.emailService.sendOtpEmail(user.email, code, emailType);
+    }
+
     return code;
   }
 }

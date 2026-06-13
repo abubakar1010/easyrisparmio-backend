@@ -1,6 +1,6 @@
 # Authentication
 
-EasyRisparmio supports two authentication methods: **email/password** and **social login** (Google, Facebook, Apple via Firebase). All auth endpoints are prefixed with `/api/v1/auth`.
+EasyRisparmio supports two authentication methods: **email/password** and **social login** (Google, Facebook, Apple via Firebase). OTP codes are delivered via **Resend** email service. All auth endpoints are prefixed with `/api/v1/auth`.
 
 ## Table of Contents
 
@@ -13,6 +13,7 @@ EasyRisparmio supports two authentication methods: **email/password** and **soci
 - [Token Management](#token-management)
 - [Admin Account](#admin-account)
 - [Account Linking](#account-linking)
+- [Rate Limiting](#rate-limiting)
 - [API Reference](#api-reference)
 - [Environment Variables](#environment-variables)
 - [Security Notes](#security-notes)
@@ -41,6 +42,8 @@ Users register as either `PERSONAL` or `BUSINESS`. Admin registration is blocked
 POST /api/v1/auth/register
 ```
 
+**Rate limit:** 5 requests per minute per IP.
+
 **Request Body:**
 
 ```json
@@ -57,11 +60,12 @@ POST /api/v1/auth/register
 | Field | Type | Required | Validation |
 |-------|------|----------|------------|
 | `email` | string | Yes | Valid email format |
-| `password` | string | Yes | Minimum 8 characters |
+| `password` | string | Yes | Min 8 chars, must include uppercase, lowercase, number, and special character |
 | `firstName` | string | Yes | Max 100 characters |
 | `lastName` | string | Yes | Max 100 characters |
 | `phone` | string | No | Max 20 characters |
 | `role` | string | Yes | `personal` or `business` |
+| `referralCode` | string | No | 8-char referral code from existing user |
 
 **Response (201):**
 
@@ -83,13 +87,15 @@ POST /api/v1/auth/register
 }
 ```
 
-After registration, a 6-digit OTP is generated for email verification. The user must call `POST /auth/verify-otp` to activate their account.
+After registration, a 6-digit OTP is generated and **sent to the user's email via Resend**. The user must call `POST /auth/verify-otp` to activate their account.
 
 ### Business Registration
 
 ```
 POST /api/v1/auth/register/business
 ```
+
+**Rate limit:** 5 requests per minute per IP.
 
 Extends personal registration with company fields:
 
@@ -107,7 +113,9 @@ Extends personal registration with company fields:
 | Status | Condition |
 |--------|-----------|
 | 400 | Role is `admin` |
+| 400 | Password does not meet complexity requirements |
 | 409 | Email already registered |
+| 429 | Rate limit exceeded |
 
 ---
 
@@ -116,6 +124,8 @@ Extends personal registration with company fields:
 ```
 POST /api/v1/auth/login
 ```
+
+**Rate limit:** 10 requests per minute per IP.
 
 **Request Body:**
 
@@ -147,6 +157,8 @@ POST /api/v1/auth/login
 }
 ```
 
+The client IP address and User-Agent are stored with the refresh token for security auditing.
+
 **Error Responses:**
 
 | Status | Condition |
@@ -154,6 +166,7 @@ POST /api/v1/auth/login
 | 401 | Invalid email or password |
 | 401 | Account is `pending_verification` (email not verified yet) |
 | 401 | Account is `suspended` |
+| 429 | Rate limit exceeded |
 
 Social-only users (no password set) attempting email/password login will receive an "Invalid email or password" error.
 
@@ -175,9 +188,9 @@ POST /api/v1/auth/social-login
 }
 ```
 
-| Field | Type | Required | Description |
+| Field | Type | Required | Validation |
 |-------|------|----------|-------------|
-| `idToken` | string | Yes | Firebase ID token obtained from the mobile app after social sign-in |
+| `idToken` | string | Yes | Firebase ID token, max 4096 characters |
 
 **Response (200):**
 
@@ -210,9 +223,10 @@ POST /api/v1/auth/social-login
 3. Mobile app sends the ID token to `POST /auth/social-login`
 4. Server verifies the token with `firebase-admin` SDK
 5. Server extracts user info (email, name, avatar, provider) from the decoded token
-6. If the user exists (by `firebaseUid` or `email`), they are logged in
-7. If the user is new, an account is created with `role: personal`, `status: active`, `emailVerified: true`
-8. JWT access token and refresh token are returned
+6. Avatar URLs are validated (HTTPS only) before storage
+7. If the user exists (by `firebaseUid` or `email`), they are logged in
+8. If the user is new, an account is created with `role: personal`, `status: active`, `emailVerified: true`
+9. JWT access token and refresh token are returned
 
 ### Auth Providers
 
@@ -238,11 +252,13 @@ The `authProvider` field indicates how the user originally created their account
 
 ## OTP Verification
 
-Used for email verification after registration, phone verification, and password reset.
+Used for email verification after registration, phone verification, and password reset. OTP codes are sent via **Resend** email service.
 
 ```
 POST /api/v1/auth/verify-otp
 ```
+
+**Rate limit:** 5 requests per minute per IP.
 
 **Request Body:**
 
@@ -273,9 +289,12 @@ POST /api/v1/auth/verify-otp
 
 ### OTP Behavior
 
-- Codes are 6 digits, valid for **10 minutes**
+- Codes are 6 digits, generated with `crypto.randomInt()` (cryptographically secure)
+- Valid for **10 minutes**
 - Single-use: marked as used after successful verification
 - Generating a new OTP invalidates any previous unused OTPs of the same type
+- **Brute-force protection:** Maximum 5 failed attempts per OTP code. After 5 failures, the code is locked and the user must request a new one
+- **User enumeration prevention:** Returns the same error message ("Invalid or expired OTP code") whether the email exists or not
 - `email_verification`: sets `emailVerified: true` and `status: active`
 - `phone_verification`: sets `phoneVerified: true`
 
@@ -289,6 +308,8 @@ POST /api/v1/auth/verify-otp
 POST /api/v1/auth/forgot-password
 ```
 
+**Rate limit:** 3 requests per minute per IP.
+
 **Request Body:**
 
 ```json
@@ -297,7 +318,7 @@ POST /api/v1/auth/forgot-password
 }
 ```
 
-**Response (200):** Always returns the same message regardless of whether the email exists (prevents user enumeration).
+**Response (200):** Always returns the same message regardless of whether the email exists (prevents user enumeration). OTP code is sent via email if user exists.
 
 ```json
 {
@@ -314,6 +335,8 @@ POST /api/v1/auth/forgot-password
 POST /api/v1/auth/reset-password
 ```
 
+**Rate limit:** 5 requests per minute per IP.
+
 **Request Body:**
 
 ```json
@@ -328,7 +351,7 @@ POST /api/v1/auth/reset-password
 |-------|------|----------|------------|
 | `email` | string | Yes | User's email |
 | `code` | string | Yes | 6-digit OTP code |
-| `newPassword` | string | Yes | Minimum 8 characters |
+| `newPassword` | string | Yes | Min 8 chars, must include uppercase, lowercase, number, and special character |
 
 **Response (200):**
 
@@ -341,7 +364,7 @@ POST /api/v1/auth/reset-password
 }
 ```
 
-After a successful password reset, all existing refresh tokens for the user are revoked.
+After a successful password reset, all existing refresh tokens for the user are revoked. Brute-force protection (5 max attempts) applies to the OTP code.
 
 ---
 
@@ -363,8 +386,8 @@ After a successful password reset, all existing refresh tokens for the user are 
 
 ### Refresh Token
 
-- **Type:** UUID v4 string
-- **Storage:** Database (`refresh_tokens` table)
+- **Type:** UUID string (generated with `crypto.randomUUID()`)
+- **Storage:** Database (`refresh_tokens` table) with IP address and User-Agent
 - **Expiry:** Configurable via `JWT_REFRESH_EXPIRATION_DAYS` (default: 7 days)
 - **Revocable:** Yes, tokens have a `revoked` boolean flag
 
@@ -394,7 +417,7 @@ POST /api/v1/auth/refresh-token
 }
 ```
 
-The old refresh token is revoked and a new token pair is issued. If the refresh token is invalid, expired, or already revoked, a `401 Unauthorized` is returned.
+The rotation is performed within a **database transaction**: new tokens are generated before the old token is revoked, ensuring no session loss on failure. If the refresh token is invalid, expired, or already revoked, a `401 Unauthorized` is returned.
 
 ### Get Current User Profile
 
@@ -467,23 +490,40 @@ When a user signs in via social login with an email that already exists in the s
 | Social-only user tries email/password login | Returns "Invalid email or password" (no password set) |
 | Suspended user tries social login | Returns "Your account has been suspended" |
 
-When linking, the social profile avatar is applied only if the user doesn't already have one.
+When linking, the social profile avatar is applied only if the user doesn't already have one. Avatar URLs are validated (HTTPS only).
+
+---
+
+## Rate Limiting
+
+Auth endpoints have per-endpoint rate limits to prevent brute-force attacks:
+
+| Endpoint | Limit | Window |
+|----------|-------|--------|
+| `POST /auth/register` | 5 requests | 1 minute |
+| `POST /auth/register/business` | 5 requests | 1 minute |
+| `POST /auth/login` | 10 requests | 1 minute |
+| `POST /auth/verify-otp` | 5 requests | 1 minute |
+| `POST /auth/forgot-password` | 3 requests | 1 minute |
+| `POST /auth/reset-password` | 5 requests | 1 minute |
+
+Rate limits are enforced per IP via `@nestjs/throttler`. Exceeding the limit returns `429 Too Many Requests`.
 
 ---
 
 ## API Reference
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/auth/register` | No | Register personal user |
-| POST | `/auth/register/business` | No | Register business user |
-| POST | `/auth/login` | No | Email/password login |
-| POST | `/auth/social-login` | No | Social login via Firebase ID token |
-| POST | `/auth/verify-otp` | No | Verify OTP code |
-| POST | `/auth/forgot-password` | No | Request password reset OTP |
-| POST | `/auth/reset-password` | No | Reset password with OTP |
-| POST | `/auth/refresh-token` | No | Refresh access token |
-| GET | `/auth/me` | JWT | Get current user profile |
+| Method | Endpoint | Auth | Rate Limit | Description |
+|--------|----------|------|------------|-------------|
+| POST | `/auth/register` | No | 5/min | Register personal user |
+| POST | `/auth/register/business` | No | 5/min | Register business user |
+| POST | `/auth/login` | No | 10/min | Email/password login |
+| POST | `/auth/social-login` | No | Global | Social login via Firebase ID token |
+| POST | `/auth/verify-otp` | No | 5/min | Verify OTP code |
+| POST | `/auth/forgot-password` | No | 3/min | Request password reset OTP |
+| POST | `/auth/reset-password` | No | 5/min | Reset password with OTP |
+| POST | `/auth/refresh-token` | No | Global | Refresh access token |
+| GET | `/auth/me` | JWT | Global | Get current user profile |
 
 All responses follow the standard format:
 
@@ -501,29 +541,42 @@ All responses follow the standard format:
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `JWT_SECRET` | Yes | `default-secret` | Secret key for signing JWT access tokens |
+| `JWT_SECRET` | Yes | - | Secret key for signing JWT access tokens (use a strong random string) |
 | `JWT_EXPIRES_IN_SECONDS` | No | `900` | Access token expiry in seconds (15 min) |
 | `JWT_REFRESH_EXPIRATION_DAYS` | No | `7` | Refresh token expiry in days |
-| `FIREBASE_PROJECT_ID` | No* | - | Firebase project ID |
-| `FIREBASE_CLIENT_EMAIL` | No* | - | Firebase service account email |
-| `FIREBASE_PRIVATE_KEY` | No* | - | Firebase service account private key (with `\n` for newlines) |
-| `ADMIN_EMAIL` | No** | - | Admin user email for auto-seeding |
-| `ADMIN_PASSWORD` | No** | - | Admin user password for auto-seeding |
+| `RESEND_API_KEY` | Yes* | - | Resend API key for sending OTP emails |
+| `EMAIL_FROM` | No | `EasyRisparmio <noreply@easyresparmio.it>` | Sender address for emails |
+| `FIREBASE_PROJECT_ID` | No** | - | Firebase project ID |
+| `FIREBASE_CLIENT_EMAIL` | No** | - | Firebase service account email |
+| `FIREBASE_PRIVATE_KEY` | No** | - | Firebase service account private key (with `\n` for newlines) |
+| `ADMIN_EMAIL` | No*** | - | Admin user email for auto-seeding |
+| `ADMIN_PASSWORD` | No*** | - | Admin user password for auto-seeding |
 | `OTP_EXPIRY_MINUTES` | No | `10` | OTP code expiry in minutes |
 
-\* Required for social login to work. If missing, the app starts normally but social login returns 500.
-\** Required for admin account creation. If missing, no admin is seeded.
+\* If not configured, OTP codes are logged to console (development mode). Email delivery will not work.
+\** Required for social login to work. If missing, the app starts normally but social login returns 500.
+\*** Required for admin account creation. If missing, no admin is seeded.
 
 ---
 
 ## Security Notes
 
 - **Password hashing:** bcrypt with 10 salt rounds
+- **Password policy:** Minimum 8 characters, must include uppercase, lowercase, number, and special character
 - **Password never exposed:** `passwordHash` is stripped from all API responses
+- **OTP generation:** Uses `crypto.randomInt()` (cryptographically secure), not `Math.random()`
+- **OTP brute-force protection:** Maximum 5 failed attempts per OTP code; code is locked after exceeding limit
+- **OTP delivery:** Sent via Resend email service with branded HTML templates
+- **Token generation:** Refresh tokens use `crypto.randomUUID()` (cryptographically secure)
+- **Token rotation:** Performed within a database transaction to prevent race conditions and session loss
+- **Device tracking:** Client IP and User-Agent stored with refresh tokens for security auditing
 - **Token revocation:** Refresh tokens are revoked on password reset and during token rotation
-- **User enumeration prevention:** `forgot-password` returns the same response whether the email exists or not
+- **User enumeration prevention:** `forgot-password` and `verify-otp` return generic error messages regardless of whether the email exists
 - **Admin protection:** Admin role cannot be assigned via registration or social login (always defaults to `personal`)
 - **Firebase token verification:** ID tokens are verified server-side using the Firebase Admin SDK. The server never trusts the client-provided provider or claims
+- **Avatar validation:** Social login avatar URLs are validated (HTTPS only) before storage
+- **Input limits:** Firebase ID tokens capped at 4096 characters to prevent payload DoS
 - **Nullable passwords:** Social-only users have `passwordHash: null`. The `validateUser` method handles this safely without runtime errors
 - **Suspended accounts:** Both login methods check account status and reject suspended users
-- **OTP security:** Single-use codes, 10-minute expiry, previous unused codes of the same type are invalidated when a new one is generated
+- **Rate limiting:** Per-endpoint throttling on all sensitive auth endpoints (registration, login, OTP, password reset)
+- **CORS:** Localhost origins restricted to development environment only

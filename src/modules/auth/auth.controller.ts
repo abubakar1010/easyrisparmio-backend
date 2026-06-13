@@ -9,6 +9,8 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import type { Request } from 'express';
+import { Throttle } from '@nestjs/throttler';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import {
   ApiTags,
   ApiOperation,
@@ -43,12 +45,14 @@ import { User } from '../users/entities/user.entity';
 
 @ApiTags('Auth')
 @Controller('auth')
+@UseGuards(ThrottlerGuard)
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   // ─── Registration ─────────────────────────────────────────
 
   @Post('register')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({
     summary: 'Register a new personal user',
     description:
@@ -136,6 +140,7 @@ export class AuthController {
   }
 
   @Post('register/business')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({
     summary: 'Register a new business user',
     description:
@@ -211,6 +216,7 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @UseGuards(AuthGuard('local'))
   @ApiOperation({
     summary: 'Login with email and password',
@@ -442,6 +448,7 @@ export class AuthController {
 
   @Post('verify-otp')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({
     summary: 'Verify OTP code (email verification, phone verification, password reset)',
     description:
@@ -500,6 +507,7 @@ export class AuthController {
 
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
   @ApiOperation({
     summary: 'Request password reset OTP',
     description:
@@ -527,6 +535,7 @@ export class AuthController {
 
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({
     summary: 'Reset password using OTP code',
     description:

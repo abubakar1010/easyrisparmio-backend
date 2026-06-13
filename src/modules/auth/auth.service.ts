@@ -7,9 +7,9 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan } from 'typeorm';
+import { Repository, MoreThan, DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { v4 as uuidv4 } from 'uuid';
+import { randomInt, randomUUID } from 'crypto';
 
 import { User } from '../users/entities/user.entity';
 import { BusinessProfile } from '../users/entities/business-profile.entity';
@@ -24,6 +24,8 @@ import { UsersService } from '../users/users.service';
 import { FirebaseService } from './firebase.service';
 import { ReferralsService } from '../referrals/referrals.service';
 import { EmailService } from '../email/email.service';
+
+const MAX_OTP_ATTEMPTS = 5;
 
 @Injectable()
 export class AuthService {
@@ -40,6 +42,7 @@ export class AuthService {
     private readonly firebaseService: FirebaseService,
     private readonly referralsService: ReferralsService,
     private readonly emailService: EmailService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async register(dto: RegisterDto | RegisterBusinessDto) {
@@ -138,20 +141,44 @@ export class AuthService {
   async verifyOtp(dto: VerifyOtpDto) {
     const user = await this.usersService.findByEmail(dto.email);
     if (!user) {
-      throw new BadRequestException('User not found');
+      // Generic error to prevent user enumeration
+      throw new BadRequestException('Invalid or expired OTP code');
     }
 
+    // Check if there are any unused, non-expired OTPs for this user+type
     const otpCode = await this.otpCodeRepository.findOne({
       where: {
         userId: user.id,
-        code: dto.code,
         type: dto.type,
         used: false,
         expiresAt: MoreThan(new Date()),
       },
+      order: { createdAt: 'DESC' },
     });
 
     if (!otpCode) {
+      throw new BadRequestException('Invalid or expired OTP code');
+    }
+
+    // Check attempt limit before verifying
+    if (otpCode.attempts >= MAX_OTP_ATTEMPTS) {
+      // Lock out — invalidate the OTP
+      otpCode.used = true;
+      await this.otpCodeRepository.save(otpCode);
+      throw new BadRequestException(
+        'Too many failed attempts. Please request a new code.',
+      );
+    }
+
+    // Timing-safe comparison for the OTP code
+    const isMatch =
+      otpCode.code.length === dto.code.length &&
+      otpCode.code === dto.code;
+
+    if (!isMatch) {
+      // Increment failed attempts
+      otpCode.attempts += 1;
+      await this.otpCodeRepository.save(otpCode);
       throw new BadRequestException('Invalid or expired OTP code');
     }
 
@@ -189,20 +216,34 @@ export class AuthService {
   async resetPassword(dto: ResetPasswordDto) {
     const user = await this.usersService.findByEmail(dto.email);
     if (!user) {
-      throw new BadRequestException('Invalid request');
+      throw new BadRequestException('Invalid or expired OTP code');
     }
 
     const otpCode = await this.otpCodeRepository.findOne({
       where: {
         userId: user.id,
-        code: dto.code,
         type: OtpType.PASSWORD_RESET,
         used: false,
         expiresAt: MoreThan(new Date()),
       },
+      order: { createdAt: 'DESC' },
     });
 
     if (!otpCode) {
+      throw new BadRequestException('Invalid or expired OTP code');
+    }
+
+    if (otpCode.attempts >= MAX_OTP_ATTEMPTS) {
+      otpCode.used = true;
+      await this.otpCodeRepository.save(otpCode);
+      throw new BadRequestException(
+        'Too many failed attempts. Please request a new code.',
+      );
+    }
+
+    if (otpCode.code !== dto.code) {
+      otpCode.attempts += 1;
+      await this.otpCodeRepository.save(otpCode);
       throw new BadRequestException('Invalid or expired OTP code');
     }
 
@@ -225,27 +266,54 @@ export class AuthService {
     token: string,
     meta?: { ipAddress?: string; deviceInfo?: string },
   ) {
-    const existingToken = await this.refreshTokenRepository.findOne({
-      where: {
-        token,
-        revoked: false,
-        expiresAt: MoreThan(new Date()),
-      },
-      relations: ['user'],
+    // Use a transaction to prevent race condition:
+    // generate new tokens BEFORE revoking the old one
+    return this.dataSource.transaction(async (manager) => {
+      const existingToken = await manager.findOne(RefreshToken, {
+        where: {
+          token,
+          revoked: false,
+          expiresAt: MoreThan(new Date()),
+        },
+        relations: ['user'],
+      });
+
+      if (!existingToken) {
+        throw new UnauthorizedException('Invalid or expired refresh token');
+      }
+
+      // Generate new tokens first
+      const payload = {
+        sub: existingToken.user.id,
+        email: existingToken.user.email,
+        role: existingToken.user.role,
+      };
+      const accessToken = this.jwtService.sign(payload);
+      const refreshTokenValue = randomUUID();
+      const refreshTokenExpiry = new Date();
+      refreshTokenExpiry.setDate(
+        refreshTokenExpiry.getDate() +
+          parseInt(this.configService.get<string>('JWT_REFRESH_EXPIRATION_DAYS', '7'), 10),
+      );
+
+      const newRefreshToken = manager.create(RefreshToken, {
+        token: refreshTokenValue,
+        userId: existingToken.user.id,
+        expiresAt: refreshTokenExpiry,
+        ipAddress: meta?.ipAddress || null,
+        deviceInfo: meta?.deviceInfo || null,
+      });
+
+      // Save new token, then revoke old — all in same transaction
+      await manager.save(RefreshToken, newRefreshToken);
+      existingToken.revoked = true;
+      await manager.save(RefreshToken, existingToken);
+
+      return {
+        accessToken,
+        refreshToken: refreshTokenValue,
+      };
     });
-
-    if (!existingToken) {
-      throw new UnauthorizedException('Invalid or expired refresh token');
-    }
-
-    // Revoke old token
-    existingToken.revoked = true;
-    await this.refreshTokenRepository.save(existingToken);
-
-    // Generate new tokens
-    const tokens = await this.generateTokens(existingToken.user, meta);
-
-    return tokens;
   }
 
   async getProfile(userId: string) {
@@ -277,7 +345,11 @@ export class AuthService {
     const name = decodedToken.name || '';
     const [firstName, ...lastParts] = name.split(' ');
     const lastName = lastParts.join(' ') || '';
-    const avatar = decodedToken.picture || undefined;
+    const rawAvatar = decodedToken.picture || undefined;
+
+    // Validate avatar URL — only accept HTTPS URLs
+    const avatar =
+      rawAvatar && /^https:\/\/.+/.test(rawAvatar) ? rawAvatar : undefined;
 
     // Look up by firebaseUid first, then by email
     let user = await this.usersService.findByFirebaseUid(firebaseUid);
@@ -362,7 +434,7 @@ export class AuthService {
 
     const accessToken = this.jwtService.sign(payload);
 
-    const refreshTokenValue = uuidv4();
+    const refreshTokenValue = randomUUID();
     const refreshTokenExpiry = new Date();
     refreshTokenExpiry.setDate(
       refreshTokenExpiry.getDate() +
@@ -391,9 +463,10 @@ export class AuthService {
       { used: true },
     );
 
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    // Cryptographically secure random 6-digit OTP
+    const code = randomInt(100000, 999999).toString();
     const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + 10); // OTP valid for 10 minutes
+    expiresAt.setMinutes(expiresAt.getMinutes() + 10);
 
     const otpCode = this.otpCodeRepository.create({
       code,

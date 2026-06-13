@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class SocialLoginDto {
@@ -8,5 +8,6 @@ export class SocialLoginDto {
   })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(4096)
   idToken: string;
 }

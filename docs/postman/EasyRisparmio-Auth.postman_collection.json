@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "EasyRisparmio API",
-    "description": "API collection for the EasyRisparmio Italian energy comparison & switching platform.\n\n## Modules\n- **Authentication** — Email/password + social login (Google, Facebook, Apple via Firebase)\n- **Referrals** — Invite & Earn referral program for users and admin management\n- **Meters** — Utility meter management (electricity, gas, water, internet) with admin moderation\n- **Suppliers** — Energy supplier management with public listing and admin CRUD\n- **Offers** — Energy offer management, comparison, recommendations, and admin moderation\n- **Agreements** — Exclusive partner discounts & agreements for mobile app users\n- **Support** — Support tickets, messaging, and FAQ management\n\n## Roles\n| Role | Description |\n|------|-------------|\n| `personal` | Individual user (default) |\n| `business` | Business user with company profile |\n| `admin` | Platform administrator (seeded, cannot register) |\n\n## Token Flow\n1. Login or social-login returns `accessToken` (JWT, 15 min) + `refreshToken` (UUID, 7 days)\n2. Use `accessToken` in `Authorization: Bearer <token>` header for protected endpoints\n3. When expired, call refresh-token to get a new pair\n\n## Setup\n1. Set `baseUrl` variable to your server (default: `http://localhost:3000`)\n2. Register a user, then login — tokens are auto-saved to collection variables\n3. All protected requests automatically use the saved `accessToken`",
+    "description": "API collection for the EasyRisparmio Italian energy comparison & switching platform.\n\n## Modules\n- **Authentication** — Email/password + social login (Google, Facebook, Apple via Firebase)\n- **Referrals** — Invite & Earn referral program for users and admin management\n- **Meters** — Utility meter management (electricity, gas, water, internet) with admin moderation\n- **Suppliers** — Energy supplier management with public listing and admin CRUD\n- **Offers** — Energy offer management, comparison, recommendations, and admin moderation\n- **Agreements** — Exclusive partner discounts & agreements for mobile app users\n- **Support** — Support tickets, messaging, and FAQ management\n- **Bills** — Energy bill upload, analysis, and admin management\n- **Cases** — Supplier switching requests, documents, and case management\n\n## Roles\n| Role | Description |\n|------|-------------|\n| `personal` | Individual user (default) |\n| `business` | Business user with company profile |\n| `admin` | Platform administrator (seeded, cannot register) |\n\n## Token Flow\n1. Login or social-login returns `accessToken` (JWT, 15 min) + `refreshToken` (UUID, 7 days)\n2. Use `accessToken` in `Authorization: Bearer <token>` header for protected endpoints\n3. When expired, call refresh-token to get a new pair\n\n## Setup\n1. Set `baseUrl` variable to your server (default: `http://localhost:3000`)\n2. Register a user, then login — tokens are auto-saved to collection variables\n3. All protected requests automatically use the saved `accessToken`",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -64,6 +64,18 @@
       "value": "",
       "type": "string",
       "description": "FAQ UUID (auto-set by Create FAQ request)"
+    },
+    {
+      "key": "billId",
+      "value": "",
+      "type": "string",
+      "description": "Bill UUID (auto-set by Upload Bill request)"
+    },
+    {
+      "key": "caseId",
+      "value": "",
+      "type": "string",
+      "description": "Case UUID (auto-set by Create Case request)"
     }
   ],
   "item": [
@@ -3805,6 +3817,226 @@
                   "header": [{ "key": "Content-Type", "value": "application/json" }],
                   "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"FAQ not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
                 }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Bills",
+      "description": "Energy bill upload & analysis. Users upload electricity/gas bills, trigger AI analysis, and view results. Admins can view all user bills.",
+      "item": [
+        {
+          "name": "User",
+          "description": "User-facing bill endpoints. Requires JWT authentication.",
+          "item": [
+            {
+              "name": "Upload Bill",
+              "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 201) { const res = pm.response.json(); if (res.success && res.data && res.data.id) { pm.collectionVariables.set('billId', res.data.id); console.log('billId saved: ' + res.data.id); } }"] } }],
+              "request": {
+                "method": "POST",
+                "url": { "raw": "{{baseUrl}}/api/v1/bills/upload", "host": ["{{baseUrl}}"], "path": ["api", "v1", "bills", "upload"] },
+                "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "body": { "mode": "formdata", "formdata": [{ "key": "file", "type": "file", "src": "" }, { "key": "billType", "value": "electricity", "type": "text" }, { "key": "podNumber", "value": "IT001E12345678", "type": "text" }] },
+                "description": "Uploads an energy bill (multipart/form-data).\n\n**Required:** `file` (PDF/image), `billType` (`electricity` or `gas`)\n**Optional:** `podNumber` (POD for electricity), `pdrNumber` (PDR for gas)\n\nBill starts in `uploaded` status. Trigger analysis via `POST /bills/:id/analyze`.\n\n**Auto-saves** `billId` to collection variables."
+              },
+              "response": [
+                { "name": "201 - Bill Uploaded", "status": "Created", "code": 201, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"bl1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"fileUrl\": \"uploads/bills/1718000000000\",\n    \"billType\": \"electricity\",\n    \"status\": \"uploaded\",\n    \"podNumber\": \"IT001E12345678\",\n    \"pdrNumber\": null,\n    \"totalAmount\": null,\n    \"userId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"createdAt\": \"2026-06-10T10:00:00.000Z\"\n  }\n}" },
+                { "name": "401 - Unauthorized", "status": "Unauthorized", "code": 401, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\"Unauthorized\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}" }
+              ]
+            },
+            {
+              "name": "List My Bills",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/api/v1/bills?page=1&limit=20", "host": ["{{baseUrl}}"], "path": ["api", "v1", "bills"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }, { "key": "billType", "value": "electricity", "disabled": true }, { "key": "status", "value": "analyzed", "disabled": true }] },
+                "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "description": "Returns a paginated list of the authenticated user's bills.\n\n**Filters:** `billType`, `status`, `dateFrom`, `dateTo`"
+              },
+              "response": [
+                { "name": "200 - My Bills", "status": "OK", "code": 200, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": true,\n  \"data\": {\n    \"data\": [{\n      \"id\": \"bl1a2b3c-d5e6-7890-abcd-ef1234567890\",\n      \"billType\": \"electricity\",\n      \"status\": \"analyzed\",\n      \"podNumber\": \"IT001E12345678\",\n      \"totalAmount\": \"120.50\",\n      \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n      \"supplier\": { \"id\": \"s1a2b3c4...\", \"name\": \"Enel Energia\" }\n    }],\n    \"meta\": { \"total\": 1, \"page\": 1, \"limit\": 20, \"totalPages\": 1 }\n  }\n}" }
+              ]
+            },
+            {
+              "name": "Get Bill Detail",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/api/v1/bills/{{billId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "bills", "{{billId}}"] },
+                "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "description": "Returns a single bill with supplier and analysis details. User must own the bill."
+              },
+              "response": [
+                { "name": "200 - Bill Detail", "status": "OK", "code": 200, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"bl1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"billType\": \"electricity\",\n    \"status\": \"analyzed\",\n    \"podNumber\": \"IT001E12345678\",\n    \"totalAmount\": \"120.50\",\n    \"supplier\": { \"id\": \"s1a2b3c4...\", \"name\": \"Enel Energia\" },\n    \"analysis\": { \"potentialSavings\": \"18.08\", \"recommendedMarketType\": \"fixed\" }\n  }\n}" },
+                { "name": "404 - Not Found", "status": "Not Found", "code": 404, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Bill not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}" },
+                { "name": "403 - Not Owner", "status": "Forbidden", "code": 403, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"You do not have access to this bill\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}" }
+              ]
+            },
+            {
+              "name": "Trigger Bill Analysis",
+              "request": {
+                "method": "POST",
+                "url": { "raw": "{{baseUrl}}/api/v1/bills/{{billId}}/analyze", "host": ["{{baseUrl}}"], "path": ["api", "v1", "bills", "{{billId}}", "analyze"] },
+                "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "description": "Triggers AI analysis on an uploaded bill. Status transitions: uploaded → analyzing → analyzed (or error)."
+              },
+              "response": [
+                { "name": "200 - Analysis Complete", "status": "OK", "code": 200, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"an1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"billId\": \"bl1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"potentialSavings\": \"18.08\",\n    \"currentMonthlyAvg\": \"114.48\",\n    \"recommendedMarketType\": \"fixed\",\n    \"analysisSummary\": \"Based on your electricity bill analysis, you could save approximately EUR 18.08 per billing period.\",\n    \"analysisDetails\": {\n      \"recommendedActions\": [\"Consider switching to a fixed-rate contract\", \"Review your consumption during peak hours\"]\n    }\n  }\n}" }
+              ]
+            },
+            {
+              "name": "Get Bill Analysis",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/api/v1/bills/{{billId}}/analysis", "host": ["{{baseUrl}}"], "path": ["api", "v1", "bills", "{{billId}}", "analysis"] },
+                "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "description": "Returns analysis results for a bill. Returns 404 if analysis not yet triggered."
+              },
+              "response": [
+                { "name": "200 - Analysis Results", "status": "OK", "code": 200, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"an1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"potentialSavings\": \"18.08\",\n    \"currentMonthlyAvg\": \"114.48\",\n    \"recommendedMarketType\": \"fixed\",\n    \"analysisSummary\": \"Based on your electricity bill analysis, you could save approximately EUR 18.08 per billing period.\"\n  }\n}" },
+                { "name": "404 - Not Analyzed Yet", "status": "Not Found", "code": 404, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Analysis not found. Please trigger analysis first.\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}" }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Admin",
+          "description": "Admin endpoints for viewing all user bills. Requires `admin` role.",
+          "item": [
+            {
+              "name": "List All Bills (Admin)",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/api/v1/bills/admin?page=1&limit=20", "host": ["{{baseUrl}}"], "path": ["api", "v1", "bills", "admin"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }, { "key": "billType", "value": "electricity", "disabled": true }, { "key": "status", "value": "analyzed", "disabled": true }, { "key": "search", "value": "mario", "disabled": true }] },
+                "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "description": "Returns all user bills with user and supplier details. Supports search by user email/name, POD/PDR number."
+              },
+              "response": [
+                { "name": "200 - All Bills", "status": "OK", "code": 200, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": true,\n  \"data\": {\n    \"data\": [{\n      \"id\": \"bl1a2b3c-d5e6-7890-abcd-ef1234567890\",\n      \"billType\": \"electricity\",\n      \"status\": \"analyzed\",\n      \"totalAmount\": \"120.50\",\n      \"user\": { \"id\": \"a1b2c3d4...\", \"email\": \"mario.rossi@email.com\", \"firstName\": \"Mario\" },\n      \"supplier\": { \"id\": \"s1a2b3c4...\", \"name\": \"Enel Energia\" }\n    }],\n    \"meta\": { \"total\": 1, \"page\": 1, \"limit\": 20, \"totalPages\": 1 }\n  }\n}" },
+                { "name": "403 - Forbidden", "status": "Forbidden", "code": 403, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}" }
+              ]
+            },
+            {
+              "name": "Get Any Bill (Admin)",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/api/v1/bills/admin/{{billId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "bills", "admin", "{{billId}}"] },
+                "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "description": "Returns any bill with user, supplier, and analysis. No ownership check."
+              },
+              "response": [
+                { "name": "200 - Bill Detail (Admin)", "status": "OK", "code": 200, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"bl1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"billType\": \"electricity\",\n    \"status\": \"analyzed\",\n    \"totalAmount\": \"120.50\",\n    \"user\": { \"id\": \"a1b2c3d4...\", \"email\": \"mario.rossi@email.com\" },\n    \"supplier\": { \"id\": \"s1a2b3c4...\", \"name\": \"Enel Energia\" },\n    \"analysis\": { \"potentialSavings\": \"18.08\", \"recommendedMarketType\": \"fixed\" }\n  }\n}" },
+                { "name": "404 - Not Found", "status": "Not Found", "code": 404, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Bill not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}" }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Cases",
+      "description": "Supplier switching requests. Users create cases from bills + offers, upload documents, and track progress. Admins manage the case lifecycle: assign agents, update status, verify documents.",
+      "item": [
+        {
+          "name": "User",
+          "description": "User-facing case endpoints. Users create switching requests and track progress.",
+          "item": [
+            {
+              "name": "Create Case",
+              "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 201) { const res = pm.response.json(); if (res.success && res.data && res.data.id) { pm.collectionVariables.set('caseId', res.data.id); console.log('caseId saved: ' + res.data.id); } }"] } }],
+              "request": {
+                "method": "POST",
+                "url": { "raw": "{{baseUrl}}/api/v1/cases", "host": ["{{baseUrl}}"], "path": ["api", "v1", "cases"] },
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"billId\": \"{{billId}}\",\n  \"selectedOfferId\": \"{{offerId}}\"\n}", "options": { "raw": { "language": "json" } } },
+                "description": "Creates a switching request from a bill and selected offer.\n\nAuto-generates: `caseNumber` (SW-YYYYMMDD-XXXXX), `fromSupplierId` (from bill), `toSupplierId` (from offer).\n\n**Auto-saves** `caseId` to collection variables."
+              },
+              "response": [
+                { "name": "201 - Case Created", "status": "Created", "code": 201, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"cs1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"caseNumber\": \"SW-20260610-00001\",\n    \"status\": \"new\",\n    \"priority\": \"medium\",\n    \"fromSupplierId\": \"s1a2b3c4...\",\n    \"toSupplierId\": \"s2b3c4d5...\",\n    \"user\": { \"id\": \"a1b2c3d4...\", \"firstName\": \"Mario\" },\n    \"bill\": { \"id\": \"bl1a2b3c...\", \"billType\": \"electricity\" },\n    \"selectedOffer\": { \"id\": \"o1a2b3c4...\", \"name\": \"Casa Luce Fix 12\" }\n  }\n}" },
+                { "name": "404 - Bill/Offer Not Found", "status": "Not Found", "code": 404, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Bill not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}" }
+              ]
+            },
+            {
+              "name": "List My Cases",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/api/v1/cases?page=1&limit=20", "host": ["{{baseUrl}}"], "path": ["api", "v1", "cases"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }, { "key": "status", "value": "in_progress", "disabled": true }] },
+                "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "description": "Returns the user's own cases (paginated). Admins see all cases.\n\n**Filters:** `status`, `priority`, `assignedAgentId` (admin), `userId` (admin), `search` (case number, user name)"
+              },
+              "response": [
+                { "name": "200 - Case List", "status": "OK", "code": 200, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": true,\n  \"data\": {\n    \"data\": [{\n      \"id\": \"cs1a2b3c-d5e6-7890-abcd-ef1234567890\",\n      \"caseNumber\": \"SW-20260610-00001\",\n      \"status\": \"new\",\n      \"priority\": \"medium\",\n      \"user\": { \"id\": \"a1b2c3d4...\", \"firstName\": \"Mario\" },\n      \"selectedOffer\": { \"id\": \"o1a2b3c4...\", \"name\": \"Casa Luce Fix 12\" },\n      \"bill\": { \"id\": \"bl1a2b3c...\", \"billType\": \"electricity\" }\n    }],\n    \"meta\": { \"total\": 1, \"page\": 1, \"limit\": 20, \"totalPages\": 1 }\n  }\n}" }
+              ]
+            },
+            {
+              "name": "Get Case Detail",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/api/v1/cases/{{caseId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "cases", "{{caseId}}"] },
+                "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "description": "Returns full case with user, bill, offer, agent, documents, and contract relations."
+              },
+              "response": [
+                { "name": "200 - Case Detail", "status": "OK", "code": 200, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"cs1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"caseNumber\": \"SW-20260610-00001\",\n    \"status\": \"in_progress\",\n    \"user\": { \"id\": \"a1b2c3d4...\", \"firstName\": \"Mario\" },\n    \"bill\": { \"id\": \"bl1a2b3c...\", \"billType\": \"electricity\", \"podNumber\": \"IT001E12345678\" },\n    \"selectedOffer\": { \"id\": \"o1a2b3c4...\", \"name\": \"Casa Luce Fix 12\" },\n    \"assignedAgent\": { \"id\": \"admin-uuid\", \"firstName\": \"Admin\" },\n    \"documents\": [],\n    \"contract\": null\n  }\n}" },
+                { "name": "403 - Access Denied", "status": "Forbidden", "code": 403, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Access denied\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}" }
+              ]
+            },
+            {
+              "name": "Upload Document",
+              "request": {
+                "method": "POST",
+                "url": { "raw": "{{baseUrl}}/api/v1/cases/{{caseId}}/documents", "host": ["{{baseUrl}}"], "path": ["api", "v1", "cases", "{{caseId}}", "documents"] },
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"documentType\": \"id_card\",\n  \"fileUrl\": \"https://storage.easyresparmio.it/docs/id-card-front.pdf\",\n  \"fileName\": \"carta-identita-fronte.pdf\"\n}", "options": { "raw": { "language": "json" } } },
+                "description": "Attaches a document to a case. File must be uploaded first via file-upload service.\n\n**Document types:** `bill`, `id_card`, `codice_fiscale`, `contract`, `signed_contract`, `partita_iva`"
+              },
+              "response": [
+                { "name": "201 - Document Uploaded", "status": "Created", "code": 201, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"dc1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"caseId\": \"cs1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"documentType\": \"id_card\",\n    \"fileUrl\": \"https://storage.easyresparmio.it/docs/id-card-front.pdf\",\n    \"fileName\": \"carta-identita-fronte.pdf\",\n    \"verified\": false\n  }\n}" }
+              ]
+            },
+            {
+              "name": "List Case Documents",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/api/v1/cases/{{caseId}}/documents", "host": ["{{baseUrl}}"], "path": ["api", "v1", "cases", "{{caseId}}", "documents"] },
+                "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "description": "Returns all documents for a case with uploader and verifier details."
+              },
+              "response": [
+                { "name": "200 - Documents List", "status": "OK", "code": 200, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": true,\n  \"data\": [{\n    \"id\": \"dc1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"documentType\": \"id_card\",\n    \"fileName\": \"carta-identita-fronte.pdf\",\n    \"verified\": false,\n    \"uploadedBy\": { \"id\": \"a1b2c3d4...\", \"firstName\": \"Mario\" }\n  }]\n}" }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Admin",
+          "description": "Admin endpoints for managing switching cases. Requires `admin` role.",
+          "item": [
+            {
+              "name": "Update Case (Admin)",
+              "request": {
+                "method": "PATCH",
+                "url": { "raw": "{{baseUrl}}/api/v1/cases/{{caseId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "cases", "{{caseId}}"] },
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"status\": \"in_progress\",\n  \"assignedAgentId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"priority\": \"high\"\n}", "options": { "raw": { "language": "json" } } },
+                "description": "Updates case status, priority, agent assignment, or notes. Status changes and agent assignments are logged as case events.\n\n**Status lifecycle:** new → in_progress → documents_pending → contract_sent → contract_signed → activated (or rejected/cancelled)"
+              },
+              "response": [
+                { "name": "200 - Case Updated", "status": "OK", "code": 200, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"cs1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"caseNumber\": \"SW-20260610-00001\",\n    \"status\": \"in_progress\",\n    \"priority\": \"high\",\n    \"assignedAgentId\": \"admin-uuid\",\n    \"updatedAt\": \"2026-06-10T14:00:00.000Z\"\n  }\n}" },
+                { "name": "404 - Case Not Found", "status": "Not Found", "code": 404, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Case not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}" }
+              ]
+            },
+            {
+              "name": "Verify Document (Admin)",
+              "request": {
+                "method": "PATCH",
+                "url": { "raw": "{{baseUrl}}/api/v1/cases/{{caseId}}/documents/dc1a2b3c-d5e6-7890-abcd-ef1234567890/verify", "host": ["{{baseUrl}}"], "path": ["api", "v1", "cases", "{{caseId}}", "documents", "dc1a2b3c-d5e6-7890-abcd-ef1234567890", "verify"] },
+                "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "description": "Marks a case document as verified. Sets `verified: true`, `verifiedById`, and `verifiedAt`."
+              },
+              "response": [
+                { "name": "200 - Document Verified", "status": "OK", "code": 200, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"dc1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"documentType\": \"id_card\",\n    \"verified\": true,\n    \"verifiedById\": \"admin-uuid\",\n    \"verifiedAt\": \"2026-06-10T14:00:00.000Z\"\n  }\n}" },
+                { "name": "404 - Document Not Found", "status": "Not Found", "code": 404, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Document not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}" }
               ]
             }
           ]

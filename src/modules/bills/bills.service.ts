@@ -73,6 +73,58 @@ export class BillsService {
     return new PaginatedResponseDto(bills, total, query.page, query.limit);
   }
 
+  async getAllBills(
+    query: QueryBillsDto,
+  ): Promise<PaginatedResponseDto<EnergyBill>> {
+    const qb = this.billRepository
+      .createQueryBuilder('bill')
+      .leftJoinAndSelect('bill.supplier', 'supplier')
+      .leftJoinAndSelect('bill.user', 'user');
+
+    if (query.billType) {
+      qb.andWhere('bill.bill_type = :billType', { billType: query.billType });
+    }
+
+    if (query.status) {
+      qb.andWhere('bill.status = :status', { status: query.status });
+    }
+
+    if (query.dateFrom) {
+      qb.andWhere('bill.created_at >= :dateFrom', { dateFrom: query.dateFrom });
+    }
+
+    if (query.dateTo) {
+      qb.andWhere('bill.created_at <= :dateTo', { dateTo: query.dateTo });
+    }
+
+    if (query.search) {
+      qb.andWhere(
+        '(user.email ILIKE :search OR user.first_name ILIKE :search OR user.last_name ILIKE :search OR bill.pod_number ILIKE :search OR bill.pdr_number ILIKE :search)',
+        { search: `%${query.search}%` },
+      );
+    }
+
+    qb.orderBy('bill.created_at', 'DESC')
+      .skip(query.skip)
+      .take(query.limit);
+
+    const [bills, total] = await qb.getManyAndCount();
+    return new PaginatedResponseDto(bills, total, query.page, query.limit);
+  }
+
+  async getBillByIdAdmin(billId: string): Promise<EnergyBill> {
+    const bill = await this.billRepository.findOne({
+      where: { id: billId },
+      relations: ['supplier', 'analysis', 'user'],
+    });
+
+    if (!bill) {
+      throw new NotFoundException('Bill not found');
+    }
+
+    return bill;
+  }
+
   async getBillById(billId: string, userId: string): Promise<EnergyBill> {
     const bill = await this.billRepository.findOne({
       where: { id: billId },

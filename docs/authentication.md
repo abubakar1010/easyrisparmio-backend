@@ -34,9 +34,7 @@ Roles are enforced via `@Roles()` decorator and `RolesGuard` on protected endpoi
 
 ## Registration
 
-Users register as either `PERSONAL` or `BUSINESS`. Admin registration is blocked.
-
-### Personal Registration
+Users register as either `PERSONAL` or `BUSINESS` using a single endpoint. The `role` field in the request body determines which fields are required. Admin registration is blocked.
 
 ```
 POST /api/v1/auth/register
@@ -44,7 +42,7 @@ POST /api/v1/auth/register
 
 **Rate limit:** 5 requests per minute per IP.
 
-**Request Body:**
+### Personal Registration Example
 
 ```json
 {
@@ -57,6 +55,29 @@ POST /api/v1/auth/register
 }
 ```
 
+### Business Registration Example
+
+When `role` is `business`, the business-specific fields are conditionally validated via `@ValidateIf` -- `companyName` and `partitaIva` become required.
+
+```json
+{
+  "email": "info@rossi-srl.it",
+  "password": "StrongP@ss1",
+  "firstName": "Mario",
+  "lastName": "Rossi",
+  "phone": "+393331234567",
+  "role": "business",
+  "companyName": "Rossi S.r.l.",
+  "partitaIva": "12345678901",
+  "pecEmail": "rossi@pec.it",
+  "legalRepresentative": "Mario Rossi",
+  "companyType": "S.r.l.",
+  "atecoCode": "35.11.00"
+}
+```
+
+### Fields
+
 | Field | Type | Required | Validation |
 |-------|------|----------|------------|
 | `email` | string | Yes | Valid email format |
@@ -64,8 +85,14 @@ POST /api/v1/auth/register
 | `firstName` | string | Yes | Max 100 characters |
 | `lastName` | string | Yes | Max 100 characters |
 | `phone` | string | No | Max 20 characters |
-| `role` | string | Yes | `personal` or `business` |
+| `role` | string | Yes | `personal` or `business` (determines which additional fields are required) |
 | `referralCode` | string | No | 8-char referral code from existing user |
+| `companyName` | string | Yes (if business) | Max 255 characters |
+| `partitaIva` | string | Yes (if business) | Exactly 11 digits |
+| `pecEmail` | string | No (business only) | Valid email format |
+| `legalRepresentative` | string | No (business only) | Max 255 characters |
+| `companyType` | string | No (business only) | Max 100 characters |
+| `atecoCode` | string | No (business only) | Max 10 characters |
 
 **Response (201):**
 
@@ -89,31 +116,13 @@ POST /api/v1/auth/register
 
 After registration, a 6-digit OTP is generated and **sent to the user's email via Resend**. The user must call `POST /auth/verify-otp` to activate their account.
 
-### Business Registration
-
-```
-POST /api/v1/auth/register/business
-```
-
-**Rate limit:** 5 requests per minute per IP.
-
-Extends personal registration with company fields:
-
-| Field | Type | Required | Validation |
-|-------|------|----------|------------|
-| `companyName` | string | Yes | Max 255 characters |
-| `partitaIva` | string | Yes | Exactly 11 digits |
-| `pecEmail` | string | No | Valid email format |
-| `legalRepresentative` | string | No | Max 255 characters |
-| `companyType` | string | No | Max 100 characters |
-| `atecoCode` | string | No | Max 10 characters |
-
 **Error Responses:**
 
 | Status | Condition |
 |--------|-----------|
 | 400 | Role is `admin` |
 | 400 | Password does not meet complexity requirements |
+| 400 | Missing required business fields when `role` is `business` |
 | 409 | Email already registered |
 | 429 | Rate limit exceeded |
 
@@ -501,7 +510,6 @@ Auth endpoints have per-endpoint rate limits to prevent brute-force attacks:
 | Endpoint | Limit | Window |
 |----------|-------|--------|
 | `POST /auth/register` | 5 requests | 1 minute |
-| `POST /auth/register/business` | 5 requests | 1 minute |
 | `POST /auth/login` | 10 requests | 1 minute |
 | `POST /auth/verify-otp` | 5 requests | 1 minute |
 | `POST /auth/forgot-password` | 3 requests | 1 minute |
@@ -515,8 +523,7 @@ Rate limits are enforced per IP via `@nestjs/throttler`. Exceeding the limit ret
 
 | Method | Endpoint | Auth | Rate Limit | Description |
 |--------|----------|------|------------|-------------|
-| POST | `/auth/register` | No | 5/min | Register personal user |
-| POST | `/auth/register/business` | No | 5/min | Register business user |
+| POST | `/auth/register` | No | 5/min | Register user (personal or business, determined by `role` field) |
 | POST | `/auth/login` | No | 10/min | Email/password login |
 | POST | `/auth/social-login` | No | Global | Social login via Firebase ID token |
 | POST | `/auth/verify-otp` | No | 5/min | Verify OTP code |

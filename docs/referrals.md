@@ -216,7 +216,7 @@ Content-Type: application/json
 
 ## Registration Integration
 
-The `POST /auth/register` and `POST /auth/register/business` endpoints accept an optional `referralCode` field:
+The `POST /auth/register` endpoint accepts an optional `referralCode` field. The same endpoint handles both personal and business registration (the `role` field determines which fields are required):
 
 ```json
 {

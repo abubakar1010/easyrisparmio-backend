@@ -46,8 +46,8 @@ export class ReferralsService {
       .createQueryBuilder('r')
       .select('r.status', 'status')
       .addSelect('COUNT(*)::int', 'count')
-      .addSelect('COALESCE(SUM(r.reward_amount), 0)', 'totalRewards')
-      .where('r.referrer_id = :userId', { userId })
+      .addSelect('COALESCE(SUM(r.rewardAmount), 0)', 'totalRewards')
+      .where('r.referrerId = :userId', { userId })
       .groupBy('r.status')
       .getRawMany();
 
@@ -79,13 +79,13 @@ export class ReferralsService {
     const qb = this.referralRepository
       .createQueryBuilder('r')
       .leftJoinAndSelect('r.referredUser', 'referredUser')
-      .where('r.referrer_id = :userId', { userId });
+      .where('r.referrerId = :userId', { userId });
 
     if (query.status) {
       qb.andWhere('r.status = :status', { status: query.status });
     }
 
-    qb.orderBy('r.created_at', 'DESC');
+    qb.orderBy('r.createdAt', 'DESC');
     qb.skip(query.skip);
     qb.take(query.limit);
 
@@ -140,27 +140,27 @@ export class ReferralsService {
     }
 
     if (query.referrerId) {
-      qb.andWhere('r.referrer_id = :referrerId', {
+      qb.andWhere('r.referrerId = :referrerId', {
         referrerId: query.referrerId,
       });
     }
 
     if (query.dateFrom) {
-      qb.andWhere('r.created_at >= :dateFrom', { dateFrom: query.dateFrom });
+      qb.andWhere('r.createdAt >= :dateFrom', { dateFrom: query.dateFrom });
     }
 
     if (query.dateTo) {
-      qb.andWhere('r.created_at <= :dateTo', { dateTo: query.dateTo });
+      qb.andWhere('r.createdAt <= :dateTo', { dateTo: query.dateTo });
     }
 
     if (query.search) {
       qb.andWhere(
-        '(referrer.first_name ILIKE :search OR referrer.last_name ILIKE :search OR referrer.email ILIKE :search OR r.referral_code ILIKE :search)',
+        '(referrer.firstName ILIKE :search OR referrer.lastName ILIKE :search OR referrer.email ILIKE :search OR r.referralCode ILIKE :search)',
         { search: `%${query.search}%` },
       );
     }
 
-    qb.orderBy('r.created_at', 'DESC');
+    qb.orderBy('r.createdAt', 'DESC');
     qb.skip(query.skip);
     qb.take(query.limit);
 
@@ -174,7 +174,7 @@ export class ReferralsService {
       .createQueryBuilder('r')
       .select('r.status', 'status')
       .addSelect('COUNT(*)::int', 'count')
-      .addSelect('COALESCE(SUM(r.reward_amount), 0)', 'totalRewards')
+      .addSelect('COALESCE(SUM(r.rewardAmount), 0)', 'totalRewards')
       .groupBy('r.status')
       .getRawMany();
 

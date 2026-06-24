@@ -12,6 +12,7 @@ import { UpdateAdminSettingsDto } from './dto/update-admin-settings.dto';
 import { ContractStatus } from '../../common/enums/contract.enum';
 import { CommissionStatus } from '../../common/enums/commission.enum';
 import { BillStatus } from '../../common/enums/bill.enum';
+import { CaseStatus } from '../../common/enums/case.enum';
 
 @Injectable()
 export class DashboardService {
@@ -66,23 +67,64 @@ export class DashboardService {
   }
 
   async getUserDashboard(userId: string) {
-    const [totalCases, activeContracts, recentCases] = await Promise.all([
-      this.caseRepository.count({ where: { userId } }),
-      this.contractRepository.count({
-        where: { userId, status: ContractStatus.ACTIVE },
-      }),
-      this.caseRepository.find({
-        where: { userId },
-        order: { createdAt: 'DESC' },
-        take: 5,
-        relations: ['selectedOffer'],
-      }),
-    ]);
+    const [totalCases, activeContracts, recentCases, potentialSavings, activeRequests] =
+      await Promise.all([
+        this.caseRepository.count({ where: { userId } }),
+        this.contractRepository.count({
+          where: { userId, status: ContractStatus.ACTIVE },
+        }),
+        this.caseRepository.find({
+          where: { userId },
+          order: { createdAt: 'DESC' },
+          take: 5,
+          relations: ['selectedOffer'],
+        }),
+        this.getUserPotentialSavings(userId),
+        this.getUserActiveRequests(userId),
+      ]);
 
     return {
       totalCases,
       activeContracts,
+      potentialSavings,
+      activeRequests,
       recentCases,
+    };
+  }
+
+  private async getUserPotentialSavings(userId: string) {
+    const result = await this.analysisRepository
+      .createQueryBuilder('a')
+      .innerJoin('a.bill', 'bill')
+      .select('COALESCE(SUM(a.potentialSavings), 0)', 'totalSavings')
+      .addSelect('COUNT(*)::int', 'analyzedBills')
+      .where('bill.userId = :userId', { userId })
+      .andWhere('bill.status = :status', { status: BillStatus.ANALYZED })
+      .getRawOne();
+
+    return {
+      totalSavings: parseFloat(result.totalSavings),
+      analyzedBills: result.analyzedBills,
+    };
+  }
+
+  private async getUserActiveRequests(userId: string) {
+    const activeStatuses = [
+      CaseStatus.NEW,
+      CaseStatus.IN_PROGRESS,
+      CaseStatus.DOCUMENTS_PENDING,
+      CaseStatus.CONTRACT_SENT,
+    ];
+
+    const cases = await this.caseRepository.find({
+      where: activeStatuses.map((status) => ({ userId, status })),
+      order: { createdAt: 'DESC' },
+      relations: ['selectedOffer', 'fromSupplier', 'toSupplier'],
+    });
+
+    return {
+      count: cases.length,
+      requests: cases,
     };
   }
 

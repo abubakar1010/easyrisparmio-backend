@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "EasyRisparmio API",
-    "description": "API collection for the EasyRisparmio Italian energy comparison & switching platform.\n\n## Modules\n- **Authentication** — Email/password + social login (Google, Facebook, Apple via Firebase)\n- **Referrals** — Invite & Earn referral program for users and admin management\n- **Meters** — Utility meter management (electricity, gas, water, internet) with admin moderation\n- **Suppliers** — Energy supplier management with public listing and admin CRUD\n- **Offers** — Energy offer management, comparison, recommendations, and admin moderation\n- **Agreements** — Exclusive partner discounts & agreements for mobile app users\n- **Support** — Support tickets, messaging, and FAQ management\n- **Bills** — Energy bill upload, analysis, and admin management\n- **Cases** — Supplier switching requests, documents, and case management\n\n## Roles\n| Role | Description |\n|------|-------------|\n| `personal` | Individual user (default) |\n| `business` | Business user with company profile |\n| `admin` | Platform administrator (seeded, cannot register) |\n\n## Token Flow\n1. Login or social-login returns `accessToken` (JWT, 15 min) + `refreshToken` (UUID, 7 days)\n2. Use `accessToken` in `Authorization: Bearer <token>` header for protected endpoints\n3. When expired, call refresh-token to get a new pair\n\n## Setup\n1. Set `baseUrl` variable to your server (default: `http://localhost:3000`)\n2. Register a user, then login — tokens are auto-saved to collection variables\n3. All protected requests automatically use the saved `accessToken`",
+    "description": "API collection for the EasyRisparmio Italian energy comparison & switching platform.\n\n## Modules\n- **Authentication** — Email/password + social login (Google, Facebook, Apple via Firebase)\n- **Users** — User profile management and admin CRUD\n- **Referrals** — Invite & Earn referral program for users and admin management\n- **Meters** — Utility meter management (electricity, gas, water, internet) with admin moderation\n- **Suppliers** — Energy supplier management with public listing and admin CRUD\n- **Offers** — Energy offer management, comparison, recommendations, and admin moderation\n- **Agreements** — Exclusive partner discounts & agreements for mobile app users\n- **Support** — Support tickets, messaging, and FAQ management\n- **Bills** — Energy bill upload, analysis, and admin management\n- **Cases** — Supplier switching requests, documents, and case management\n- **Contracts** — Contract management for switching cases (admin)\n- **Commissions** — Commission tracking, rules, and payouts (admin)\n- **Notifications** — Push notifications, in-app notifications, and admin broadcast\n- **Dashboard** — Admin KPIs and user dashboard summary\n- **Market Data** — Italian energy market indices (PUN, PSV, GME)\n- **File Upload** — General-purpose file upload endpoint\n\n## Roles\n| Role | Description |\n|------|-------------|\n| `personal` | Individual user (default) |\n| `business` | Business user with company profile |\n| `admin` | Platform administrator (seeded, cannot register) |\n\n## Token Flow\n1. Login or social-login returns `accessToken` (JWT, 15 min) + `refreshToken` (UUID, 7 days)\n2. Use `accessToken` in `Authorization: Bearer <token>` header for protected endpoints\n3. When expired, call refresh-token to get a new pair\n\n## Setup\n1. Set `baseUrl` variable to your server (default: `http://localhost:3000`)\n2. Register a user, then login — tokens are auto-saved to collection variables\n3. All protected requests automatically use the saved `accessToken`",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -85,10 +85,10 @@
       "item": [
         {
           "name": "Registration",
-          "description": "User registration endpoints. After registration, the account status is `pending_verification` until the email OTP is verified. Admin role cannot be used. An optional `referralCode` can be provided to link the new user to a referrer.",
+          "description": "Single registration endpoint for both personal and business users. The `role` field determines which fields are required. After registration, the account status is `pending_verification` until the email OTP is verified. Admin role cannot be used. An optional `referralCode` can be provided to link the new user to a referrer.",
           "item": [
             {
-              "name": "Register Personal User",
+              "name": "Register User",
               "request": {
                 "method": "POST",
                 "url": {
@@ -180,54 +180,6 @@
                     }
                   ],
                   "body": "{\n  \"success\": false,\n  \"statusCode\": 409,\n  \"message\": [\n    \"Email already registered\"\n  ],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
-                }
-              ]
-            },
-            {
-              "name": "Register Business User",
-              "request": {
-                "method": "POST",
-                "url": {
-                  "raw": "{{baseUrl}}/api/v1/auth/register",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "api",
-                    "v1",
-                    "auth",
-                    "register"
-                  ]
-                },
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"email\": \"info@rossi-srl.it\",\n  \"password\": \"StrongP@ss1\",\n  \"firstName\": \"Mario\",\n  \"lastName\": \"Rossi\",\n  \"phone\": \"+393331234567\",\n  \"role\": \"business\",\n  \"companyName\": \"Rossi S.r.l.\",\n  \"partitaIva\": \"12345678901\",\n  \"pecEmail\": \"rossi@pec.it\",\n  \"legalRepresentative\": \"Mario Rossi\",\n  \"companyType\": \"S.r.l.\",\n  \"atecoCode\": \"35.11.00\",\n  \"referralCode\": \"AB3KX7WN\"\n}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                },
-                "description": "Example of registering a business user via the same `POST /auth/register` endpoint.\n\nWhen `role` is set to `business`, the business-specific fields are conditionally validated: `companyName` and `partitaIva` become required, and optional business fields (`pecEmail`, `legalRepresentative`, `companyType`, `atecoCode`) are accepted.\n\nThis is the same endpoint as personal registration — only the `role` field and the presence of business fields differ."
-              },
-              "response": [
-                {
-                  "name": "201 - Business Registration Successful",
-                  "status": "Created",
-                  "code": 201,
-                  "header": [
-                    {
-                      "key": "Content-Type",
-                      "value": "application/json"
-                    }
-                  ],
-                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Registration successful. Please verify your email.\",\n    \"user\": {\n      \"id\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n      \"email\": \"info@rossi-srl.it\",\n      \"firstName\": \"Mario\",\n      \"lastName\": \"Rossi\",\n      \"phone\": \"+393331234567\",\n      \"role\": \"business\",\n      \"status\": \"pending_verification\",\n      \"authProvider\": \"local\",\n      \"firebaseUid\": null,\n      \"emailVerified\": false,\n      \"phoneVerified\": false,\n      \"createdAt\": \"2026-06-09T10:00:00.000Z\",\n      \"updatedAt\": \"2026-06-09T10:00:00.000Z\"\n    }\n  }\n}"
                 }
               ]
             }
@@ -1529,7 +1481,7 @@
                     }
                   }
                 },
-                "description": "Creates a new utility meter and assigns it to a user.\n\n**Body Fields:**\n- `userId` — (required) UUID of the user who owns this meter\n- `utilityType` — (required) Enum: `electricity`, `gas`, `water`, `internet`. Type of utility service\n- `meterCode` — (required) unique meter identifier (POD code for electricity, PDR code for gas), max 20 characters\n- `supplierId` — (optional) UUID of the energy supplier for this meter\n- `annualConsumption` — (optional) estimated annual consumption, decimal (precision 10, scale 2)\n- `consumptionUnit` — (optional) unit of measurement, e.g. `kWh` for electricity, `Smc` for gas, max 10 characters\n- `contractedPowerKw` — (optional) contracted power in kW (relevant for electricity meters only), decimal\n- `activationDate` — (optional) meter activation date in ISO 8601 format, e.g. `2025-01-15`\n- `notes` — (optional) free-text notes, max 500 characters\n\nRequires **admin** role. Meter is created with `pending` status by default."
+                "description": "Creates a new utility meter and assigns it to a user.\n\n**Body Fields:**\n- `userId` — (required) UUID of the user who owns this meter\n- `utilityType` — (required) Enum: `electricity`, `gas`, `water`, `internet`. Type of utility service\n- `meterCode` — (required) unique meter identifier (POD code for electricity, PDR code for gas), max 50 characters\n- `supplierId` — (optional) UUID of the energy supplier for this meter\n- `status` — (optional) Enum: `active`, `inactive`, `pending`, `terminated`. Defaults to `active`\n- `annualConsumption` — (optional) estimated annual consumption, decimal (precision 10, scale 2)\n- `consumptionUnit` — (optional) unit of measurement, e.g. `kWh` for electricity, `Smc` for gas, max 20 characters\n- `contractedPowerKw` — (optional) contracted power in kW (relevant for electricity meters only), decimal\n- `addressId` — (optional) UUID of the address where the meter is located\n- `activationDate` — (optional) meter activation date in ISO 8601 format, e.g. `2025-01-15`\n- `notes` — (optional) free-text notes\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -1760,7 +1712,7 @@
                     }
                   }
                 },
-                "description": "Updates an existing meter's details. All fields are optional — only provided fields are updated.\n\n**Body Fields (all optional):**\n- `meterCode` — unique meter identifier, max 20 characters\n- `supplierId` — UUID of the energy supplier\n- `annualConsumption` — estimated annual consumption, decimal\n- `consumptionUnit` — unit of measurement (e.g. `kWh`, `Smc`), max 10 characters\n- `contractedPowerKw` — contracted power in kW, decimal\n- `activationDate` — ISO 8601 date\n- `notes` — free-text notes, max 500 characters\n\nRequires **admin** role."
+                "description": "Updates an existing meter's details. All fields are optional — only provided fields are updated.\n\n**Body Fields (all optional):**\n- `userId` — UUID of the user who owns this meter\n- `utilityType` — Enum: `electricity`, `gas`, `water`, `internet`\n- `meterCode` — unique meter identifier, max 50 characters\n- `supplierId` — UUID of the energy supplier\n- `status` — Enum: `active`, `inactive`, `pending`, `terminated`\n- `annualConsumption` — estimated annual consumption, decimal\n- `consumptionUnit` — unit of measurement (e.g. `kWh`, `Smc`), max 20 characters\n- `contractedPowerKw` — contracted power in kW, decimal\n- `addressId` — UUID of the address where the meter is located\n- `activationDate` — ISO 8601 date\n- `notes` — free-text notes\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -2235,7 +2187,7 @@
                     }
                   }
                 },
-                "description": "Creates a new energy supplier.\n\n**Body Fields:**\n- `name` — (required) supplier name, max 255 characters\n- `logoUrl` — (optional) URL to the supplier's logo image\n- `description` — (optional) supplier description\n- `rating` — (optional) supplier rating, decimal from 0.00 to 5.00 (default: 0)\n- `contactEmail` — (optional) supplier contact email\n- `contactPhone` — (optional) supplier contact phone number\n- `website` — (optional) supplier website URL\n- `supplierCode` — (optional) unique internal supplier code, max 20 characters\n- `isActive` — (optional) boolean, whether the supplier is visible to users (default: true)\n\nRequires **admin** role."
+                "description": "Creates a new energy supplier.\n\n**Body Fields:**\n- `name` — (required) supplier name, max 255 characters\n- `logoUrl` — (optional) URL to the supplier's logo image\n- `description` — (optional) supplier description\n- `rating` — (optional) supplier rating, decimal from 0.00 to 5.00 (default: 0)\n- `contactEmail` — (optional) supplier contact email\n- `contactPhone` — (optional) supplier contact phone number\n- `website` — (optional) supplier website URL\n- `supplierCode` — (optional) unique internal supplier code, max 50 characters\n- `isActive` — (optional) boolean, whether the supplier is visible to users (default: true)\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -2410,7 +2362,7 @@
                     }
                   }
                 },
-                "description": "Updates an existing supplier's details. All fields are optional — only provided fields are updated.\n\n**Body Fields (all optional):**\n- `name` — supplier name, max 255 characters\n- `logoUrl` — URL to the supplier's logo image\n- `description` — supplier description\n- `rating` — decimal from 0.00 to 5.00\n- `contactEmail` — contact email\n- `contactPhone` — contact phone number\n- `website` — website URL\n- `supplierCode` — unique internal supplier code, max 20 characters\n\nRequires **admin** role."
+                "description": "Updates an existing supplier's details. All fields are optional — only provided fields are updated.\n\n**Body Fields (all optional):**\n- `name` — supplier name, max 255 characters\n- `logoUrl` — URL to the supplier's logo image\n- `description` — supplier description\n- `rating` — decimal from 0.00 to 5.00\n- `contactEmail` — contact email\n- `contactPhone` — contact phone number\n- `website` — website URL\n- `supplierCode` — unique internal supplier code, max 50 characters\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -2924,7 +2876,7 @@
                     }
                   }
                 },
-                "description": "Creates a new energy offer.\n\n**Body Fields:**\n- `name` — (required) offer name, max 255 characters\n- `description` — (optional) detailed description of the offer\n- `energyType` — (required) Enum: `electricity`, `gas`, `dual`. Type of energy this offer covers\n- `marketType` — (required) Enum: `fixed`, `variable`, `indexed`. Pricing model type\n- `pricePerKwh` — (optional) price per kilowatt-hour in EUR, decimal (precision 10, scale 6). Used for electricity offers\n- `pricePerSmc` — (optional) price per standard cubic meter in EUR, decimal. Used for gas offers\n- `fixedMonthlyFee` — (optional) fixed monthly fee in EUR, decimal (precision 10, scale 2)\n- `activationCost` — (optional) one-time activation cost in EUR, decimal (precision 10, scale 2)\n- `contractDurationMonths` — (optional) contract duration in months, integer\n- `isGreenEnergy` — (optional) boolean, whether the offer uses renewable energy sources (default: false)\n- `validFrom` — (optional) offer validity start date, ISO 8601 format\n- `validUntil` — (optional) offer validity end date, ISO 8601 format\n- `termsUrl` — (optional) URL to the full terms and conditions document\n- `target` — (optional) Enum: `personal`, `business`, `both`. Target audience for this offer (default: `both`)\n- `highlights` — (optional) array of strings, key selling points displayed on the offer card\n- `supplierId` — (required) UUID of the supplier providing this offer\n- `offerCode` — (optional) unique internal offer code, max 20 characters\n\nOffer is created with `draft` status. Use the Change Status endpoint to publish it.\n\nRequires **admin** role."
+                "description": "Creates a new energy offer.\n\n**Body Fields:**\n- `name` — (required) offer name, max 255 characters\n- `description` — (optional) detailed description of the offer\n- `energyType` — (required) Enum: `electricity`, `gas`, `dual`. Type of energy this offer covers\n- `marketType` — (required) Enum: `fixed`, `variable`, `indexed`. Pricing model type\n- `pricePerKwh` — (optional) price per kilowatt-hour in EUR, decimal (precision 10, scale 6). Used for electricity offers\n- `pricePerSmc` — (optional) price per standard cubic meter in EUR, decimal. Used for gas offers\n- `fixedMonthlyFee` — (required) fixed monthly fee in EUR, decimal (precision 10, scale 2, default: 0)\n- `activationCost` — (required) one-time activation cost in EUR, decimal (precision 10, scale 2, default: 0)\n- `contractDurationMonths` — (required) contract duration in months, integer (min: 1)\n- `isGreenEnergy` — (optional) boolean, whether the offer uses renewable energy sources (default: false)\n- `validFrom` — (required) offer validity start date, ISO 8601 format\n- `validUntil` — (optional) offer validity end date, ISO 8601 format\n- `termsUrl` — (optional) URL to the full terms and conditions document\n- `target` — (optional) Enum: `personal`, `business`, `both`. Target audience for this offer (default: `both`)\n- `highlights` — (optional) array of strings, key selling points displayed on the offer card\n- `supplierId` — (required) UUID of the supplier providing this offer\n- `offerCode` — (optional) unique internal offer code, max 50 characters\n- `offerStatus` — (optional) Enum: `draft`, `active`, `expiring`, `expired`, `archived`. Defaults to `draft`\n\nOffer is created with `draft` status. Use the Change Status endpoint to publish it.\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -3117,7 +3069,7 @@
                     }
                   }
                 },
-                "description": "Updates an existing offer's details. All fields are optional — only provided fields are updated.\n\n**Body Fields (all optional):**\n- `name` — offer name, max 255 characters\n- `description` — offer description\n- `pricePerKwh` — price per kWh in EUR, decimal\n- `pricePerSmc` — price per Smc in EUR, decimal\n- `fixedMonthlyFee` — monthly fee in EUR, decimal\n- `activationCost` — activation cost in EUR, decimal\n- `contractDurationMonths` — duration in months, integer\n- `isGreenEnergy` — boolean\n- `validFrom` / `validUntil` — ISO 8601 dates\n- `termsUrl` — URL to terms document\n- `target` — Enum: `personal`, `business`, `both`\n- `highlights` — array of strings\n- `offerCode` — unique offer code, max 20 characters\n\nRequires **admin** role."
+                "description": "Updates an existing offer's details. All fields are optional — only provided fields are updated.\n\n**Body Fields (all optional):**\n- `name` — offer name, max 255 characters\n- `description` — offer description\n- `pricePerKwh` — price per kWh in EUR, decimal\n- `pricePerSmc` — price per Smc in EUR, decimal\n- `fixedMonthlyFee` — monthly fee in EUR, decimal\n- `activationCost` — activation cost in EUR, decimal\n- `contractDurationMonths` — duration in months, integer\n- `isGreenEnergy` — boolean\n- `validFrom` / `validUntil` — ISO 8601 dates\n- `termsUrl` — URL to terms document\n- `target` — Enum: `personal`, `business`, `both`\n- `highlights` — array of strings\n- `offerCode` — unique offer code, max 50 characters\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -3535,7 +3487,7 @@
                     }
                   }
                 },
-                "description": "Creates a new partner agreement/discount.\n\n**Body Fields:**\n- `title` — (required) agreement title, max 255 characters\n- `description` — (optional) detailed description\n- `partnerName` — (required) name of the partner company, max 255 characters\n- `partnerLogoUrl` — (optional) URL to the partner's logo image\n- `discountDescription` — (optional) description of the discount/benefit offered\n- `termsUrl` — (optional) URL to the full terms and conditions\n- `targetAudience` — (optional) Enum: `personal`, `business`, `both`. Who can see this agreement (default: `both`)\n- `validFrom` — (optional) start date, ISO 8601 format\n- `validUntil` — (optional) end date, ISO 8601 format\n- `sortOrder` — (optional) integer, display order priority (lower values appear first, default: 0)\n- `isActive` — (optional) boolean, whether visible to users (default: true)\n\nRequires **admin** role."
+                "description": "Creates a new partner agreement/discount.\n\n**Body Fields:**\n- `title` — (required) agreement title, max 255 characters\n- `description` — (optional) detailed description\n- `partnerName` — (required) name of the partner company, max 255 characters\n- `partnerLogoUrl` — (optional) URL to the partner's logo image\n- `discountDescription` — (optional) description of the discount/benefit offered\n- `termsUrl` — (optional) URL to the full terms and conditions\n- `targetAudience` — (optional) Enum: `personal`, `business`, `both`. Who can see this agreement (default: `both`)\n- `validFrom` — (required) start date, ISO 8601 format\n- `validUntil` — (optional) end date, ISO 8601 format\n- `sortOrder` — (optional) integer, display order priority (lower values appear first, default: 0)\n- `isActive` — (optional) boolean, whether visible to users (default: true)\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -5381,7 +5333,7 @@
                     }
                   }
                 },
-                "description": "Uploads a document for a switching case.\n\n**Body Fields:**\n- `documentType` — (required) Enum: `bill`, `id_card`, `codice_fiscale`, `contract`, `signed_contract`, `partita_iva`. Type of document being uploaded.\n  - `bill` — energy bill copy\n  - `id_card` — identity document\n  - `codice_fiscale` — Italian tax ID card\n  - `contract` — unsigned contract\n  - `signed_contract` — signed contract\n  - `partita_iva` — VAT registration document (business users)\n- `fileUrl` — (required) URL of the pre-uploaded file (upload the file first via a file upload service)\n- `fileName` — (optional) original file name for display purposes, max 255 characters"
+                "description": "Uploads a document for a switching case.\n\n**Body Fields:**\n- `documentType` — (required) Enum: `bill`, `id_card`, `codice_fiscale`, `contract`, `signed_contract`, `partita_iva`. Type of document being uploaded.\n  - `bill` — energy bill copy\n  - `id_card` — identity document\n  - `codice_fiscale` — Italian tax ID card\n  - `contract` — unsigned contract\n  - `signed_contract` — signed contract\n  - `partita_iva` — VAT registration document (business users)\n- `fileUrl` — (required) URL of the pre-uploaded file (upload the file first via a file upload service)\n- `fileName` — (required) original file name for display purposes, max 255 characters"
               },
               "response": [
                 {

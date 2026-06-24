@@ -209,6 +209,7 @@ export class OffersService {
       .createQueryBuilder('offer')
       .leftJoinAndSelect('offer.supplier', 'supplier')
       .where('offer.isActive = :isActive', { isActive: true })
+      .andWhere('offer.offerStatus = :offerStatus', { offerStatus: OfferStatus.ACTIVE })
       .andWhere(
         '(offer.energyType = :energyType OR offer.energyType = :dual)',
         { energyType, dual: EnergyType.DUAL },

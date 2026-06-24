@@ -4746,10 +4746,69 @@
                       "description": "(optional) PDR code — Punto di Riconsegna, gas delivery point identifier. Required for gas bills.",
                       "type": "text",
                       "disabled": true
+                    },
+                    {
+                      "key": "totalAmount",
+                      "value": "120.50",
+                      "type": "text",
+                      "description": "(optional) Total bill amount in EUR."
+                    },
+                    {
+                      "key": "consumptionKwh",
+                      "value": "350",
+                      "type": "text",
+                      "description": "(optional) Electricity consumption in kWh."
+                    },
+                    {
+                      "key": "consumptionSmc",
+                      "value": "",
+                      "type": "text",
+                      "description": "(optional) Gas consumption in Smc (standard cubic meters).",
+                      "disabled": true
+                    },
+                    {
+                      "key": "costPerUnit",
+                      "value": "0.25",
+                      "type": "text",
+                      "description": "(optional) Cost per unit (EUR/kWh or EUR/Smc)."
+                    },
+                    {
+                      "key": "fixedCharges",
+                      "value": "15.00",
+                      "type": "text",
+                      "description": "(optional) Fixed monthly charges in EUR."
+                    },
+                    {
+                      "key": "taxes",
+                      "value": "8.50",
+                      "type": "text",
+                      "description": "(optional) Taxes in EUR.",
+                      "disabled": true
+                    },
+                    {
+                      "key": "supplierId",
+                      "value": "{{supplierId}}",
+                      "type": "text",
+                      "description": "(optional) Current supplier UUID.",
+                      "disabled": true
+                    },
+                    {
+                      "key": "billingPeriodStart",
+                      "value": "2026-01-01",
+                      "type": "text",
+                      "description": "(optional) Billing period start date (ISO 8601).",
+                      "disabled": true
+                    },
+                    {
+                      "key": "billingPeriodEnd",
+                      "value": "2026-01-31",
+                      "type": "text",
+                      "description": "(optional) Billing period end date (ISO 8601).",
+                      "disabled": true
                     }
                   ]
                 },
-                "description": "Uploads an energy bill (multipart/form-data).\n\n**Required:** `file` (PDF/image), `billType` (`electricity` or `gas`)\n**Optional:** `podNumber` (POD for electricity), `pdrNumber` (PDR for gas)\n\nBill starts in `uploaded` status. Trigger analysis via `POST /bills/:id/analyze`.\n\n**Auto-saves** `billId` to collection variables."
+                "description": "Uploads an energy bill (multipart/form-data). Analysis is triggered automatically after upload.\n\n**Required:** `file` (PDF/image), `billType` (`electricity` or `gas`)\n**Optional:** `podNumber`, `pdrNumber`, `totalAmount`, `consumptionKwh`, `consumptionSmc`, `costPerUnit`, `fixedCharges`, `taxes`, `supplierId`, `billingPeriodStart`, `billingPeriodEnd`\n\nBill starts in `uploaded` status, then auto-analyzes in background. If admin has `autoSendOffers` enabled, recommended offers are automatically sent to the user.\n\n**Auto-saves** `billId` to collection variables."
               },
               "response": [
                 {
@@ -5131,6 +5190,92 @@
                     }
                   ],
                   "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Bill not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Get Recommended Offers (Admin)",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/bills/admin/{{billId}}/recommended-offers",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "bills", "admin", "{{billId}}", "recommended-offers"]
+                },
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "description": "Returns the top 3 recommended offers stored from the bill's auto-analysis. Each offer includes supplier name, prices, and estimated savings.\n\nRequires **admin** role."
+              },
+              "response": [
+                {
+                  "name": "200 - Recommended Offers",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"billId\": \"bl1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"potentialSavings\": 18.08,\n    \"offersSentToUser\": false,\n    \"recommendedOffers\": [\n      {\n        \"id\": \"of1a2b3c-d5e6-7890-abcd-ef1234567890\",\n        \"name\": \"Luce Fissa 24\",\n        \"supplierName\": \"Eni Plenitude\",\n        \"pricePerKwh\": \"0.18\",\n        \"fixedMonthlyFee\": \"5.00\",\n        \"marketType\": \"fixed\",\n        \"estimatedSavings\": 18.08\n      },\n      {\n        \"id\": \"of2a2b3c-d5e6-7890-abcd-ef1234567890\",\n        \"name\": \"Gas Casa Web\",\n        \"supplierName\": \"Edison\",\n        \"pricePerKwh\": \"0.19\",\n        \"fixedMonthlyFee\": \"4.50\",\n        \"marketType\": \"variable\",\n        \"estimatedSavings\": 14.50\n      }\n    ]\n  }\n}"
+                },
+                {
+                  "name": "404 - No Analysis",
+                  "status": "Not Found",
+                  "code": 404,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Analysis not found for this bill\"],\n  \"timestamp\": \"2026-06-24T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Send Offers to User (Admin)",
+              "request": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/bills/admin/{{billId}}/send-offers",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "bills", "admin", "{{billId}}", "send-offers"]
+                },
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "description": "Manually sends the recommended offers to the bill owner as a notification. Sets `offersSentToUser` to true on the analysis. Use when `autoSendOffers` is disabled.\n\nRequires **admin** role."
+              },
+              "response": [
+                {
+                  "name": "200 - Offers Sent",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Offers sent to user successfully\"\n  }\n}"
+                },
+                {
+                  "name": "404 - No Offers",
+                  "status": "Not Found",
+                  "code": 404,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"No recommended offers to send\"],\n  \"timestamp\": \"2026-06-24T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Re-Analyze Bill (Admin)",
+              "request": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/bills/admin/{{billId}}/reanalyze",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "bills", "admin", "{{billId}}", "reanalyze"]
+                },
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "description": "Re-triggers analysis for a bill against the current offers catalog. Useful when new offers are added or prices change.\n\nRequires **admin** role."
+              },
+              "response": [
+                {
+                  "name": "200 - Re-Analyzed",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"an1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"billId\": \"bl1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"potentialSavings\": \"18.08\",\n    \"currentMonthlyAvg\": \"102.50\",\n    \"recommendedMarketType\": \"fixed\",\n    \"confidenceScore\": \"0.90\",\n    \"recommendedOffers\": [...],\n    \"offersSentToUser\": false\n  }\n}"
                 }
               ]
             }
@@ -7560,6 +7705,59 @@
           ]
         },
         {
+          "name": "Get Admin Settings",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dashboard/admin/settings",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "dashboard", "admin", "settings"]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "description": "Returns admin-wide settings including the auto-send offers toggle and max recommended offers count.\n\nRequires **admin** role."
+          },
+          "response": [
+            {
+              "name": "200 - Settings",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"set1a2b3-d5e6-7890-abcd-ef1234567890\",\n    \"autoSendOffers\": false,\n    \"maxRecommendedOffers\": 3,\n    \"updatedBy\": null,\n    \"createdAt\": \"2026-06-24T12:00:00.000Z\",\n    \"updatedAt\": \"2026-06-24T12:00:00.000Z\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Admin Settings",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dashboard/admin/settings",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "dashboard", "admin", "settings"]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"autoSendOffers\": true,\n  \"maxRecommendedOffers\": 3\n}"
+            },
+            "description": "Updates admin-wide settings. Toggle `autoSendOffers` to enable/disable automatic offer notifications after bill analysis.\n\nRequires **admin** role."
+          },
+          "response": [
+            {
+              "name": "200 - Updated",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"set1a2b3-d5e6-7890-abcd-ef1234567890\",\n    \"autoSendOffers\": true,\n    \"maxRecommendedOffers\": 3,\n    \"updatedBy\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"createdAt\": \"2026-06-24T12:00:00.000Z\",\n    \"updatedAt\": \"2026-06-24T12:30:00.000Z\"\n  }\n}"
+            }
+          ]
+        },
+        {
           "name": "User Dashboard",
           "request": {
             "method": "GET",
@@ -7594,7 +7792,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"activeCases\": 2,\n    \"activeContracts\": 3,\n    \"totalBills\": 12,\n    \"pendingBills\": 1,\n    \"estimatedMonthlySaving\": \"32.50\",\n    \"recentCases\": [\n      {\n        \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n        \"status\": \"in_progress\",\n        \"energyType\": \"electricity\",\n        \"createdAt\": \"2026-06-15T10:00:00.000Z\"\n      }\n    ],\n    \"recentContracts\": [\n      {\n        \"id\": \"f1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n        \"contractNumber\": \"CTR-2026-001234\",\n        \"status\": \"active\",\n        \"podPdrNumber\": \"IT001E98765432\",\n        \"monthlyEstimate\": \"85.50\"\n      }\n    ]\n  }\n}"
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"totalCases\": 5,\n    \"activeContracts\": 3,\n    \"potentialSavings\": {\n      \"totalSavings\": 32.50,\n      \"analyzedBills\": 4\n    },\n    \"activeRequests\": {\n      \"count\": 2,\n      \"requests\": [\n        {\n          \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n          \"caseNumber\": \"SW-20260615-00001\",\n          \"status\": \"in_progress\",\n          \"createdAt\": \"2026-06-15T10:00:00.000Z\",\n          \"fromSupplier\": { \"id\": \"s1...\", \"name\": \"Enel Energia\" },\n          \"toSupplier\": { \"id\": \"s2...\", \"name\": \"Eni Plenitude\" },\n          \"selectedOffer\": { \"id\": \"of1...\", \"name\": \"Luce Fissa 24\" }\n        }\n      ]\n    },\n    \"recentCases\": [\n      {\n        \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n        \"status\": \"in_progress\",\n        \"createdAt\": \"2026-06-15T10:00:00.000Z\"\n      }\n    ]\n  }\n}"
             },
             {
               "name": "403 - Forbidden",

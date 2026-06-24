@@ -5,8 +5,13 @@ import { User } from '../users/entities/user.entity';
 import { SwitchCase } from '../cases/entities/switch-case.entity';
 import { Contract } from '../contracts/entities/contract.entity';
 import { Commission } from '../commissions/entities/commission.entity';
+import { EnergyBill } from '../bills/entities/energy-bill.entity';
+import { BillAnalysis } from '../bills/entities/bill-analysis.entity';
+import { AdminSettings } from './entities/admin-settings.entity';
+import { UpdateAdminSettingsDto } from './dto/update-admin-settings.dto';
 import { ContractStatus } from '../../common/enums/contract.enum';
 import { CommissionStatus } from '../../common/enums/commission.enum';
+import { BillStatus } from '../../common/enums/bill.enum';
 
 @Injectable()
 export class DashboardService {
@@ -19,6 +24,12 @@ export class DashboardService {
     private readonly contractRepository: Repository<Contract>,
     @InjectRepository(Commission)
     private readonly commissionRepository: Repository<Commission>,
+    @InjectRepository(EnergyBill)
+    private readonly billRepository: Repository<EnergyBill>,
+    @InjectRepository(BillAnalysis)
+    private readonly analysisRepository: Repository<BillAnalysis>,
+    @InjectRepository(AdminSettings)
+    private readonly adminSettingsRepository: Repository<AdminSettings>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -30,6 +41,7 @@ export class DashboardService {
       commissionStats,
       monthlyTrends,
       recentCases,
+      billStats,
     ] = await Promise.all([
       this.userRepository.count(),
       this.getCasesByStatus(),
@@ -39,6 +51,7 @@ export class DashboardService {
       this.getCommissionStats(),
       this.getMonthlyTrends(),
       this.getRecentCases(),
+      this.getBillStats(),
     ]);
 
     return {
@@ -48,6 +61,7 @@ export class DashboardService {
       commissions: commissionStats,
       monthlyTrends,
       recentCases,
+      billStats,
     };
   }
 
@@ -125,4 +139,64 @@ export class DashboardService {
     });
   }
 
+  private async getBillStats() {
+    const [billsByStatus, pendingReview, recentBills] = await Promise.all([
+      this.billRepository
+        .createQueryBuilder('b')
+        .select('b.status', 'status')
+        .addSelect('COUNT(*)::int', 'count')
+        .groupBy('b.status')
+        .getRawMany(),
+      this.analysisRepository.count({
+        where: { offersSentToUser: false },
+      }),
+      this.billRepository.find({
+        order: { createdAt: 'DESC' },
+        take: 10,
+        relations: ['user', 'analysis'],
+      }),
+    ]);
+
+    const statusMap: Record<string, number> = {};
+    let totalBills = 0;
+    for (const row of billsByStatus) {
+      statusMap[row.status] = row.count;
+      totalBills += row.count;
+    }
+
+    return {
+      totalBills,
+      billsByStatus: {
+        uploaded: statusMap[BillStatus.UPLOADED] || 0,
+        analyzing: statusMap[BillStatus.ANALYZING] || 0,
+        analyzed: statusMap[BillStatus.ANALYZED] || 0,
+        error: statusMap[BillStatus.ERROR] || 0,
+      },
+      pendingReview,
+      recentBills,
+    };
+  }
+
+  // ─── Admin Settings ──────────────────────────────────────
+
+  async getAdminSettings(): Promise<AdminSettings> {
+    let settings = await this.adminSettingsRepository.findOne({ where: {} });
+    if (!settings) {
+      settings = this.adminSettingsRepository.create({
+        autoSendOffers: false,
+        maxRecommendedOffers: 3,
+      });
+      await this.adminSettingsRepository.save(settings);
+    }
+    return settings;
+  }
+
+  async updateAdminSettings(
+    dto: UpdateAdminSettingsDto,
+    adminId: string,
+  ): Promise<AdminSettings> {
+    const settings = await this.getAdminSettings();
+    Object.assign(settings, dto, { updatedBy: adminId });
+    return this.adminSettingsRepository.save(settings);
+  }
 }

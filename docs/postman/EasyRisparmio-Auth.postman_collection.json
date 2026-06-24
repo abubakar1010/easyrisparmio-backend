@@ -76,6 +76,36 @@
       "value": "",
       "type": "string",
       "description": "Case UUID (auto-set by Create Case request)"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string",
+      "description": "User UUID (auto-set by Create User request)"
+    },
+    {
+      "key": "notificationId",
+      "value": "",
+      "type": "string",
+      "description": "Notification UUID (set manually for mark-as-read requests)"
+    },
+    {
+      "key": "contractId",
+      "value": "",
+      "type": "string",
+      "description": "Contract UUID (auto-set by Create Contract request)"
+    },
+    {
+      "key": "commissionId",
+      "value": "",
+      "type": "string",
+      "description": "Commission UUID (set manually for approve/pay requests)"
+    },
+    {
+      "key": "commissionRuleId",
+      "value": "",
+      "type": "string",
+      "description": "Commission Rule UUID (auto-set by Create Commission Rule request)"
     }
   ],
   "item": [
@@ -5513,6 +5543,2347 @@
                   "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Document not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
                 }
               ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "description": "User profile management and admin CRUD. Personal/business users manage their own profile; admins can list, create, update, and soft-delete any user.",
+      "item": [
+        {
+          "name": "User",
+          "description": "User-facing profile endpoints. Any authenticated user can view and update their own profile.",
+          "item": [
+            {
+              "name": "Get Own Profile",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/users/profile",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "users",
+                    "profile"
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "description": "Returns the authenticated user's full profile including role, status, verification flags, and referral code.\n\nAvailable to all authenticated roles (personal, business, admin). The password hash is never included in the response."
+              },
+              "response": [
+                {
+                  "name": "200 - User Profile",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"email\": \"mario.rossi@email.com\",\n    \"phone\": \"+393331234567\",\n    \"firstName\": \"Mario\",\n    \"lastName\": \"Rossi\",\n    \"codiceFiscale\": \"RSSMRA85M01H501Z\",\n    \"avatar\": null,\n    \"authProvider\": \"local\",\n    \"firebaseUid\": null,\n    \"referralCode\": \"MARIO2025\",\n    \"role\": \"personal\",\n    \"status\": \"active\",\n    \"emailVerified\": true,\n    \"phoneVerified\": false,\n    \"lastLoginAt\": \"2026-06-20T08:30:00.000Z\",\n    \"deletedAt\": null,\n    \"createdAt\": \"2026-01-15T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-20T08:30:00.000Z\"\n  }\n}"
+                },
+                {
+                  "name": "401 - Unauthorized",
+                  "status": "Unauthorized",
+                  "code": 401,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\"Unauthorized\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Update Own Profile",
+              "request": {
+                "method": "PATCH",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/users/profile",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "users",
+                    "profile"
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"firstName\": \"Mario\",\n  \"lastName\": \"Rossi\",\n  \"phone\": \"+393339876543\",\n  \"codiceFiscale\": \"RSSMRA85M01H501Z\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Updates the authenticated user's profile fields. All fields are optional.\n\n**Body Fields (all optional):**\n- `email` — valid email address\n- `firstName` — first name\n- `lastName` — last name\n- `phone` — phone number\n- `codiceFiscale` — Italian tax code (regex: `/^[A-Z]{6}\\d{2}[A-Z]\\d{2}[A-Z]\\d{3}[A-Z]$/i`)\n- `companyName` — company name (business users)\n- `partitaIva` — Italian VAT number (11 digits)\n- `pecEmail` — PEC certified email\n- `legalRepresentative` — legal representative name\n- `companyType` — company type\n- `atecoCode` — ATECO business classification code\n\nUsers cannot change their own role or status."
+              },
+              "response": [
+                {
+                  "name": "200 - Profile Updated",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"email\": \"mario.rossi@email.com\",\n    \"phone\": \"+393339876543\",\n    \"firstName\": \"Mario\",\n    \"lastName\": \"Rossi\",\n    \"codiceFiscale\": \"RSSMRA85M01H501Z\",\n    \"avatar\": null,\n    \"authProvider\": \"local\",\n    \"firebaseUid\": null,\n    \"referralCode\": \"MARIO2025\",\n    \"role\": \"personal\",\n    \"status\": \"active\",\n    \"emailVerified\": true,\n    \"phoneVerified\": false,\n    \"lastLoginAt\": \"2026-06-20T08:30:00.000Z\",\n    \"deletedAt\": null,\n    \"createdAt\": \"2026-01-15T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-24T14:00:00.000Z\"\n  }\n}"
+                },
+                {
+                  "name": "400 - Validation Error",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"email must be an email\", \"Invalid Codice Fiscale format\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "401 - Unauthorized",
+                  "status": "Unauthorized",
+                  "code": 401,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\"Unauthorized\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Admin",
+          "description": "Admin-only user management endpoints. Full CRUD on all users, plus paginated listing with role/status filters.",
+          "item": [
+            {
+              "name": "List All Users",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/users?page=1&limit=20",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "users"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "description": "Page number (default: 1)"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20",
+                      "description": "Items per page (default: 20)"
+                    },
+                    {
+                      "key": "search",
+                      "value": "",
+                      "description": "Search by name or email",
+                      "disabled": true
+                    },
+                    {
+                      "key": "role",
+                      "value": "personal",
+                      "description": "Filter by role: personal, business, admin",
+                      "disabled": true
+                    },
+                    {
+                      "key": "status",
+                      "value": "active",
+                      "description": "Filter by status: active, inactive, pending_verification, suspended",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "description": "Returns a paginated list of all users. Supports filtering by role, status, and text search (name, email).\n\nRequires **admin** role."
+              },
+              "response": [
+                {
+                  "name": "200 - Users List",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"data\": [\n      {\n        \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n        \"email\": \"mario.rossi@email.com\",\n        \"phone\": \"+393331234567\",\n        \"firstName\": \"Mario\",\n        \"lastName\": \"Rossi\",\n        \"codiceFiscale\": \"RSSMRA85M01H501Z\",\n        \"role\": \"personal\",\n        \"status\": \"active\",\n        \"emailVerified\": true,\n        \"phoneVerified\": false,\n        \"lastLoginAt\": \"2026-06-20T08:30:00.000Z\",\n        \"createdAt\": \"2026-01-15T10:00:00.000Z\"\n      },\n      {\n        \"id\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n        \"email\": \"giulia.bianchi@azienda.it\",\n        \"phone\": \"+393487654321\",\n        \"firstName\": \"Giulia\",\n        \"lastName\": \"Bianchi\",\n        \"codiceFiscale\": null,\n        \"role\": \"business\",\n        \"status\": \"active\",\n        \"emailVerified\": true,\n        \"phoneVerified\": true,\n        \"lastLoginAt\": \"2026-06-22T14:15:00.000Z\",\n        \"createdAt\": \"2026-03-10T09:00:00.000Z\"\n      }\n    ],\n    \"meta\": {\n      \"total\": 2,\n      \"page\": 1,\n      \"limit\": 20,\n      \"totalPages\": 1\n    }\n  }\n}"
+                },
+                {
+                  "name": "401 - Unauthorized",
+                  "status": "Unauthorized",
+                  "code": 401,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\"Unauthorized\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "403 - Forbidden",
+                  "status": "Forbidden",
+                  "code": 403,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Create User",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code === 201) { const res = pm.response.json(); if (res.success && res.data && res.data.id) { pm.collectionVariables.set('userId', res.data.id); console.log('userId saved: ' + res.data.id); } }"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/users",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "users"
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"luigi.verdi@email.com\",\n  \"password\": \"SecurePass123!\",\n  \"firstName\": \"Luigi\",\n  \"lastName\": \"Verdi\",\n  \"phone\": \"+393201234567\",\n  \"role\": \"personal\",\n  \"codiceFiscale\": \"VRDLGU90A01F205X\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Creates a new user account with the specified role.\n\n**Body Fields:**\n- `email` — (required) valid email, must be unique\n- `password` — (required) minimum 8 characters\n- `firstName` — (required) first name\n- `lastName` — (required) last name\n- `phone` — (optional) phone number\n- `role` — (required) Enum: `personal`, `business`\n- `status` — (optional) defaults to `pending_verification`\n- `codiceFiscale` — (optional) Italian tax code\n- `companyName` — (optional) for business users\n- `partitaIva` — (optional) 11-digit Italian VAT number\n- `pecEmail` — (optional) PEC certified email\n- `legalRepresentative` — (optional)\n- `companyType` — (optional)\n- `atecoCode` — (optional) ATECO classification code\n\n**Auto-saves** `userId` to collection variables.\n\nRequires **admin** role."
+              },
+              "response": [
+                {
+                  "name": "201 - User Created",
+                  "status": "Created",
+                  "code": 201,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"c3d4e5f6-a7b8-9012-cdef-123456789012\",\n    \"email\": \"luigi.verdi@email.com\",\n    \"phone\": \"+393201234567\",\n    \"firstName\": \"Luigi\",\n    \"lastName\": \"Verdi\",\n    \"codiceFiscale\": \"VRDLGU90A01F205X\",\n    \"avatar\": null,\n    \"authProvider\": \"local\",\n    \"firebaseUid\": null,\n    \"referralCode\": null,\n    \"role\": \"personal\",\n    \"status\": \"pending_verification\",\n    \"emailVerified\": false,\n    \"phoneVerified\": false,\n    \"lastLoginAt\": null,\n    \"deletedAt\": null,\n    \"createdAt\": \"2026-06-24T12:00:00.000Z\",\n    \"updatedAt\": \"2026-06-24T12:00:00.000Z\"\n  }\n}"
+                },
+                {
+                  "name": "400 - Validation Error",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"email must be an email\", \"password must be longer than or equal to 8 characters\", \"role must be a valid enum value\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "409 - Email Conflict",
+                  "status": "Conflict",
+                  "code": 409,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 409,\n  \"message\": [\"A user with this email already exists\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "403 - Forbidden",
+                  "status": "Forbidden",
+                  "code": 403,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Get User by ID",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/users/{{userId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "users",
+                    "{{userId}}"
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "description": "Returns a single user's full profile by UUID. Includes all fields except the password hash.\n\nReturns 404 if the user does not exist or has been soft-deleted.\n\nRequires **admin** role."
+              },
+              "response": [
+                {
+                  "name": "200 - User Detail",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"email\": \"mario.rossi@email.com\",\n    \"phone\": \"+393331234567\",\n    \"firstName\": \"Mario\",\n    \"lastName\": \"Rossi\",\n    \"codiceFiscale\": \"RSSMRA85M01H501Z\",\n    \"avatar\": null,\n    \"authProvider\": \"local\",\n    \"firebaseUid\": null,\n    \"referralCode\": \"MARIO2025\",\n    \"role\": \"personal\",\n    \"status\": \"active\",\n    \"emailVerified\": true,\n    \"phoneVerified\": false,\n    \"lastLoginAt\": \"2026-06-20T08:30:00.000Z\",\n    \"deletedAt\": null,\n    \"createdAt\": \"2026-01-15T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-20T08:30:00.000Z\"\n  }\n}"
+                },
+                {
+                  "name": "404 - User Not Found",
+                  "status": "Not Found",
+                  "code": 404,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"User not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "403 - Forbidden",
+                  "status": "Forbidden",
+                  "code": 403,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Update User by ID",
+              "request": {
+                "method": "PATCH",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/users/{{userId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "users",
+                    "{{userId}}"
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"active\",\n  \"phone\": \"+393331234567\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Updates a user's profile fields by UUID. All fields are optional.\n\nAdmins can update role, status, and all profile fields. The password field is excluded from updates.\n\n**Body Fields (all optional):** email, firstName, lastName, phone, role, status, codiceFiscale, companyName, partitaIva, pecEmail, legalRepresentative, companyType, atecoCode.\n\nRequires **admin** role."
+              },
+              "response": [
+                {
+                  "name": "200 - User Updated",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"email\": \"mario.rossi@email.com\",\n    \"phone\": \"+393331234567\",\n    \"firstName\": \"Mario\",\n    \"lastName\": \"Rossi\",\n    \"codiceFiscale\": \"RSSMRA85M01H501Z\",\n    \"avatar\": null,\n    \"authProvider\": \"local\",\n    \"firebaseUid\": null,\n    \"referralCode\": \"MARIO2025\",\n    \"role\": \"personal\",\n    \"status\": \"active\",\n    \"emailVerified\": true,\n    \"phoneVerified\": false,\n    \"lastLoginAt\": \"2026-06-20T08:30:00.000Z\",\n    \"deletedAt\": null,\n    \"createdAt\": \"2026-01-15T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-24T14:00:00.000Z\"\n  }\n}"
+                },
+                {
+                  "name": "400 - Validation Error",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"email must be an email\", \"Invalid Codice Fiscale format\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "404 - User Not Found",
+                  "status": "Not Found",
+                  "code": 404,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"User not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "409 - Email Conflict",
+                  "status": "Conflict",
+                  "code": 409,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 409,\n  \"message\": [\"A user with this email already exists\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "403 - Forbidden",
+                  "status": "Forbidden",
+                  "code": 403,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Delete User (Soft-Delete)",
+              "request": {
+                "method": "DELETE",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/users/{{userId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "users",
+                    "{{userId}}"
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "description": "Soft-deletes a user by setting the `deleted_at` timestamp. The user is excluded from all queries but preserved in the database.\n\nRequires **admin** role."
+              },
+              "response": [
+                {
+                  "name": "200 - User Deleted",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"email\": \"mario.rossi@email.com\",\n    \"firstName\": \"Mario\",\n    \"lastName\": \"Rossi\",\n    \"role\": \"personal\",\n    \"status\": \"active\",\n    \"deletedAt\": \"2026-06-24T15:00:00.000Z\",\n    \"createdAt\": \"2026-01-15T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-24T15:00:00.000Z\"\n  }\n}"
+                },
+                {
+                  "name": "404 - User Not Found",
+                  "status": "Not Found",
+                  "code": 404,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"User not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "403 - Forbidden",
+                  "status": "Forbidden",
+                  "code": 403,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "description": "Push notifications, in-app notifications, and admin broadcast. Users view their notifications and manage push tokens; admins can send notifications to one or more users.",
+      "item": [
+        {
+          "name": "User",
+          "description": "User-facing notification endpoints. Any authenticated user can view their notifications, manage read status, and register push tokens.",
+          "item": [
+            {
+              "name": "Get My Notifications",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/notifications?page=1&limit=20",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "notifications"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "description": "Page number (default: 1)"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20",
+                      "description": "Items per page (default: 20)"
+                    },
+                    {
+                      "key": "type",
+                      "value": "bill_analyzed",
+                      "description": "Filter by notification type",
+                      "disabled": true
+                    },
+                    {
+                      "key": "isRead",
+                      "value": "false",
+                      "description": "Filter by read status (true/false)",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "description": "Returns the authenticated user's notifications with pagination support.\n\nCan be filtered by notification type and read/unread status. Results are ordered by newest first."
+              },
+              "response": [
+                {
+                  "name": "200 - Notifications List",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"data\": [\n      {\n        \"id\": \"n1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n        \"userId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n        \"title\": \"Bolletta Analizzata\",\n        \"body\": \"La tua bolletta elettrica è stata analizzata. Potresti risparmiare fino al 15% cambiando fornitore.\",\n        \"type\": \"bill_analyzed\",\n        \"data\": { \"billId\": \"b1c2d3e4-f5a6-7890-bcde-f12345678901\" },\n        \"isRead\": false,\n        \"readAt\": null,\n        \"createdAt\": \"2026-06-20T14:30:00.000Z\",\n        \"updatedAt\": \"2026-06-20T14:30:00.000Z\"\n      }\n    ],\n    \"meta\": {\n      \"total\": 1,\n      \"page\": 1,\n      \"limit\": 20,\n      \"totalPages\": 1\n    }\n  }\n}"
+                },
+                {
+                  "name": "401 - Unauthorized",
+                  "status": "Unauthorized",
+                  "code": 401,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\"Unauthorized\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Get Unread Count",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/notifications/unread-count",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "notifications",
+                    "unread-count"
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "description": "Returns the total number of unread notifications for the authenticated user. Useful for displaying badge counts in the mobile app."
+              },
+              "response": [
+                {
+                  "name": "200 - Unread Count",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"count\": 5\n  }\n}"
+                },
+                {
+                  "name": "401 - Unauthorized",
+                  "status": "Unauthorized",
+                  "code": 401,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\"Unauthorized\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Mark Notification as Read",
+              "request": {
+                "method": "PATCH",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/notifications/{{notificationId}}/read",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "notifications",
+                    "{{notificationId}}",
+                    "read"
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "description": "Marks a single notification as read and sets the `readAt` timestamp. The notification must belong to the authenticated user."
+              },
+              "response": [
+                {
+                  "name": "200 - Notification Read",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"n1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"userId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"title\": \"Bolletta Analizzata\",\n    \"body\": \"La tua bolletta elettrica è stata analizzata.\",\n    \"type\": \"bill_analyzed\",\n    \"data\": { \"billId\": \"b1c2d3e4-f5a6-7890-bcde-f12345678901\" },\n    \"isRead\": true,\n    \"readAt\": \"2026-06-20T15:00:00.000Z\",\n    \"createdAt\": \"2026-06-20T14:30:00.000Z\",\n    \"updatedAt\": \"2026-06-20T15:00:00.000Z\"\n  }\n}"
+                },
+                {
+                  "name": "404 - Notification Not Found",
+                  "status": "Not Found",
+                  "code": 404,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Notification not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "401 - Unauthorized",
+                  "status": "Unauthorized",
+                  "code": 401,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\"Unauthorized\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Mark All as Read",
+              "request": {
+                "method": "PATCH",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/notifications/read-all",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "notifications",
+                    "read-all"
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "description": "Marks all unread notifications as read for the authenticated user. Sets `isRead` to true and `readAt` to the current timestamp for all unread notifications."
+              },
+              "response": [
+                {
+                  "name": "200 - All Read",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"All notifications marked as read\"\n  }\n}"
+                },
+                {
+                  "name": "401 - Unauthorized",
+                  "status": "Unauthorized",
+                  "code": 401,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\"Unauthorized\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Register Push Token",
+              "request": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/notifications/push-token",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "notifications",
+                    "push-token"
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"fMI-EXAMPLE-TOKEN_abc123xyz...\",\n  \"platform\": \"ios\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Registers a device push notification token (FCM) for the authenticated user.\n\n**Body Fields:**\n- `token` — (required) FCM device push token\n- `platform` — (required) Enum: `ios`, `android`. Device platform.\n\nIf the token already exists, it is updated with the current user and platform. Each device should register its token on app startup."
+              },
+              "response": [
+                {
+                  "name": "201 - Token Registered",
+                  "status": "Created",
+                  "code": 201,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"pt1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"userId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"token\": \"fMI-EXAMPLE-TOKEN_abc123xyz...\",\n    \"platform\": \"ios\",\n    \"isActive\": true,\n    \"createdAt\": \"2026-06-20T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-20T10:00:00.000Z\"\n  }\n}"
+                },
+                {
+                  "name": "400 - Validation Error",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"token should not be empty\", \"platform must be a valid enum value (ios, android)\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "401 - Unauthorized",
+                  "status": "Unauthorized",
+                  "code": 401,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\"Unauthorized\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Remove Push Token",
+              "request": {
+                "method": "DELETE",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/notifications/push-token/fMI-EXAMPLE-TOKEN_abc123xyz...",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "notifications",
+                    "push-token",
+                    "fMI-EXAMPLE-TOKEN_abc123xyz..."
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "description": "Removes a device push notification token. Should be called when the user logs out or disables push notifications on a device."
+              },
+              "response": [
+                {
+                  "name": "200 - Token Removed",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Push token removed\"\n  }\n}"
+                },
+                {
+                  "name": "404 - Token Not Found",
+                  "status": "Not Found",
+                  "code": 404,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Push token not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "401 - Unauthorized",
+                  "status": "Unauthorized",
+                  "code": 401,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\"Unauthorized\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Admin",
+          "description": "Admin-only notification endpoints. Send notifications to individual users or broadcast to multiple users.",
+          "item": [
+            {
+              "name": "Send Notification",
+              "request": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/notifications/send",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "notifications",
+                    "send"
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"title\": \"Nuova Offerta Disponibile\",\n  \"body\": \"Una nuova offerta energia è disponibile che potrebbe farti risparmiare il 20% sulla bolletta elettrica.\",\n  \"type\": \"offer_available\",\n  \"data\": {\n    \"offerId\": \"o1c2d3e4-f5a6-7890-bcde-f12345678901\"\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Sends a notification to one or more users. Also triggers push notifications to registered devices.\n\n**Body Fields:**\n- `userId` — (optional) UUID of a single user to notify\n- `userIds` — (optional) array of UUIDs for multiple users\n- `title` — (required) notification title\n- `body` — (required) notification body text\n- `type` — (required) Enum: notification type (e.g. `offer_available`, `bill_analyzed`, `case_update`, `general`)\n- `data` — (optional) JSON object with additional data (e.g. offerId, billId)\n\nProvide either `userId` or `userIds`, not both.\n\nRequires **admin** role."
+              },
+              "response": [
+                {
+                  "name": "201 - Notification Sent",
+                  "status": "Created",
+                  "code": 201,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"n1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"userId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"title\": \"Nuova Offerta Disponibile\",\n    \"body\": \"Una nuova offerta energia è disponibile che potrebbe farti risparmiare il 20% sulla bolletta elettrica.\",\n    \"type\": \"offer_available\",\n    \"data\": { \"offerId\": \"o1c2d3e4-f5a6-7890-bcde-f12345678901\" },\n    \"isRead\": false,\n    \"readAt\": null,\n    \"createdAt\": \"2026-06-20T16:00:00.000Z\",\n    \"updatedAt\": \"2026-06-20T16:00:00.000Z\"\n  }\n}"
+                },
+                {
+                  "name": "400 - Validation Error",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"title should not be empty\", \"type must be a valid enum value\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "403 - Forbidden",
+                  "status": "Forbidden",
+                  "code": 403,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Contracts",
+      "description": "Contract management for switching cases. Admin-only module for creating, updating, and tracking energy supply contracts linked to switching cases.",
+      "item": [
+        {
+          "name": "Create Contract",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) { const res = pm.response.json(); if (res.success && res.data && res.data.id) { pm.collectionVariables.set('contractId', res.data.id); console.log('contractId saved: ' + res.data.id); } }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/contracts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "contracts"
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"caseId\": \"{{caseId}}\",\n  \"contractNumber\": \"CTR-2026-001234\",\n  \"podPdrNumber\": \"IT001E98765432\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Creates a new energy supply contract linked to an existing switch case.\n\n**Body Fields:**\n- `caseId` — (required) UUID of the switching case\n- `contractNumber` — (required) unique contract number string\n- `podPdrNumber` — (optional) POD/PDR delivery point code\n\nContract is created with `draft` status.\n\n**Auto-saves** `contractId` to collection variables.\n\nRequires **admin** role."
+          },
+          "response": [
+            {
+              "name": "201 - Contract Created",
+              "status": "Created",
+              "code": 201,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"f1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"caseId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"offerId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n    \"userId\": \"c3d4e5f6-a7b8-9012-cdef-123456789012\",\n    \"contractNumber\": \"CTR-2026-001234\",\n    \"status\": \"draft\",\n    \"podPdrNumber\": \"IT001E98765432\",\n    \"activationDate\": null,\n    \"expiryDate\": null,\n    \"signedAt\": null,\n    \"signedDocumentUrl\": null,\n    \"monthlyEstimate\": null,\n    \"renewalDate\": null,\n    \"cancellationReason\": null,\n    \"createdAt\": \"2026-06-24T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-24T10:00:00.000Z\"\n  }\n}"
+            },
+            {
+              "name": "400 - Validation Error",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"caseId must be a UUID\", \"contractNumber should not be empty\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            },
+            {
+              "name": "403 - Forbidden",
+              "status": "Forbidden",
+              "code": 403,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "List All Contracts",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/contracts?page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "contracts"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Items per page (default: 10)"
+                },
+                {
+                  "key": "search",
+                  "value": "CTR-2026",
+                  "description": "Search by contract number or POD/PDR",
+                  "disabled": true
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Returns a paginated list of all energy supply contracts. Supports search by contract number or POD/PDR.\n\nRequires **admin** role."
+          },
+          "response": [
+            {
+              "name": "200 - Contracts List",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"data\": [\n      {\n        \"id\": \"f1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n        \"caseId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n        \"offerId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n        \"userId\": \"c3d4e5f6-a7b8-9012-cdef-123456789012\",\n        \"contractNumber\": \"CTR-2026-001234\",\n        \"status\": \"active\",\n        \"podPdrNumber\": \"IT001E98765432\",\n        \"activationDate\": \"2026-01-15\",\n        \"expiryDate\": \"2027-01-15\",\n        \"signedAt\": \"2026-01-10T14:30:00.000Z\",\n        \"signedDocumentUrl\": \"/uploads/contracts/signed-001234.pdf\",\n        \"monthlyEstimate\": \"85.50\",\n        \"createdAt\": \"2026-01-05T10:00:00.000Z\",\n        \"updatedAt\": \"2026-01-15T10:00:00.000Z\"\n      }\n    ],\n    \"meta\": {\n      \"total\": 47,\n      \"page\": 1,\n      \"limit\": 10,\n      \"totalPages\": 5\n    }\n  }\n}"
+            },
+            {
+              "name": "403 - Forbidden",
+              "status": "Forbidden",
+              "code": 403,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Contract by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/contracts/{{contractId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "contracts",
+                "{{contractId}}"
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Returns a single contract with its full details including related case, offer, and user information.\n\nRequires **admin** role."
+          },
+          "response": [
+            {
+              "name": "200 - Contract Detail",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"f1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"caseId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"offerId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n    \"userId\": \"c3d4e5f6-a7b8-9012-cdef-123456789012\",\n    \"contractNumber\": \"CTR-2026-001234\",\n    \"status\": \"active\",\n    \"podPdrNumber\": \"IT001E98765432\",\n    \"activationDate\": \"2026-01-15\",\n    \"expiryDate\": \"2027-01-15\",\n    \"signedAt\": \"2026-01-10T14:30:00.000Z\",\n    \"signedDocumentUrl\": \"/uploads/contracts/signed-001234.pdf\",\n    \"monthlyEstimate\": \"85.50\",\n    \"renewalDate\": null,\n    \"cancellationReason\": null,\n    \"createdAt\": \"2026-01-05T10:00:00.000Z\",\n    \"updatedAt\": \"2026-01-15T10:00:00.000Z\"\n  }\n}"
+            },
+            {
+              "name": "404 - Contract Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Contract not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            },
+            {
+              "name": "403 - Forbidden",
+              "status": "Forbidden",
+              "code": 403,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Contract",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/contracts/{{contractId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "contracts",
+                "{{contractId}}"
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"signed\",\n  \"activationDate\": \"2026-02-01\",\n  \"expiryDate\": \"2027-02-01\",\n  \"signedDocumentUrl\": \"/uploads/contracts/signed-001234.pdf\",\n  \"monthlyEstimate\": 92.30\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Updates an existing contract.\n\n**Body Fields (all optional):**\n- `status` — Enum: `draft`, `sent`, `signed`, `active`, `expired`, `cancelled`\n- `activationDate` — ISO date string (e.g. `2026-02-01`)\n- `expiryDate` — ISO date string\n- `signedDocumentUrl` — URL to the signed contract document\n- `monthlyEstimate` — estimated monthly cost (number)\n\nRequires **admin** role."
+          },
+          "response": [
+            {
+              "name": "200 - Contract Updated",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"f1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"caseId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"offerId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n    \"userId\": \"c3d4e5f6-a7b8-9012-cdef-123456789012\",\n    \"contractNumber\": \"CTR-2026-001234\",\n    \"status\": \"signed\",\n    \"podPdrNumber\": \"IT001E98765432\",\n    \"activationDate\": \"2026-02-01\",\n    \"expiryDate\": \"2027-02-01\",\n    \"signedAt\": \"2026-01-20T09:15:00.000Z\",\n    \"signedDocumentUrl\": \"/uploads/contracts/signed-001234.pdf\",\n    \"monthlyEstimate\": \"92.30\",\n    \"renewalDate\": null,\n    \"cancellationReason\": null,\n    \"createdAt\": \"2026-01-05T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-24T10:00:00.000Z\"\n  }\n}"
+            },
+            {
+              "name": "400 - Validation Error",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"status must be one of the following values: draft, sent, signed, active, expired, cancelled\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            },
+            {
+              "name": "404 - Contract Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Contract not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            },
+            {
+              "name": "403 - Forbidden",
+              "status": "Forbidden",
+              "code": 403,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Contract by Case ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/contracts/case/{{caseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "contracts",
+                "case",
+                "{{caseId}}"
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Returns the contract associated with a specific switch case. Each case has at most one contract.\n\nRequires **admin** role."
+          },
+          "response": [
+            {
+              "name": "200 - Contract Found",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"f1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"caseId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"offerId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n    \"userId\": \"c3d4e5f6-a7b8-9012-cdef-123456789012\",\n    \"contractNumber\": \"CTR-2026-001234\",\n    \"status\": \"active\",\n    \"podPdrNumber\": \"IT001E98765432\",\n    \"activationDate\": \"2026-01-15\",\n    \"expiryDate\": \"2027-01-15\",\n    \"signedAt\": \"2026-01-10T14:30:00.000Z\",\n    \"signedDocumentUrl\": \"/uploads/contracts/signed-001234.pdf\",\n    \"monthlyEstimate\": \"85.50\",\n    \"renewalDate\": null,\n    \"cancellationReason\": null,\n    \"createdAt\": \"2026-01-05T10:00:00.000Z\",\n    \"updatedAt\": \"2026-01-15T10:00:00.000Z\"\n  }\n}"
+            },
+            {
+              "name": "404 - Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Contract not found for this case\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            },
+            {
+              "name": "403 - Forbidden",
+              "status": "Forbidden",
+              "code": 403,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Commissions",
+      "description": "Commission tracking, rules, and payouts. Admin-only module for managing agent commissions per contract activation, defining commission rules by supplier/energy type, and processing payments.",
+      "item": [
+        {
+          "name": "List All Commissions",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/commissions?page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "commissions"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Items per page (default: 10)"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "Search text",
+                  "disabled": true
+                },
+                {
+                  "key": "agentId",
+                  "value": "",
+                  "description": "Filter by agent UUID",
+                  "disabled": true
+                },
+                {
+                  "key": "supplierId",
+                  "value": "",
+                  "description": "Filter by supplier UUID",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "pending",
+                  "description": "Filter by status: pending, approved, paid, rejected",
+                  "disabled": true
+                },
+                {
+                  "key": "dateFrom",
+                  "value": "2026-01-01",
+                  "description": "Filter from date (YYYY-MM-DD)",
+                  "disabled": true
+                },
+                {
+                  "key": "dateTo",
+                  "value": "2026-12-31",
+                  "description": "Filter to date (YYYY-MM-DD)",
+                  "disabled": true
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Returns a paginated list of commissions. Admins see all commissions across agents.\n\nSupports filtering by agent, supplier, status, and date range.\n\nRequires **admin** role."
+          },
+          "response": [
+            {
+              "name": "200 - Commissions List",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"data\": [\n      {\n        \"id\": \"e1f2a3b4-c5d6-7890-abcd-ef1234567890\",\n        \"contractId\": \"f1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n        \"agentId\": \"c3d4e5f6-a7b8-9012-cdef-123456789012\",\n        \"supplierId\": \"d4e5f6a7-b8c9-0123-defg-234567890123\",\n        \"amount\": \"45.00\",\n        \"status\": \"pending\",\n        \"type\": \"activation\",\n        \"energyType\": \"electricity\",\n        \"approvedAt\": null,\n        \"paidAt\": null,\n        \"createdAt\": \"2026-06-20T10:00:00.000Z\",\n        \"updatedAt\": \"2026-06-20T10:00:00.000Z\"\n      }\n    ],\n    \"meta\": {\n      \"total\": 128,\n      \"page\": 1,\n      \"limit\": 10,\n      \"totalPages\": 13\n    }\n  }\n}"
+            },
+            {
+              "name": "403 - Forbidden",
+              "status": "Forbidden",
+              "code": 403,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Commission Stats",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/commissions/stats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "commissions",
+                "stats"
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Returns aggregate commission statistics including total amounts by status (pending, approved, paid) and counts. Useful for the admin dashboard.\n\nRequires **admin** role."
+          },
+          "response": [
+            {
+              "name": "200 - Commission Stats",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"totalPending\": \"2340.00\",\n    \"totalApproved\": \"8750.50\",\n    \"totalPaid\": \"45230.00\",\n    \"countPending\": 52,\n    \"countApproved\": 31,\n    \"countPaid\": 215\n  }\n}"
+            },
+            {
+              "name": "403 - Forbidden",
+              "status": "Forbidden",
+              "code": 403,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create Commission Rule",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) { const res = pm.response.json(); if (res.success && res.data && res.data.id) { pm.collectionVariables.set('commissionRuleId', res.data.id); console.log('commissionRuleId saved: ' + res.data.id); } }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/commissions/rules",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "commissions",
+                "rules"
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"supplierId\": \"{{supplierId}}\",\n  \"energyType\": \"electricity\",\n  \"commissionAmount\": 45.00,\n  \"commissionPercentage\": null,\n  \"isActive\": true,\n  \"validFrom\": \"2026-01-01\",\n  \"validUntil\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Creates a commission rule that defines how much commission is earned per contract activation for a given supplier and energy type.\n\n**Body Fields:**\n- `supplierId` — (required) UUID of the energy supplier\n- `energyType` — (required) Enum: `electricity`, `gas`, `dual`\n- `commissionAmount` — (required) fixed EUR amount per activation\n- `commissionPercentage` — (optional) percentage-based commission\n- `isActive` — (optional, default: true) whether the rule is active\n- `validFrom` — (required) ISO date string (start of validity)\n- `validUntil` — (optional) ISO date string (end of validity, null = indefinite)\n\n**Auto-saves** `commissionRuleId` to collection variables.\n\nRequires **admin** role."
+          },
+          "response": [
+            {
+              "name": "201 - Rule Created",
+              "status": "Created",
+              "code": 201,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"supplierId\": \"d4e5f6a7-b8c9-0123-defg-234567890123\",\n    \"energyType\": \"electricity\",\n    \"commissionAmount\": 45.00,\n    \"commissionPercentage\": null,\n    \"isActive\": true,\n    \"validFrom\": \"2026-01-01\",\n    \"validUntil\": null,\n    \"createdAt\": \"2026-06-24T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-24T10:00:00.000Z\"\n  }\n}"
+            },
+            {
+              "name": "400 - Validation Error",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"supplierId must be a UUID\", \"commissionAmount must be a number\", \"energyType must be one of the following values: electricity, gas, dual\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            },
+            {
+              "name": "403 - Forbidden",
+              "status": "Forbidden",
+              "code": 403,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Commission Rules",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/commissions/rules",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "commissions",
+                "rules"
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Returns all commission rules, both active and inactive. Rules define the commission amount or percentage per supplier and energy type.\n\nRequires **admin** role."
+          },
+          "response": [
+            {
+              "name": "200 - Rules List",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"supplierId\": \"d4e5f6a7-b8c9-0123-defg-234567890123\",\n      \"energyType\": \"electricity\",\n      \"commissionAmount\": 45.00,\n      \"commissionPercentage\": null,\n      \"isActive\": true,\n      \"validFrom\": \"2026-01-01\",\n      \"validUntil\": null,\n      \"createdAt\": \"2026-01-01T10:00:00.000Z\",\n      \"updatedAt\": \"2026-01-01T10:00:00.000Z\"\n    },\n    {\n      \"id\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n      \"supplierId\": \"d4e5f6a7-b8c9-0123-defg-234567890123\",\n      \"energyType\": \"gas\",\n      \"commissionAmount\": 35.00,\n      \"commissionPercentage\": null,\n      \"isActive\": true,\n      \"validFrom\": \"2026-01-01\",\n      \"validUntil\": \"2026-12-31\",\n      \"createdAt\": \"2026-01-01T10:00:00.000Z\",\n      \"updatedAt\": \"2026-01-01T10:00:00.000Z\"\n    }\n  ]\n}"
+            },
+            {
+              "name": "403 - Forbidden",
+              "status": "Forbidden",
+              "code": 403,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Commission Rule",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/commissions/rules/{{commissionRuleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "commissions",
+                "rules",
+                "{{commissionRuleId}}"
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"commissionAmount\": 50.00,\n  \"validUntil\": \"2027-06-30\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Updates an existing commission rule. Can modify the amount, percentage, active status, energy type, or validity period.\n\n**Body Fields (all optional):** supplierId, energyType, commissionAmount, commissionPercentage, isActive, validFrom, validUntil.\n\nRequires **admin** role."
+          },
+          "response": [
+            {
+              "name": "200 - Rule Updated",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"supplierId\": \"d4e5f6a7-b8c9-0123-defg-234567890123\",\n    \"energyType\": \"electricity\",\n    \"commissionAmount\": 50.00,\n    \"commissionPercentage\": null,\n    \"isActive\": true,\n    \"validFrom\": \"2026-01-01\",\n    \"validUntil\": \"2027-06-30\",\n    \"createdAt\": \"2026-01-01T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-24T10:00:00.000Z\"\n  }\n}"
+            },
+            {
+              "name": "400 - Validation Error",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"commissionAmount must be a number\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            },
+            {
+              "name": "404 - Rule Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Commission rule not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            },
+            {
+              "name": "403 - Forbidden",
+              "status": "Forbidden",
+              "code": 403,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Approve Commission",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/commissions/{{commissionId}}/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "commissions",
+                "{{commissionId}}",
+                "approve"
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Transitions a commission from `pending` to `approved` status. Only pending commissions can be approved.\n\nRequires **admin** role."
+          },
+          "response": [
+            {
+              "name": "200 - Commission Approved",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"e1f2a3b4-c5d6-7890-abcd-ef1234567890\",\n    \"contractId\": \"f1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"agentId\": \"c3d4e5f6-a7b8-9012-cdef-123456789012\",\n    \"supplierId\": \"d4e5f6a7-b8c9-0123-defg-234567890123\",\n    \"amount\": \"45.00\",\n    \"status\": \"approved\",\n    \"type\": \"activation\",\n    \"energyType\": \"electricity\",\n    \"approvedAt\": \"2026-06-24T10:00:00.000Z\",\n    \"paidAt\": null,\n    \"createdAt\": \"2026-06-20T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-24T10:00:00.000Z\"\n  }\n}"
+            },
+            {
+              "name": "400 - Not Pending",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"Commission is not in pending status\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            },
+            {
+              "name": "404 - Commission Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Commission not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            },
+            {
+              "name": "403 - Forbidden",
+              "status": "Forbidden",
+              "code": 403,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Mark Commission as Paid",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/commissions/{{commissionId}}/pay",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "commissions",
+                "{{commissionId}}",
+                "pay"
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Transitions a commission from `approved` to `paid` status. Only approved commissions can be marked as paid. Records the payment timestamp.\n\nRequires **admin** role."
+          },
+          "response": [
+            {
+              "name": "200 - Commission Paid",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"e1f2a3b4-c5d6-7890-abcd-ef1234567890\",\n    \"contractId\": \"f1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"agentId\": \"c3d4e5f6-a7b8-9012-cdef-123456789012\",\n    \"supplierId\": \"d4e5f6a7-b8c9-0123-defg-234567890123\",\n    \"amount\": \"45.00\",\n    \"status\": \"paid\",\n    \"type\": \"activation\",\n    \"energyType\": \"electricity\",\n    \"approvedAt\": \"2026-06-22T10:00:00.000Z\",\n    \"paidAt\": \"2026-06-24T14:30:00.000Z\",\n    \"createdAt\": \"2026-06-20T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-24T14:30:00.000Z\"\n  }\n}"
+            },
+            {
+              "name": "400 - Not Approved",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"Commission is not in approved status\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            },
+            {
+              "name": "404 - Commission Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Commission not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            },
+            {
+              "name": "403 - Forbidden",
+              "status": "Forbidden",
+              "code": 403,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "description": "Admin KPIs, user dashboard summary, and admin settings. Admins see platform-wide metrics; personal/business users see their own activity summary.",
+      "item": [
+        {
+          "name": "Admin Dashboard",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dashboard/admin",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dashboard",
+                "admin"
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Returns key performance indicators for the admin panel including total users, active cases, contracts by status, commission totals, and recent activity.\n\nRequires **admin** role."
+          },
+          "response": [
+            {
+              "name": "200 - Admin KPIs",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"totalUsers\": 1245,\n    \"totalPersonalUsers\": 980,\n    \"totalBusinessUsers\": 265,\n    \"totalCases\": 387,\n    \"activeCases\": 52,\n    \"totalContracts\": 312,\n    \"contractsByStatus\": {\n      \"draft\": 15,\n      \"sent\": 23,\n      \"signed\": 8,\n      \"active\": 248,\n      \"expired\": 12,\n      \"cancelled\": 6\n    },\n    \"commissions\": {\n      \"totalPending\": \"2340.00\",\n      \"totalApproved\": \"8750.50\",\n      \"totalPaid\": \"45230.00\"\n    },\n    \"recentSignups\": 34,\n    \"monthlyRevenue\": \"12500.00\"\n  }\n}"
+            },
+            {
+              "name": "403 - Forbidden",
+              "status": "Forbidden",
+              "code": 403,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            },
+            {
+              "name": "401 - Unauthorized",
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\"Unauthorized\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "User Dashboard",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dashboard/user",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dashboard",
+                "user"
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "description": "Returns a summary for the authenticated user including their active contracts, pending cases, latest bills, and estimated savings.\n\nAvailable to **personal** and **business** users."
+          },
+          "response": [
+            {
+              "name": "200 - User Summary",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"activeCases\": 2,\n    \"activeContracts\": 3,\n    \"totalBills\": 12,\n    \"pendingBills\": 1,\n    \"estimatedMonthlySaving\": \"32.50\",\n    \"recentCases\": [\n      {\n        \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n        \"status\": \"in_progress\",\n        \"energyType\": \"electricity\",\n        \"createdAt\": \"2026-06-15T10:00:00.000Z\"\n      }\n    ],\n    \"recentContracts\": [\n      {\n        \"id\": \"f1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n        \"contractNumber\": \"CTR-2026-001234\",\n        \"status\": \"active\",\n        \"podPdrNumber\": \"IT001E98765432\",\n        \"monthlyEstimate\": \"85.50\"\n      }\n    ]\n  }\n}"
+            },
+            {
+              "name": "403 - Forbidden",
+              "status": "Forbidden",
+              "code": 403,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            },
+            {
+              "name": "401 - Unauthorized",
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\"Unauthorized\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Market Data",
+      "description": "Italian energy market indices (PUN, PSV, GME). Public GET endpoints for current and historical index values; admin-only POST for recording new data points.",
+      "item": [
+        {
+          "name": "Get Latest Market Indices",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/market-data/indices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "market-data",
+                "indices"
+              ]
+            },
+            "description": "Returns the most recent value for each energy market index (PUN, GME, PSV, etc.).\n\n**Public endpoint** — no authentication required."
+          },
+          "response": [
+            {
+              "name": "200 - Latest Indices",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"indexName\": \"PUN\",\n      \"value\": \"0.1245\",\n      \"unit\": \"EUR/kWh\",\n      \"date\": \"2026-06-24\",\n      \"createdAt\": \"2026-06-24T08:00:00.000Z\",\n      \"updatedAt\": \"2026-06-24T08:00:00.000Z\"\n    },\n    {\n      \"id\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n      \"indexName\": \"PSV\",\n      \"value\": \"0.3520\",\n      \"unit\": \"EUR/Smc\",\n      \"date\": \"2026-06-24\",\n      \"createdAt\": \"2026-06-24T08:00:00.000Z\",\n      \"updatedAt\": \"2026-06-24T08:00:00.000Z\"\n    },\n    {\n      \"id\": \"c3d4e5f6-a7b8-9012-cdef-123456789012\",\n      \"indexName\": \"GME\",\n      \"value\": \"0.1180\",\n      \"unit\": \"EUR/kWh\",\n      \"date\": \"2026-06-24\",\n      \"createdAt\": \"2026-06-24T08:00:00.000Z\",\n      \"updatedAt\": \"2026-06-24T08:00:00.000Z\"\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Index History",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/market-data/indices/PUN/history?from=2026-01-01&to=2026-06-24",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "market-data",
+                "indices",
+                "PUN",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-01-01",
+                  "description": "Start date (YYYY-MM-DD)"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-06-24",
+                  "description": "End date (YYYY-MM-DD)"
+                }
+              ]
+            },
+            "description": "Returns historical price data for a specific market index.\n\n**Path Parameters:**\n- `name` — Market index name (e.g. `PUN`, `PSV`, `GME`)\n\n**Query Parameters (optional):**\n- `from` — Start date in YYYY-MM-DD format\n- `to` — End date in YYYY-MM-DD format\n\n**Public endpoint** — no authentication required."
+          },
+          "response": [
+            {
+              "name": "200 - Index History",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"indexName\": \"PUN\",\n      \"value\": \"0.1180\",\n      \"unit\": \"EUR/kWh\",\n      \"date\": \"2026-01-01\",\n      \"createdAt\": \"2026-01-01T08:00:00.000Z\",\n      \"updatedAt\": \"2026-01-01T08:00:00.000Z\"\n    },\n    {\n      \"id\": \"d4e5f6a7-b8c9-0123-defg-234567890123\",\n      \"indexName\": \"PUN\",\n      \"value\": \"0.1210\",\n      \"unit\": \"EUR/kWh\",\n      \"date\": \"2026-02-01\",\n      \"createdAt\": \"2026-02-01T08:00:00.000Z\",\n      \"updatedAt\": \"2026-02-01T08:00:00.000Z\"\n    },\n    {\n      \"id\": \"e5f6a7b8-c9d0-1234-efgh-345678901234\",\n      \"indexName\": \"PUN\",\n      \"value\": \"0.1245\",\n      \"unit\": \"EUR/kWh\",\n      \"date\": \"2026-03-01\",\n      \"createdAt\": \"2026-03-01T08:00:00.000Z\",\n      \"updatedAt\": \"2026-03-01T08:00:00.000Z\"\n    }\n  ]\n}"
+            },
+            {
+              "name": "404 - Index Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Market index not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create Market Index Entry (Admin)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/market-data/indices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "market-data",
+                "indices"
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"indexName\": \"PUN\",\n  \"value\": 0.1260,\n  \"unit\": \"EUR/kWh\",\n  \"date\": \"2026-06-24\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Creates a new data point for a market index. Used to record daily energy market prices.\n\n**Body Fields:**\n- `indexName` — (required) index name, e.g. `PUN`, `PSV`, `GME`\n- `value` — (required) numeric value\n- `unit` — (required) unit of measurement, e.g. `EUR/kWh`, `EUR/Smc`\n- `date` — (required) date in YYYY-MM-DD format\n\nRequires **admin** role and Bearer token."
+          },
+          "response": [
+            {
+              "name": "201 - Index Created",
+              "status": "Created",
+              "code": 201,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"f6a7b8c9-d0e1-2345-fghi-456789012345\",\n    \"indexName\": \"PUN\",\n    \"value\": \"0.1260\",\n    \"unit\": \"EUR/kWh\",\n    \"date\": \"2026-06-24\",\n    \"createdAt\": \"2026-06-24T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-24T10:00:00.000Z\"\n  }\n}"
+            },
+            {
+              "name": "400 - Validation Error",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"indexName should not be empty\", \"value must be a number\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            },
+            {
+              "name": "403 - Forbidden",
+              "status": "Forbidden",
+              "code": 403,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "File Upload",
+      "description": "General-purpose file upload endpoint. Accepts any file type via multipart/form-data with a 10 MB maximum size limit. Files are stored on disk with UUID filenames.",
+      "item": [
+        {
+          "name": "Upload File",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/upload",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "upload"
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "(required) File to upload. Any type accepted. Max size: 10 MB."
+                }
+              ]
+            },
+            "description": "Uploads a single file to the server via multipart/form-data.\n\nAccepts any file type (PDF, image, document, etc.). Maximum file size is 10 MB. Files are stored on disk with a UUID filename.\n\nRequires authentication (any role)."
+          },
+          "response": [
+            {
+              "name": "200 - File Uploaded",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"url\": \"/uploads/3f8a9b2c-d4e5-6f78-90ab-cdef12345678.pdf\",\n    \"filename\": \"3f8a9b2c-d4e5-6f78-90ab-cdef12345678.pdf\",\n    \"originalName\": \"bolletta-enel-giugno-2026.pdf\",\n    \"size\": 245760,\n    \"mimeType\": \"application/pdf\"\n  }\n}"
+            },
+            {
+              "name": "400 - No File Provided",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"File is required\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            },
+            {
+              "name": "400 - File Too Large",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"File too large. Maximum size is 10 MB\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+            },
+            {
+              "name": "401 - Unauthorized",
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\"Unauthorized\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
             }
           ]
         }

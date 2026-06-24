@@ -75,11 +75,11 @@ export class CommissionsService {
     // Find applicable rule
     const rule = await this.ruleRepository
       .createQueryBuilder('r')
-      .where('r.supplier_id = :supplierId', { supplierId })
-      .andWhere('r.energy_type = :energyType', { energyType })
-      .andWhere('r.is_active = true')
-      .andWhere('r.valid_from <= CURRENT_DATE')
-      .andWhere('(r.valid_until IS NULL OR r.valid_until >= CURRENT_DATE)')
+      .where('r.supplierId = :supplierId', { supplierId })
+      .andWhere('r.energyType = :energyType', { energyType })
+      .andWhere('r.isActive = true')
+      .andWhere('r.validFrom <= CURRENT_DATE')
+      .andWhere('(r.validUntil IS NULL OR r.validUntil >= CURRENT_DATE)')
       .getOne();
 
     const amount = rule ? rule.commissionAmount : 0;
@@ -111,13 +111,13 @@ export class CommissionsService {
       .leftJoinAndSelect('c.supplier', 'supplier');
 
     if (query.agentId) {
-      qb.andWhere('c.agent_id = :filterAgentId', {
+      qb.andWhere('c.agentId = :filterAgentId', {
         filterAgentId: query.agentId,
       });
     }
 
     if (query.supplierId) {
-      qb.andWhere('c.supplier_id = :supplierId', {
+      qb.andWhere('c.supplierId = :supplierId', {
         supplierId: query.supplierId,
       });
     }
@@ -127,14 +127,14 @@ export class CommissionsService {
     }
 
     if (query.dateFrom) {
-      qb.andWhere('c.created_at >= :dateFrom', { dateFrom: query.dateFrom });
+      qb.andWhere('c.createdAt >= :dateFrom', { dateFrom: query.dateFrom });
     }
 
     if (query.dateTo) {
-      qb.andWhere('c.created_at <= :dateTo', { dateTo: query.dateTo });
+      qb.andWhere('c.createdAt <= :dateTo', { dateTo: query.dateTo });
     }
 
-    qb.orderBy('c.created_at', 'DESC');
+    qb.orderBy('c.createdAt', 'DESC');
     qb.skip(query.skip);
     qb.take(query.limit);
 

@@ -50,17 +50,17 @@ export class OffersService {
     const qb = this.offerRepository
       .createQueryBuilder('offer')
       .leftJoinAndSelect('offer.supplier', 'supplier')
-      .where('offer.is_active = :isActive', { isActive: true })
-      .andWhere('offer.offer_status = :status', { status: OfferStatus.ACTIVE });
+      .where('offer.isActive = :isActive', { isActive: true })
+      .andWhere('offer.offerStatus = :status', { status: OfferStatus.ACTIVE });
 
     if (query.search) {
       qb.andWhere(
-        '(offer.name ILIKE :search OR offer.description ILIKE :search OR offer.offer_code ILIKE :search)',
+        '(offer.name ILIKE :search OR offer.description ILIKE :search OR offer.offerCode ILIKE :search)',
         { search: `%${query.search}%` },
       );
     }
 
-    qb.orderBy('offer.created_at', 'DESC')
+    qb.orderBy('offer.createdAt', 'DESC')
       .skip(query.skip)
       .take(query.limit);
 
@@ -76,13 +76,13 @@ export class OffersService {
       .leftJoinAndSelect('offer.supplier', 'supplier');
 
     if (query.energyType) {
-      qb.andWhere('offer.energy_type = :energyType', {
+      qb.andWhere('offer.energyType = :energyType', {
         energyType: query.energyType,
       });
     }
 
     if (query.marketType) {
-      qb.andWhere('offer.market_type = :marketType', {
+      qb.andWhere('offer.marketType = :marketType', {
         marketType: query.marketType,
       });
     }
@@ -95,29 +95,29 @@ export class OffersService {
     }
 
     if (query.isActive !== undefined) {
-      qb.andWhere('offer.is_active = :isActive', { isActive: query.isActive });
+      qb.andWhere('offer.isActive = :isActive', { isActive: query.isActive });
     }
 
     if (query.supplierId) {
-      qb.andWhere('offer.supplier_id = :supplierId', {
+      qb.andWhere('offer.supplierId = :supplierId', {
         supplierId: query.supplierId,
       });
     }
 
     if (query.offerStatus) {
-      qb.andWhere('offer.offer_status = :offerStatus', {
+      qb.andWhere('offer.offerStatus = :offerStatus', {
         offerStatus: query.offerStatus,
       });
     }
 
     if (query.search) {
       qb.andWhere(
-        '(offer.name ILIKE :search OR offer.description ILIKE :search OR offer.offer_code ILIKE :search)',
+        '(offer.name ILIKE :search OR offer.description ILIKE :search OR offer.offerCode ILIKE :search)',
         { search: `%${query.search}%` },
       );
     }
 
-    qb.orderBy('offer.created_at', 'DESC')
+    qb.orderBy('offer.createdAt', 'DESC')
       .skip(query.skip)
       .take(query.limit);
 
@@ -208,22 +208,22 @@ export class OffersService {
     const qb = this.offerRepository
       .createQueryBuilder('offer')
       .leftJoinAndSelect('offer.supplier', 'supplier')
-      .where('offer.is_active = :isActive', { isActive: true })
+      .where('offer.isActive = :isActive', { isActive: true })
       .andWhere(
-        '(offer.energy_type = :energyType OR offer.energy_type = :dual)',
+        '(offer.energyType = :energyType OR offer.energyType = :dual)',
         { energyType, dual: EnergyType.DUAL },
       );
 
     if (bill.supplierId) {
-      qb.andWhere('offer.supplier_id != :currentSupplier', {
+      qb.andWhere('offer.supplierId != :currentSupplier', {
         currentSupplier: bill.supplierId,
       });
     }
 
     if (bill.billType === BillType.ELECTRICITY) {
-      qb.orderBy('offer.price_per_kwh', 'ASC', 'NULLS LAST');
+      qb.orderBy('offer.pricePerKwh', 'ASC', 'NULLS LAST');
     } else {
-      qb.orderBy('offer.price_per_smc', 'ASC', 'NULLS LAST');
+      qb.orderBy('offer.pricePerSmc', 'ASC', 'NULLS LAST');
     }
 
     qb.take(10);

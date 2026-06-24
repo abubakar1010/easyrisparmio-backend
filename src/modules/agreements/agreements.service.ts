@@ -39,17 +39,17 @@ export class AgreementsService {
 
     const qb = this.agreementRepository
       .createQueryBuilder('agreement')
-      .where('agreement.is_active = :isActive', { isActive: true })
+      .where('agreement.isActive = :isActive', { isActive: true })
       .andWhere(
-        '(agreement.target_audience = :target OR agreement.target_audience = :both)',
+        '(agreement.targetAudience = :target OR agreement.targetAudience = :both)',
         { target: targetAudience, both: UserTarget.BOTH },
       )
-      .andWhere('agreement.valid_from <= CURRENT_DATE')
+      .andWhere('agreement.validFrom <= CURRENT_DATE')
       .andWhere(
-        '(agreement.valid_until IS NULL OR agreement.valid_until >= CURRENT_DATE)',
+        '(agreement.validUntil IS NULL OR agreement.validUntil >= CURRENT_DATE)',
       )
-      .orderBy('agreement.sort_order', 'ASC')
-      .addOrderBy('agreement.created_at', 'DESC');
+      .orderBy('agreement.sortOrder', 'ASC')
+      .addOrderBy('agreement.createdAt', 'DESC');
 
     return qb.getMany();
   }
@@ -66,14 +66,14 @@ export class AgreementsService {
     const agreement = await this.agreementRepository
       .createQueryBuilder('agreement')
       .where('agreement.id = :id', { id })
-      .andWhere('agreement.is_active = :isActive', { isActive: true })
+      .andWhere('agreement.isActive = :isActive', { isActive: true })
       .andWhere(
-        '(agreement.target_audience = :target OR agreement.target_audience = :both)',
+        '(agreement.targetAudience = :target OR agreement.targetAudience = :both)',
         { target: targetAudience, both: UserTarget.BOTH },
       )
-      .andWhere('agreement.valid_from <= CURRENT_DATE')
+      .andWhere('agreement.validFrom <= CURRENT_DATE')
       .andWhere(
-        '(agreement.valid_until IS NULL OR agreement.valid_until >= CURRENT_DATE)',
+        '(agreement.validUntil IS NULL OR agreement.validUntil >= CURRENT_DATE)',
       )
       .getOne();
 
@@ -90,26 +90,26 @@ export class AgreementsService {
     const qb = this.agreementRepository.createQueryBuilder('agreement');
 
     if (query.isActive !== undefined) {
-      qb.andWhere('agreement.is_active = :isActive', {
+      qb.andWhere('agreement.isActive = :isActive', {
         isActive: query.isActive,
       });
     }
 
     if (query.targetAudience) {
-      qb.andWhere('agreement.target_audience = :targetAudience', {
+      qb.andWhere('agreement.targetAudience = :targetAudience', {
         targetAudience: query.targetAudience,
       });
     }
 
     if (query.search) {
       qb.andWhere(
-        '(agreement.title ILIKE :search OR agreement.partner_name ILIKE :search OR agreement.description ILIKE :search)',
+        '(agreement.title ILIKE :search OR agreement.partnerName ILIKE :search OR agreement.description ILIKE :search)',
         { search: `%${query.search}%` },
       );
     }
 
-    qb.orderBy('agreement.sort_order', 'ASC')
-      .addOrderBy('agreement.created_at', 'DESC')
+    qb.orderBy('agreement.sortOrder', 'ASC')
+      .addOrderBy('agreement.createdAt', 'DESC')
       .skip(query.skip)
       .take(query.limit);
 

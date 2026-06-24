@@ -85,7 +85,7 @@ export class CasesService {
       .leftJoinAndSelect('sc.bill', 'bill');
 
     if (currentUser.role !== UserRole.ADMIN) {
-      qb.andWhere('sc.user_id = :userId', { userId: currentUser.id });
+      qb.andWhere('sc.userId = :userId', { userId: currentUser.id });
     }
 
     if (query.status) {
@@ -97,25 +97,25 @@ export class CasesService {
     }
 
     if (query.assignedAgentId) {
-      qb.andWhere('sc.assigned_agent_id = :assignedAgentId', {
+      qb.andWhere('sc.assignedAgentId = :assignedAgentId', {
         assignedAgentId: query.assignedAgentId,
       });
     }
 
     if (query.userId) {
-      qb.andWhere('sc.user_id = :filterUserId', {
+      qb.andWhere('sc.userId = :filterUserId', {
         filterUserId: query.userId,
       });
     }
 
     if (query.search) {
       qb.andWhere(
-        '(user.first_name ILIKE :search OR user.last_name ILIKE :search OR user.email ILIKE :search OR sc.case_number ILIKE :search)',
+        '(user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.email ILIKE :search OR sc.caseNumber ILIKE :search)',
         { search: `%${query.search}%` },
       );
     }
 
-    qb.orderBy('sc.created_at', 'DESC');
+    qb.orderBy('sc.createdAt', 'DESC');
     qb.skip(query.skip);
     qb.take(query.limit);
 
@@ -273,8 +273,8 @@ export class CasesService {
 
     const lastCase = await this.caseRepository
       .createQueryBuilder('sc')
-      .where('sc.case_number LIKE :prefix', { prefix: `${prefix}%` })
-      .orderBy('sc.case_number', 'DESC')
+      .where('sc.caseNumber LIKE :prefix', { prefix: `${prefix}%` })
+      .orderBy('sc.caseNumber', 'DESC')
       .getOne();
 
     let seq = 1;

@@ -52,7 +52,7 @@ export class MetersService {
       .leftJoinAndSelect('meter.address', 'address');
 
     if (query.utilityType) {
-      qb.andWhere('meter.utility_type = :utilityType', {
+      qb.andWhere('meter.utilityType = :utilityType', {
         utilityType: query.utilityType,
       });
     }
@@ -62,23 +62,23 @@ export class MetersService {
     }
 
     if (query.userId) {
-      qb.andWhere('meter.user_id = :userId', { userId: query.userId });
+      qb.andWhere('meter.userId = :userId', { userId: query.userId });
     }
 
     if (query.supplierId) {
-      qb.andWhere('meter.supplier_id = :supplierId', {
+      qb.andWhere('meter.supplierId = :supplierId', {
         supplierId: query.supplierId,
       });
     }
 
     if (query.search) {
       qb.andWhere(
-        '(meter.meter_code ILIKE :search OR user.first_name ILIKE :search OR user.last_name ILIKE :search OR user.email ILIKE :search)',
+        '(meter.meterCode ILIKE :search OR user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.email ILIKE :search)',
         { search: `%${query.search}%` },
       );
     }
 
-    qb.orderBy('meter.created_at', 'DESC');
+    qb.orderBy('meter.createdAt', 'DESC');
     qb.skip(query.skip);
     qb.take(query.limit);
 
@@ -149,9 +149,9 @@ export class MetersService {
       .createQueryBuilder('meter')
       .leftJoinAndSelect('meter.supplier', 'supplier')
       .leftJoinAndSelect('meter.address', 'address')
-      .where('meter.user_id = :userId', { userId })
+      .where('meter.userId = :userId', { userId })
       .andWhere('meter.status = :status', { status: MeterStatus.ACTIVE })
-      .orderBy('meter.created_at', 'DESC')
+      .orderBy('meter.createdAt', 'DESC')
       .getMany();
   }
 

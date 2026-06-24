@@ -45,11 +45,11 @@ export class SuppliersService {
   ): Promise<PaginatedResponseDto<Supplier>> {
     const qb = this.supplierRepository
       .createQueryBuilder('supplier')
-      .where('supplier.is_active = :isActive', { isActive: true });
+      .where('supplier.isActive = :isActive', { isActive: true });
 
     if (query.search) {
       qb.andWhere(
-        '(supplier.name ILIKE :search OR supplier.supplier_code ILIKE :search)',
+        '(supplier.name ILIKE :search OR supplier.supplierCode ILIKE :search)',
         { search: `%${query.search}%` },
       );
     }
@@ -68,19 +68,19 @@ export class SuppliersService {
     const qb = this.supplierRepository.createQueryBuilder('supplier');
 
     if (query.isActive !== undefined) {
-      qb.andWhere('supplier.is_active = :isActive', {
+      qb.andWhere('supplier.isActive = :isActive', {
         isActive: query.isActive,
       });
     }
 
     if (query.search) {
       qb.andWhere(
-        '(supplier.name ILIKE :search OR supplier.contact_email ILIKE :search OR supplier.supplier_code ILIKE :search)',
+        '(supplier.name ILIKE :search OR supplier.contactEmail ILIKE :search OR supplier.supplierCode ILIKE :search)',
         { search: `%${query.search}%` },
       );
     }
 
-    qb.orderBy('supplier.created_at', 'DESC')
+    qb.orderBy('supplier.createdAt', 'DESC')
       .skip(query.skip)
       .take(query.limit);
 

@@ -68,12 +68,12 @@ export class ContractsService {
 
     if (query.search) {
       qb.andWhere(
-        '(c.contract_number ILIKE :search OR user.first_name ILIKE :search OR user.last_name ILIKE :search)',
+        '(c.contractNumber ILIKE :search OR user.firstName ILIKE :search OR user.lastName ILIKE :search)',
         { search: `%${query.search}%` },
       );
     }
 
-    qb.orderBy('c.created_at', 'DESC');
+    qb.orderBy('c.createdAt', 'DESC');
     qb.skip(query.skip);
     qb.take(query.limit);
 

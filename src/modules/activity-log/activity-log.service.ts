@@ -41,11 +41,11 @@ export class ActivityLogService {
       .leftJoinAndSelect('log.user', 'user');
 
     if (userId) {
-      qb.andWhere('log.user_id = :userId', { userId });
+      qb.andWhere('log.userId = :userId', { userId });
     }
 
     if (entityType) {
-      qb.andWhere('log.entity_type = :entityType', { entityType });
+      qb.andWhere('log.entityType = :entityType', { entityType });
     }
 
     if (query.search) {
@@ -54,7 +54,7 @@ export class ActivityLogService {
       });
     }
 
-    qb.orderBy('log.created_at', 'DESC');
+    qb.orderBy('log.createdAt', 'DESC');
     qb.skip(query.skip).take(query.limit);
 
     const [data, total] = await qb.getManyAndCount();

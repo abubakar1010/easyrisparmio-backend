@@ -46,10 +46,10 @@ export class BillsService {
     const qb = this.billRepository
       .createQueryBuilder('bill')
       .leftJoinAndSelect('bill.supplier', 'supplier')
-      .where('bill.user_id = :userId', { userId });
+      .where('bill.userId = :userId', { userId });
 
     if (query.billType) {
-      qb.andWhere('bill.bill_type = :billType', { billType: query.billType });
+      qb.andWhere('bill.billType = :billType', { billType: query.billType });
     }
 
     if (query.status) {
@@ -57,14 +57,14 @@ export class BillsService {
     }
 
     if (query.dateFrom) {
-      qb.andWhere('bill.created_at >= :dateFrom', { dateFrom: query.dateFrom });
+      qb.andWhere('bill.createdAt >= :dateFrom', { dateFrom: query.dateFrom });
     }
 
     if (query.dateTo) {
-      qb.andWhere('bill.created_at <= :dateTo', { dateTo: query.dateTo });
+      qb.andWhere('bill.createdAt <= :dateTo', { dateTo: query.dateTo });
     }
 
-    qb.orderBy('bill.created_at', 'DESC')
+    qb.orderBy('bill.createdAt', 'DESC')
       .skip(query.skip)
       .take(query.limit);
 
@@ -82,7 +82,7 @@ export class BillsService {
       .leftJoinAndSelect('bill.user', 'user');
 
     if (query.billType) {
-      qb.andWhere('bill.bill_type = :billType', { billType: query.billType });
+      qb.andWhere('bill.billType = :billType', { billType: query.billType });
     }
 
     if (query.status) {
@@ -90,21 +90,21 @@ export class BillsService {
     }
 
     if (query.dateFrom) {
-      qb.andWhere('bill.created_at >= :dateFrom', { dateFrom: query.dateFrom });
+      qb.andWhere('bill.createdAt >= :dateFrom', { dateFrom: query.dateFrom });
     }
 
     if (query.dateTo) {
-      qb.andWhere('bill.created_at <= :dateTo', { dateTo: query.dateTo });
+      qb.andWhere('bill.createdAt <= :dateTo', { dateTo: query.dateTo });
     }
 
     if (query.search) {
       qb.andWhere(
-        '(user.email ILIKE :search OR user.first_name ILIKE :search OR user.last_name ILIKE :search OR bill.pod_number ILIKE :search OR bill.pdr_number ILIKE :search)',
+        '(user.email ILIKE :search OR user.firstName ILIKE :search OR user.lastName ILIKE :search OR bill.podNumber ILIKE :search OR bill.pdrNumber ILIKE :search)',
         { search: `%${query.search}%` },
       );
     }
 
-    qb.orderBy('bill.created_at', 'DESC')
+    qb.orderBy('bill.createdAt', 'DESC')
       .skip(query.skip)
       .take(query.limit);
 

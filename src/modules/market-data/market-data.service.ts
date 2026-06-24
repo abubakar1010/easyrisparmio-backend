@@ -38,7 +38,7 @@ export class MarketDataService {
   ): Promise<MarketIndex[]> {
     const qb = this.marketIndexRepository
       .createQueryBuilder('mi')
-      .where('mi.index_name = :name', { name });
+      .where('mi.indexName = :name', { name });
 
     if (from && to) {
       qb.andWhere('mi.date BETWEEN :from AND :to', { from, to });

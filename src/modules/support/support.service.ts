@@ -65,7 +65,7 @@ export class SupportService {
       .leftJoinAndSelect('ticket.assignedAgent', 'agent');
 
     if (userRole !== UserRole.ADMIN) {
-      qb.andWhere('ticket.user_id = :userId', { userId });
+      qb.andWhere('ticket.userId = :userId', { userId });
     }
 
     if (query.status) {

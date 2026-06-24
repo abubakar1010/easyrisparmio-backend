@@ -42,17 +42,17 @@ export class NotificationsService {
   ): Promise<PaginatedResponseDto<Notification>> {
     const qb = this.notificationRepository
       .createQueryBuilder('notification')
-      .where('notification.user_id = :userId', { userId });
+      .where('notification.userId = :userId', { userId });
 
     if (query.type) {
       qb.andWhere('notification.type = :type', { type: query.type });
     }
 
     if (query.isRead !== undefined) {
-      qb.andWhere('notification.is_read = :isRead', { isRead: query.isRead });
+      qb.andWhere('notification.isRead = :isRead', { isRead: query.isRead });
     }
 
-    qb.orderBy('notification.created_at', 'DESC');
+    qb.orderBy('notification.createdAt', 'DESC');
     qb.skip(query.skip).take(query.limit);
 
     const [data, total] = await qb.getManyAndCount();

@@ -45,6 +45,9 @@ export class BillAnalysis extends BaseEntity {
   @Column({ name: 'recommended_offers', type: 'jsonb', nullable: true })
   recommendedOffers: any[] | null;
 
+  @Column({ name: 'offers_sent_to_user', type: 'boolean', default: false })
+  offersSentToUser: boolean;
+
   @OneToOne(() => EnergyBill, (bill) => bill.analysis, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'bill_id' })
   bill: EnergyBill;

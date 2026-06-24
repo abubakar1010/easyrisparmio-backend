@@ -196,6 +196,43 @@ export class BillsController {
     return this.billsService.getBillByIdAdmin(id);
   }
 
+  @Get('admin/:id/recommended-offers')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Get recommended offers for a bill (admin)',
+    description: 'Returns the top recommended offers stored from the bill analysis.',
+  })
+  @ApiOkResponse({ description: 'Recommended offers for the bill' })
+  @ApiNotFoundResponse({ description: 'Analysis not found', content: { 'application/json': { example: { success: false, statusCode: 404, message: ['Analysis not found for this bill'], timestamp: '2026-06-24T12:00:00.000Z' } } } })
+  getRecommendedOffersAdmin(@Param('id', ParseUUIDPipe) id: string) {
+    return this.billsService.getRecommendedOffersAdmin(id);
+  }
+
+  @Post('admin/:id/send-offers')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Send recommended offers to user (admin)',
+    description: 'Manually sends the recommended offers to the bill owner as a notification.',
+  })
+  @ApiOkResponse({ description: 'Offers sent to user' })
+  @ApiNotFoundResponse({ description: 'Analysis or offers not found' })
+  async sendOffersToUser(@Param('id', ParseUUIDPipe) id: string) {
+    await this.billsService.sendOffersToUser(id);
+    return { message: 'Offers sent to user successfully' };
+  }
+
+  @Post('admin/:id/reanalyze')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Re-analyze a bill (admin)',
+    description: 'Re-triggers the analysis for a bill, comparing with current offers.',
+  })
+  @ApiOkResponse({ description: 'Bill re-analyzed successfully' })
+  @ApiNotFoundResponse({ description: 'Bill not found' })
+  reanalyzeBill(@Param('id', ParseUUIDPipe) id: string) {
+    return this.billsService.reanalyzeBill(id);
+  }
+
   // ─── User List & Detail ───────────────────────────────────
 
   @Get()

@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "EasyRisparmio API",
-    "description": "API collection for the EasyRisparmio Italian energy comparison & switching platform.\n\n## Modules\n- **Authentication** — Email/password + social login (Google, Facebook, Apple via Firebase)\n- **Users** — User profile management and admin CRUD\n- **Referrals** — Invite & Earn referral program for users and admin management\n- **Meters** — Utility meter management (electricity, gas, water, internet) with admin moderation\n- **Suppliers** — Energy supplier management with public listing and admin CRUD\n- **Offers** — Energy offer management, comparison, recommendations, and admin moderation\n- **Agreements** — Exclusive partner discounts & agreements for mobile app users\n- **Support** — Support tickets, messaging, and FAQ management\n- **Bills** — Energy bill upload, analysis, and admin management\n- **Cases** — Supplier switching requests, documents, and case management\n- **Contracts** — Contract management for switching cases (admin)\n- **Commissions** — Commission tracking, rules, and payouts (admin)\n- **Notifications** — Push notifications, in-app notifications, and admin broadcast\n- **Dashboard** — Admin KPIs and user dashboard summary\n- **Market Data** — Italian energy market indices (PUN, PSV, GME)\n- **File Upload** — General-purpose file upload endpoint\n\n## Roles\n| Role | Description |\n|------|-------------|\n| `personal` | Individual user (default) |\n| `business` | Business user with company profile |\n| `admin` | Platform administrator (seeded, cannot register) |\n\n## Token Flow\n1. Login or social-login returns `accessToken` (JWT, 15 min) + `refreshToken` (UUID, 7 days)\n2. Use `accessToken` in `Authorization: Bearer <token>` header for protected endpoints\n3. When expired, call refresh-token to get a new pair\n\n## Setup\n1. Set `baseUrl` variable to your server (default: `http://localhost:3000`)\n2. Register a user, then login — tokens are auto-saved to collection variables\n3. All protected requests automatically use the saved `accessToken`",
+    "description": "API collection for the EasyRisparmio Italian energy comparison & switching platform.\n\n## Modules\n- **Authentication** \u2014 Email/password + social login (Google, Facebook, Apple via Firebase)\n- **Users** \u2014 User profile management and admin CRUD\n- **Referrals** \u2014 Invite & Earn referral program for users and admin management\n- **Meters** \u2014 Utility meter management (electricity, gas, water, internet) with admin moderation\n- **Suppliers** \u2014 Energy supplier management with public listing and admin CRUD\n- **Offers** \u2014 Energy offer management, comparison, recommendations, and admin moderation\n- **Agreements** \u2014 Exclusive partner discounts & agreements for mobile app users\n- **Support** \u2014 Support tickets, messaging, and FAQ management\n- **Bills** \u2014 Energy bill upload, analysis, and admin management\n- **Cases** \u2014 Supplier switching requests, documents, and case management\n- **Contracts** \u2014 Contract management for switching cases (admin)\n- **Commissions** \u2014 Commission tracking, rules, and payouts (admin)\n- **Notifications** \u2014 Push notifications, in-app notifications, and admin broadcast\n- **Dashboard** \u2014 Admin KPIs and user dashboard summary\n- **Market Data** \u2014 Italian energy market indices (PUN, PSV, GME)\n- **File Upload** \u2014 General-purpose file upload endpoint\n\n## Roles\n| Role | Description |\n|------|-------------|\n| `personal` | Individual user (default) |\n| `business` | Business user with company profile |\n| `admin` | Platform administrator (seeded, cannot register) |\n\n## Token Flow\n1. Login or social-login returns `accessToken` (JWT, 15 min) + `refreshToken` (UUID, 7 days)\n2. Use `accessToken` in `Authorization: Bearer <token>` header for protected endpoints\n3. When expired, call refresh-token to get a new pair\n\n## Setup\n1. Set `baseUrl` variable to your server (default: `http://localhost:3000`)\n2. Register a user, then login \u2014 tokens are auto-saved to collection variables\n3. All protected requests automatically use the saved `accessToken`",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -148,7 +148,7 @@
                     }
                   }
                 },
-                "description": "Creates a new user account (personal or business).\n\nThe `role` field determines which fields are required. When `role` is `business`, the business-specific fields (`companyName`, `partitaIva`, etc.) become required via conditional validation (`@ValidateIf`).\n\nAfter registration, a 6-digit OTP is generated for email verification. The account status is `pending_verification` until the OTP is verified via `POST /auth/verify-otp`.\n\n**Body Fields (always required):**\n- `email` — (required) valid email address, must be unique across all users\n- `password` — (required) min 8 chars, must include uppercase, lowercase, number, and special character\n- `firstName` — (required) max 100 characters\n- `lastName` — (required) max 100 characters\n- `role` — (required) Enum: `personal`, `business`. Determines which additional fields are required. Note: `admin` is not allowed\n\n**Body Fields (optional for all roles):**\n- `phone` — (optional) phone number, max 20 characters\n- `referralCode` — (optional) 8-character code from an existing user. If valid, the referral is linked automatically\n\n**Body Fields (required when role is `business`):**\n- `companyName` — (required if business) company legal name, max 255 characters\n- `partitaIva` — (required if business) Italian VAT number, must be exactly 11 digits (e.g. `12345678901`)\n\n**Body Fields (optional when role is `business`):**\n- `pecEmail` — (optional) PEC certified email address (Posta Elettronica Certificata), used for official communications in Italy\n- `legalRepresentative` — (optional) full name of the company's legal representative, max 255 characters\n- `companyType` — (optional) business entity type, e.g. `S.r.l.`, `S.p.A.`, `S.n.c.`, `S.a.s.`, max 100 characters\n- `atecoCode` — (optional) ATECO economic activity code (Italian NACE equivalent), e.g. `35.11.00` for electricity production, max 10 characters"
+                "description": "Creates a new user account (personal or business).\n\nThe `role` field determines which fields are required. When `role` is `business`, the business-specific fields (`companyName`, `partitaIva`, etc.) become required via conditional validation (`@ValidateIf`).\n\nAfter registration, a 6-digit OTP is generated for email verification. The account status is `pending_verification` until the OTP is verified via `POST /auth/verify-otp`.\n\n**Body Fields (always required):**\n- `email` \u2014 (required) valid email address, must be unique across all users\n- `password` \u2014 (required) min 8 chars, must include uppercase, lowercase, number, and special character\n- `firstName` \u2014 (required) max 100 characters\n- `lastName` \u2014 (required) max 100 characters\n- `role` \u2014 (required) Enum: `personal`, `business`. Determines which additional fields are required. Note: `admin` is not allowed\n\n**Body Fields (optional for all roles):**\n- `phone` \u2014 (optional) phone number, max 20 characters\n- `referralCode` \u2014 (optional) 8-character code from an existing user. If valid, the referral is linked automatically\n\n**Body Fields (required when role is `business`):**\n- `companyName` \u2014 (required if business) company legal name, max 255 characters\n- `partitaIva` \u2014 (required if business) Italian VAT number, must be exactly 11 digits (e.g. `12345678901`)\n\n**Body Fields (optional when role is `business`):**\n- `pecEmail` \u2014 (optional) PEC certified email address (Posta Elettronica Certificata), used for official communications in Italy\n- `legalRepresentative` \u2014 (optional) full name of the company's legal representative, max 255 characters\n- `companyType` \u2014 (optional) business entity type, e.g. `S.r.l.`, `S.p.A.`, `S.n.c.`, `S.a.s.`, max 100 characters\n- `atecoCode` \u2014 (optional) ATECO economic activity code (Italian NACE equivalent), e.g. `35.11.00` for electricity production, max 10 characters"
               },
               "response": [
                 {
@@ -267,7 +267,7 @@
                     }
                   }
                 },
-                "description": "Authenticates with email and password. Returns JWT access token (15 min) and UUID refresh token (7 days).\n\n**Login is blocked when:**\n- Invalid credentials\n- Account `pending_verification` or `suspended`\n- Social-only user (no password set)\n\n**Auto-saves** `accessToken` and `refreshToken` to collection variables."
+                "description": "Authenticates with email and password. Returns JWT access token (15 min) and UUID refresh token (7 days).\n\n**Login is blocked when:**\n- Invalid credentials\n- Account `pending_verification` or `suspended`\n- Social-only user (no password set)\n\n**Auto-saves** `accessToken` and `refreshToken` to collection variables.\n\n**Note:** If the account is unverified, use `POST /auth/resend-otp` to request a new verification code."
               },
               "response": [
                 {
@@ -304,7 +304,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\"Please verify your email before logging in\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\n    \"Please verify your email before logging in. Use /auth/resend-otp to request a new verification code.\"\n  ],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
                 },
                 {
                   "name": "401 - Account Suspended",
@@ -368,7 +368,7 @@
                     }
                   }
                 },
-                "description": "Login or register via Google, Facebook, or Apple using Firebase Authentication.\n\n**Body Fields:**\n- `idToken` — (required) Firebase ID token obtained from the mobile app after authenticating with a social provider (Google, Facebook, or Apple). Must be a valid, unexpired token. The server verifies it with Firebase Admin SDK.\n\n**Behavior:**\n- **New user** — account created with `role: personal`, `status: active`, `emailVerified: true`\n- **Existing email** — Firebase UID linked to existing account (account linking)\n- **No email on social account** — returns 400 error\n\n**Auto-saves** `accessToken` and `refreshToken` to collection variables."
+                "description": "Login or register via Google, Facebook, or Apple using Firebase Authentication.\n\n**Body Fields:**\n- `idToken` \u2014 (required) Firebase ID token obtained from the mobile app after authenticating with a social provider (Google, Facebook, or Apple). Must be a valid, unexpired token. The server verifies it with Firebase Admin SDK.\n\n**Behavior:**\n- **New user** \u2014 account created with `role: personal`, `status: active`, `emailVerified: true`\n- **Existing email** \u2014 Firebase UID linked to existing account (account linking)\n- **No email on social account** \u2014 returns 400 error\n\n**Auto-saves** `accessToken` and `refreshToken` to collection variables."
               },
               "response": [
                 {
@@ -446,7 +446,7 @@
                     }
                   }
                 },
-                "description": "Verifies a 6-digit OTP code sent to the user's email.\n\n**Body Fields:**\n- `email` — (required) the email address the OTP was sent to\n- `code` — (required) 6-digit numeric OTP code (sent as string, e.g. `\"123456\"`)\n- `type` — (required) Enum: `email_verification`, `phone_verification`, `password_reset`. Determines which verification flow to complete.\n  - `email_verification` — activates the account (status changes from `pending_verification` to `active`)\n  - `phone_verification` — marks phone as verified\n  - `password_reset` — validates OTP for password reset (does NOT activate the account)\n\n**Behavior:** 10-minute expiry, single-use, previous unused OTPs of same type are invalidated. Maximum 5 failed attempts before lockout."
+                "description": "Verifies a 6-digit OTP code sent to the user's email.\n\n**Body Fields:**\n- `email` \u2014 (required) the email address the OTP was sent to\n- `code` \u2014 (required) 6-digit numeric OTP code (sent as string, e.g. `\"123456\"`)\n- `type` \u2014 (required) Enum: `email_verification`, `phone_verification`, `password_reset`. Determines which verification flow to complete.\n  - `email_verification` \u2014 activates the account (status changes from `pending_verification` to `active`)\n  - `phone_verification` \u2014 marks phone as verified\n  - `password_reset` \u2014 validates OTP for password reset (does NOT activate the account)\n\n**Behavior:** 10-minute expiry, single-use, previous unused OTPs of same type are invalidated. Maximum 5 failed attempts before lockout."
               },
               "response": [
                 {
@@ -472,6 +472,90 @@
                     }
                   ],
                   "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"Invalid or expired OTP code\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Resend OTP",
+              "request": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/auth/resend-otp",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "auth",
+                    "resend-otp"
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"mario.rossi@email.com\",\n  \"type\": \"email_verification\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Resends a 6-digit OTP code to the user's email address.\n\n**Body Fields:**\n- `email` \u2014 (required) the email address to send the OTP to\n- `type` \u2014 (required) Enum: `email_verification`, `password_reset`. Determines which OTP type to resend. `phone_verification` is not supported via this endpoint.\n\n**Security:**\n- 60-second cooldown between resend requests per user\n- Rate limited to 3 requests per minute\n- Response does not reveal whether the email exists (prevents user enumeration)\n- Previous unused OTPs of the same type are invalidated when a new one is generated\n- For `email_verification`, only works if the user's account is still in `pending_verification` status"
+              },
+              "response": [
+                {
+                  "name": "200 - OTP Resent",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"If the email is registered, a new verification code has been sent\"\n  }\n}"
+                },
+                {
+                  "name": "400 - Cooldown Active",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\n    \"Please wait 45 seconds before requesting a new code\"\n  ],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "400 - Invalid OTP Type",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\n    \"Phone verification OTP cannot be resent via this endpoint\"\n  ],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "429 - Rate Limited",
+                  "status": "Too Many Requests",
+                  "code": 429,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 429,\n  \"message\": [\n    \"ThrottlerException: Too Many Requests\"\n  ],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
                 }
               ]
             },
@@ -554,7 +638,7 @@
                     }
                   }
                 },
-                "description": "Resets password using OTP from forgot-password.\n\n**Body Fields:**\n- `email` — (required) the email address the OTP was sent to\n- `code` — (required) 6-digit numeric OTP code from the forgot-password request\n- `newPassword` — (required) min 8 chars, must include uppercase, lowercase, number, and special character (same rules as registration)\n\nAfter success, all existing refresh tokens are revoked (forces re-login on all devices)."
+                "description": "Resets password using OTP from forgot-password.\n\n**Body Fields:**\n- `email` \u2014 (required) the email address the OTP was sent to\n- `code` \u2014 (required) 6-digit numeric OTP code from the forgot-password request\n- `newPassword` \u2014 (required) min 8 chars, must include uppercase, lowercase, number, and special character (same rules as registration)\n\nAfter success, all existing refresh tokens are revoked (forces re-login on all devices)."
               },
               "response": [
                 {
@@ -631,7 +715,7 @@
                     }
                   }
                 },
-                "description": "Exchanges a valid refresh token for a new token pair. Old token is revoked (rotation).\n\n**Body Fields:**\n- `refreshToken` — (required) UUID refresh token (7-day lifetime), NOT the JWT access token. Obtained from login or previous refresh.\n\n**Auto-saves** new `accessToken` and `refreshToken` to collection variables."
+                "description": "Exchanges a valid refresh token for a new token pair. Old token is revoked (rotation).\n\n**Body Fields:**\n- `refreshToken` \u2014 (required) UUID refresh token (7-day lifetime), NOT the JWT access token. Obtained from login or previous refresh.\n\n**Auto-saves** new `accessToken` and `refreshToken` to collection variables."
               },
               "response": [
                 {
@@ -721,7 +805,7 @@
       "item": [
         {
           "name": "User",
-          "description": "User-facing referral endpoints for the Invite & Earn program. Available to `personal` and `business` users.\n\n**Flow:**\n1. Get your referral code via `GET /referrals/my-code`\n2. Share the link or send targeted invites via `POST /referrals/invite`\n3. Track your referrals via `GET /referrals/my-referrals`\n4. Earn €10 per qualified referral when admin approves",
+          "description": "User-facing referral endpoints for the Invite & Earn program. Available to `personal` and `business` users.\n\n**Flow:**\n1. Get your referral code via `GET /referrals/my-code`\n2. Share the link or send targeted invites via `POST /referrals/invite`\n3. Track your referrals via `GET /referrals/my-referrals`\n4. Earn \u20ac10 per qualified referral when admin approves",
           "item": [
             {
               "name": "Get My Referral Code",
@@ -745,7 +829,7 @@
                     "value": "Bearer {{accessToken}}"
                   }
                 ],
-                "description": "Returns the user's unique 8-character referral code, a shareable registration link, and aggregate referral stats.\n\nIf the user doesn't have a code yet, one is auto-generated on the first call.\n\n**Stats include:**\n- `totalInvites` — total referrals created\n- `registered` — referred users who signed up\n- `qualified` — referrals that met qualification criteria\n- `rewarded` — referrals where reward was credited\n- `totalEarnings` — total EUR earned from referrals"
+                "description": "Returns the user's unique 8-character referral code, a shareable registration link, and aggregate referral stats.\n\nIf the user doesn't have a code yet, one is auto-generated on the first call.\n\n**Stats include:**\n- `totalInvites` \u2014 total referrals created\n- `registered` \u2014 referred users who signed up\n- `qualified` \u2014 referrals that met qualification criteria\n- `rewarded` \u2014 referrals where reward was credited\n- `totalEarnings` \u2014 total EUR earned from referrals"
               },
               "response": [
                 {
@@ -814,7 +898,7 @@
                     "value": "Bearer {{accessToken}}"
                   }
                 ],
-                "description": "Returns a paginated list of referrals created by the authenticated user. Each referral shows status, referred email/phone, and referred user details if they registered.\n\n**Query Parameters:**\n- `page` — page number (default: 1)\n- `limit` — items per page (default: 20, max: 100)\n- `status` — optional filter: `pending`, `registered`, `qualified`, `rewarded`, `expired`"
+                "description": "Returns a paginated list of referrals created by the authenticated user. Each referral shows status, referred email/phone, and referred user details if they registered.\n\n**Query Parameters:**\n- `page` \u2014 page number (default: 1)\n- `limit` \u2014 items per page (default: 20, max: 100)\n- `status` \u2014 optional filter: `pending`, `registered`, `qualified`, `rewarded`, `expired`"
               },
               "response": [
                 {
@@ -895,7 +979,7 @@
                     }
                   }
                 },
-                "description": "Creates a new referral invite with `pending` status.\n\n**Body Fields:**\n- `referredEmail` — (optional) email address of the person being invited. Must be a valid email if provided\n- `referredPhone` — (optional) phone number of the person being invited, max 20 characters\n\n**Notes:**\n- **With email/phone** — targeted invite for a specific person\n- **Without both** — generic invite (anyone with the code can use it)\n- Invites expire after **90 days**\n- The user's referral code is auto-generated if they don't have one yet\n\n**Auto-saves** `referralId` to collection variables for use in admin endpoints."
+                "description": "Creates a new referral invite with `pending` status.\n\n**Body Fields:**\n- `referredEmail` \u2014 (optional) email address of the person being invited. Must be a valid email if provided\n- `referredPhone` \u2014 (optional) phone number of the person being invited, max 20 characters\n\n**Notes:**\n- **With email/phone** \u2014 targeted invite for a specific person\n- **Without both** \u2014 generic invite (anyone with the code can use it)\n- Invites expire after **90 days**\n- The user's referral code is auto-generated if they don't have one yet\n\n**Auto-saves** `referralId` to collection variables for use in admin endpoints."
               },
               "response": [
                 {
@@ -952,7 +1036,7 @@
         },
         {
           "name": "Admin",
-          "description": "Admin endpoints for managing the referral program. Requires `admin` role.\n\n**Status lifecycle:** PENDING → REGISTERED → QUALIFIED → REWARDED (any → EXPIRED)\n\n**KPIs** include total counts by status and total rewards paid in EUR.",
+          "description": "Admin endpoints for managing the referral program. Requires `admin` role.\n\n**Status lifecycle:** PENDING \u2192 REGISTERED \u2192 QUALIFIED \u2192 REWARDED (any \u2192 EXPIRED)\n\n**KPIs** include total counts by status and total rewards paid in EUR.",
           "item": [
             {
               "name": "Get Referral Stats",
@@ -1080,7 +1164,7 @@
                     "value": "Bearer {{accessToken}}"
                   }
                 ],
-                "description": "Returns a paginated list of all referrals with referrer and referred user details.\n\n**Filters (all optional):**\n- `status` — `pending`, `registered`, `qualified`, `rewarded`, `expired`\n- `referrerId` — UUID of the referrer user\n- `dateFrom` / `dateTo` — ISO 8601 date range on created_at\n- `search` — matches referrer name, email, or referral code\n\nRequires **admin** role."
+                "description": "Returns a paginated list of all referrals with referrer and referred user details.\n\n**Filters (all optional):**\n- `status` \u2014 `pending`, `registered`, `qualified`, `rewarded`, `expired`\n- `referrerId` \u2014 UUID of the referrer user\n- `dateFrom` / `dateTo` \u2014 ISO 8601 date range on created_at\n- `search` \u2014 matches referrer name, email, or referral code\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -1161,7 +1245,7 @@
               ]
             },
             {
-              "name": "Update Referral Status — Qualify",
+              "name": "Update Referral Status \u2014 Qualify",
               "request": {
                 "method": "PATCH",
                 "url": {
@@ -1196,7 +1280,7 @@
                     }
                   }
                 },
-                "description": "Updates a referral's status to `qualified`.\n\n**Body Fields:**\n- `status` — (required) Enum: `pending`, `registered`, `qualified`, `rewarded`, `expired`. The target status for this referral.\n\n**Valid transitions:**\n- `pending` → `registered` or `expired`\n- `registered` → `qualified` or `expired`\n- `qualified` → `rewarded` or `expired`\n- `rewarded` and `expired` are terminal states\n\nRequires **admin** role."
+                "description": "Updates a referral's status to `qualified`.\n\n**Body Fields:**\n- `status` \u2014 (required) Enum: `pending`, `registered`, `qualified`, `rewarded`, `expired`. The target status for this referral.\n\n**Valid transitions:**\n- `pending` \u2192 `registered` or `expired`\n- `registered` \u2192 `qualified` or `expired`\n- `qualified` \u2192 `rewarded` or `expired`\n- `rewarded` and `expired` are terminal states\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -1238,7 +1322,7 @@
               ]
             },
             {
-              "name": "Update Referral Status — Reward",
+              "name": "Update Referral Status \u2014 Reward",
               "request": {
                 "method": "PATCH",
                 "url": {
@@ -1273,11 +1357,11 @@
                     }
                   }
                 },
-                "description": "Updates a referral's status to `rewarded` and credits the reward amount.\n\n**Body Fields:**\n- `status` — (required) Enum: `pending`, `registered`, `qualified`, `rewarded`, `expired`. Must be `rewarded` for this endpoint variant.\n- `rewardAmount` — (required when status is `rewarded`) reward amount in EUR (decimal). The `rewardCreditedAt` timestamp is set automatically.\n\nOnly valid from `qualified` status. Requires **admin** role."
+                "description": "Updates a referral's status to `rewarded` and credits the reward amount.\n\n**Body Fields:**\n- `status` \u2014 (required) Enum: `pending`, `registered`, `qualified`, `rewarded`, `expired`. Must be `rewarded` for this endpoint variant.\n- `rewardAmount` \u2014 (required when status is `rewarded`) reward amount in EUR (decimal). The `rewardCreditedAt` timestamp is set automatically.\n\nOnly valid from `qualified` status. Requires **admin** role."
               },
               "response": [
                 {
-                  "name": "200 - Rewarded with €10",
+                  "name": "200 - Rewarded with \u20ac10",
                   "status": "OK",
                   "code": 200,
                   "header": [
@@ -1315,7 +1399,7 @@
               ]
             },
             {
-              "name": "Update Referral Status — Expire",
+              "name": "Update Referral Status \u2014 Expire",
               "request": {
                 "method": "PATCH",
                 "url": {
@@ -1350,7 +1434,7 @@
                     }
                   }
                 },
-                "description": "Updates a referral's status to `expired`.\n\n**Body Fields:**\n- `status` — (required) Enum: `pending`, `registered`, `qualified`, `rewarded`, `expired`. Must be `expired` for this endpoint variant.\n\nCan be applied from any non-terminal status (`pending`, `registered`, `qualified`). Requires **admin** role."
+                "description": "Updates a referral's status to `expired`.\n\n**Body Fields:**\n- `status` \u2014 (required) Enum: `pending`, `registered`, `qualified`, `rewarded`, `expired`. Must be `expired` for this endpoint variant.\n\nCan be applied from any non-terminal status (`pending`, `registered`, `qualified`). Requires **admin** role."
               },
               "response": [
                 {
@@ -1413,7 +1497,7 @@
                     "value": "Bearer {{accessToken}}"
                   }
                 ],
-                "description": "Returns the authenticated user's active meters with supplier and address details.\n\nOnly meters with `active` status are returned. Meters in `pending`, `inactive`, or `terminated` status are hidden from the user.\n\nNo pagination — users typically have 2-5 utilities."
+                "description": "Returns the authenticated user's active meters with supplier and address details.\n\nOnly meters with `active` status are returned. Meters in `pending`, `inactive`, or `terminated` status are hidden from the user.\n\nNo pagination \u2014 users typically have 2-5 utilities."
               },
               "response": [
                 {
@@ -1458,7 +1542,7 @@
         },
         {
           "name": "Admin",
-          "description": "Admin endpoints for managing utility meters. Requires `admin` role.\n\n**Utility types:** `electricity` (POD), `gas` (PDR), `water`, `internet`\n\n**Status lifecycle (moderation):**\n- `pending` → `active` or `terminated`\n- `active` → `inactive` or `terminated`\n- `inactive` → `active` or `terminated`\n- `terminated` = permanent (no further transitions)\n\nOnly `active` meters are visible to users. Admin uses status to moderate visibility.",
+          "description": "Admin endpoints for managing utility meters. Requires `admin` role.\n\n**Utility types:** `electricity` (POD), `gas` (PDR), `water`, `internet`\n\n**Status lifecycle (moderation):**\n- `pending` \u2192 `active` or `terminated`\n- `active` \u2192 `inactive` or `terminated`\n- `inactive` \u2192 `active` or `terminated`\n- `terminated` = permanent (no further transitions)\n\nOnly `active` meters are visible to users. Admin uses status to moderate visibility.",
           "item": [
             {
               "name": "Create Meter",
@@ -1511,7 +1595,7 @@
                     }
                   }
                 },
-                "description": "Creates a new utility meter and assigns it to a user.\n\n**Body Fields:**\n- `userId` — (required) UUID of the user who owns this meter\n- `utilityType` — (required) Enum: `electricity`, `gas`, `water`, `internet`. Type of utility service\n- `meterCode` — (required) unique meter identifier (POD code for electricity, PDR code for gas), max 50 characters\n- `supplierId` — (optional) UUID of the energy supplier for this meter\n- `status` — (optional) Enum: `active`, `inactive`, `pending`, `terminated`. Defaults to `active`\n- `annualConsumption` — (optional) estimated annual consumption, decimal (precision 10, scale 2)\n- `consumptionUnit` — (optional) unit of measurement, e.g. `kWh` for electricity, `Smc` for gas, max 20 characters\n- `contractedPowerKw` — (optional) contracted power in kW (relevant for electricity meters only), decimal\n- `addressId` — (optional) UUID of the address where the meter is located\n- `activationDate` — (optional) meter activation date in ISO 8601 format, e.g. `2025-01-15`\n- `notes` — (optional) free-text notes\n\nRequires **admin** role."
+                "description": "Creates a new utility meter and assigns it to a user.\n\n**Body Fields:**\n- `userId` \u2014 (required) UUID of the user who owns this meter\n- `utilityType` \u2014 (required) Enum: `electricity`, `gas`, `water`, `internet`. Type of utility service\n- `meterCode` \u2014 (required) unique meter identifier (POD code for electricity, PDR code for gas), max 50 characters\n- `supplierId` \u2014 (optional) UUID of the energy supplier for this meter\n- `status` \u2014 (optional) Enum: `active`, `inactive`, `pending`, `terminated`. Defaults to `active`\n- `annualConsumption` \u2014 (optional) estimated annual consumption, decimal (precision 10, scale 2)\n- `consumptionUnit` \u2014 (optional) unit of measurement, e.g. `kWh` for electricity, `Smc` for gas, max 20 characters\n- `contractedPowerKw` \u2014 (optional) contracted power in kW (relevant for electricity meters only), decimal\n- `addressId` \u2014 (optional) UUID of the address where the meter is located\n- `activationDate` \u2014 (optional) meter activation date in ISO 8601 format, e.g. `2025-01-15`\n- `notes` \u2014 (optional) free-text notes\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -1627,7 +1711,7 @@
                     "value": "Bearer {{accessToken}}"
                   }
                 ],
-                "description": "Returns a paginated list of all meters with user, supplier, and address relations.\n\n**Filters (all optional):**\n- `utilityType` — `electricity`, `gas`, `water`, `internet`\n- `status` — `active`, `inactive`, `pending`, `terminated`\n- `userId` — filter by meter owner\n- `supplierId` — filter by supplier\n- `search` — matches meter code, user name, or email\n\nRequires **admin** role."
+                "description": "Returns a paginated list of all meters with user, supplier, and address relations.\n\n**Filters (all optional):**\n- `utilityType` \u2014 `electricity`, `gas`, `water`, `internet`\n- `status` \u2014 `active`, `inactive`, `pending`, `terminated`\n- `userId` \u2014 filter by meter owner\n- `supplierId` \u2014 filter by supplier\n- `search` \u2014 matches meter code, user name, or email\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -1742,7 +1826,7 @@
                     }
                   }
                 },
-                "description": "Updates an existing meter's details. All fields are optional — only provided fields are updated.\n\n**Body Fields (all optional):**\n- `userId` — UUID of the user who owns this meter\n- `utilityType` — Enum: `electricity`, `gas`, `water`, `internet`\n- `meterCode` — unique meter identifier, max 50 characters\n- `supplierId` — UUID of the energy supplier\n- `status` — Enum: `active`, `inactive`, `pending`, `terminated`\n- `annualConsumption` — estimated annual consumption, decimal\n- `consumptionUnit` — unit of measurement (e.g. `kWh`, `Smc`), max 20 characters\n- `contractedPowerKw` — contracted power in kW, decimal\n- `addressId` — UUID of the address where the meter is located\n- `activationDate` — ISO 8601 date\n- `notes` — free-text notes\n\nRequires **admin** role."
+                "description": "Updates an existing meter's details. All fields are optional \u2014 only provided fields are updated.\n\n**Body Fields (all optional):**\n- `userId` \u2014 UUID of the user who owns this meter\n- `utilityType` \u2014 Enum: `electricity`, `gas`, `water`, `internet`\n- `meterCode` \u2014 unique meter identifier, max 50 characters\n- `supplierId` \u2014 UUID of the energy supplier\n- `status` \u2014 Enum: `active`, `inactive`, `pending`, `terminated`\n- `annualConsumption` \u2014 estimated annual consumption, decimal\n- `consumptionUnit` \u2014 unit of measurement (e.g. `kWh`, `Smc`), max 20 characters\n- `contractedPowerKw` \u2014 contracted power in kW, decimal\n- `addressId` \u2014 UUID of the address where the meter is located\n- `activationDate` \u2014 ISO 8601 date\n- `notes` \u2014 free-text notes\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -1835,7 +1919,7 @@
               ]
             },
             {
-              "name": "Change Status — Activate",
+              "name": "Change Status \u2014 Activate",
               "request": {
                 "method": "PATCH",
                 "url": {
@@ -1870,7 +1954,7 @@
                     }
                   }
                 },
-                "description": "Changes a meter's status to `active`.\n\n**Body Fields:**\n- `status` — (required) Enum: `active`, `inactive`, `pending`, `terminated`. Must be `active` for this endpoint variant.\n\nRequires **admin** role."
+                "description": "Changes a meter's status to `active`.\n\n**Body Fields:**\n- `status` \u2014 (required) Enum: `active`, `inactive`, `pending`, `terminated`. Must be `active` for this endpoint variant.\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -1912,7 +1996,7 @@
               ]
             },
             {
-              "name": "Change Status — Deactivate",
+              "name": "Change Status \u2014 Deactivate",
               "request": {
                 "method": "PATCH",
                 "url": {
@@ -1947,7 +2031,7 @@
                     }
                   }
                 },
-                "description": "Changes a meter's status to `inactive`.\n\n**Body Fields:**\n- `status` — (required) Enum: `active`, `inactive`, `pending`, `terminated`. Must be `inactive` for this endpoint variant.\n\nRequires **admin** role."
+                "description": "Changes a meter's status to `inactive`.\n\n**Body Fields:**\n- `status` \u2014 (required) Enum: `active`, `inactive`, `pending`, `terminated`. Must be `inactive` for this endpoint variant.\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -1977,7 +2061,7 @@
               ]
             },
             {
-              "name": "Change Status — Terminate",
+              "name": "Change Status \u2014 Terminate",
               "request": {
                 "method": "PATCH",
                 "url": {
@@ -2012,7 +2096,7 @@
                     }
                   }
                 },
-                "description": "Changes a meter's status to `terminated`. This is typically irreversible.\n\n**Body Fields:**\n- `status` — (required) Enum: `active`, `inactive`, `pending`, `terminated`. Must be `terminated` for this endpoint variant.\n\nRequires **admin** role."
+                "description": "Changes a meter's status to `terminated`. This is typically irreversible.\n\n**Body Fields:**\n- `status` \u2014 (required) Enum: `active`, `inactive`, `pending`, `terminated`. Must be `terminated` for this endpoint variant.\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -2086,7 +2170,7 @@
                     }
                   ]
                 },
-                "description": "Returns a paginated list of active suppliers. No authentication required.\n\nSupports text search by supplier name and supplier code.\n\n**Query parameters:**\n- `page` — Page number (default: 1)\n- `limit` — Items per page (default: 20, max: 100)\n- `search` — Search by supplier name or supplier code"
+                "description": "Returns a paginated list of active suppliers. No authentication required.\n\nSupports text search by supplier name and supplier code.\n\n**Query parameters:**\n- `page` \u2014 Page number (default: 1)\n- `limit` \u2014 Items per page (default: 20, max: 100)\n- `search` \u2014 Search by supplier name or supplier code"
               },
               "response": [
                 {
@@ -2131,7 +2215,7 @@
                     "{{supplierId}}"
                   ]
                 },
-                "description": "Returns a single supplier with its associated offers. No authentication required.\n\n**Path parameters:**\n- `id` — Supplier UUID"
+                "description": "Returns a single supplier with its associated offers. No authentication required.\n\n**Path parameters:**\n- `id` \u2014 Supplier UUID"
               },
               "response": [
                 {
@@ -2217,7 +2301,7 @@
                     }
                   }
                 },
-                "description": "Creates a new energy supplier.\n\n**Body Fields:**\n- `name` — (required) supplier name, max 255 characters\n- `logoUrl` — (optional) URL to the supplier's logo image\n- `description` — (optional) supplier description\n- `rating` — (optional) supplier rating, decimal from 0.00 to 5.00 (default: 0)\n- `contactEmail` — (optional) supplier contact email\n- `contactPhone` — (optional) supplier contact phone number\n- `website` — (optional) supplier website URL\n- `supplierCode` — (optional) unique internal supplier code, max 50 characters\n- `isActive` — (optional) boolean, whether the supplier is visible to users (default: true)\n\nRequires **admin** role."
+                "description": "Creates a new energy supplier.\n\n**Body Fields:**\n- `name` \u2014 (required) supplier name, max 255 characters\n- `logoUrl` \u2014 (optional) URL to the supplier's logo image\n- `description` \u2014 (optional) supplier description\n- `rating` \u2014 (optional) supplier rating, decimal from 0.00 to 5.00 (default: 0)\n- `contactEmail` \u2014 (optional) supplier contact email\n- `contactPhone` \u2014 (optional) supplier contact phone number\n- `website` \u2014 (optional) supplier website URL\n- `supplierCode` \u2014 (optional) unique internal supplier code, max 50 characters\n- `isActive` \u2014 (optional) boolean, whether the supplier is visible to users (default: true)\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -2328,7 +2412,7 @@
                     "value": "Bearer {{accessToken}}"
                   }
                 ],
-                "description": "Returns a paginated list of all suppliers (active and inactive). Requires admin role.\n\n**Query parameters:**\n- `page` — Page number (default: 1)\n- `limit` — Items per page (default: 20, max: 100)\n- `isActive` — Filter by active status (`true` or `false`)\n- `search` — Search by name, email, or supplier code"
+                "description": "Returns a paginated list of all suppliers (active and inactive). Requires admin role.\n\n**Query parameters:**\n- `page` \u2014 Page number (default: 1)\n- `limit` \u2014 Items per page (default: 20, max: 100)\n- `isActive` \u2014 Filter by active status (`true` or `false`)\n- `search` \u2014 Search by name, email, or supplier code"
               },
               "response": [
                 {
@@ -2392,7 +2476,7 @@
                     }
                   }
                 },
-                "description": "Updates an existing supplier's details. All fields are optional — only provided fields are updated.\n\n**Body Fields (all optional):**\n- `name` — supplier name, max 255 characters\n- `logoUrl` — URL to the supplier's logo image\n- `description` — supplier description\n- `rating` — decimal from 0.00 to 5.00\n- `contactEmail` — contact email\n- `contactPhone` — contact phone number\n- `website` — website URL\n- `supplierCode` — unique internal supplier code, max 50 characters\n\nRequires **admin** role."
+                "description": "Updates an existing supplier's details. All fields are optional \u2014 only provided fields are updated.\n\n**Body Fields (all optional):**\n- `name` \u2014 supplier name, max 255 characters\n- `logoUrl` \u2014 URL to the supplier's logo image\n- `description` \u2014 supplier description\n- `rating` \u2014 decimal from 0.00 to 5.00\n- `contactEmail` \u2014 contact email\n- `contactPhone` \u2014 contact phone number\n- `website` \u2014 website URL\n- `supplierCode` \u2014 unique internal supplier code, max 50 characters\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -2455,7 +2539,7 @@
                     "value": "Bearer {{accessToken}}"
                   }
                 ],
-                "description": "Soft-deletes a supplier by setting `deleted_at` timestamp. The supplier is hidden from all queries but preserved in the database.\n\nThis is a permanent action — unlike toggling `isActive`, soft-deleted suppliers cannot be recovered via the API."
+                "description": "Soft-deletes a supplier by setting `deleted_at` timestamp. The supplier is hidden from all queries but preserved in the database.\n\nThis is a permanent action \u2014 unlike toggling `isActive`, soft-deleted suppliers cannot be recovered via the API."
               },
               "response": [
                 {
@@ -2485,7 +2569,7 @@
               ]
             },
             {
-              "name": "Toggle Status — Activate",
+              "name": "Toggle Status \u2014 Activate",
               "request": {
                 "method": "PATCH",
                 "url": {
@@ -2520,7 +2604,7 @@
                     }
                   }
                 },
-                "description": "Activates a supplier/agreement, making it visible to users.\n\n**Body Fields:**\n- `isActive` — (required) boolean. Set to `true` to make the entity visible to users, `false` to hide it.\n\nRequires **admin** role."
+                "description": "Activates a supplier/agreement, making it visible to users.\n\n**Body Fields:**\n- `isActive` \u2014 (required) boolean. Set to `true` to make the entity visible to users, `false` to hide it.\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -2550,7 +2634,7 @@
               ]
             },
             {
-              "name": "Toggle Status — Deactivate",
+              "name": "Toggle Status \u2014 Deactivate",
               "request": {
                 "method": "PATCH",
                 "url": {
@@ -2585,7 +2669,7 @@
                     }
                   }
                 },
-                "description": "Deactivates a supplier/agreement, hiding it from users.\n\n**Body Fields:**\n- `isActive` — (required) boolean. Set to `true` to make the entity visible to users, `false` to hide it.\n\nRequires **admin** role."
+                "description": "Deactivates a supplier/agreement, hiding it from users.\n\n**Body Fields:**\n- `isActive` \u2014 (required) boolean. Set to `true` to make the entity visible to users, `false` to hide it.\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -2620,7 +2704,7 @@
     },
     {
       "name": "Offers",
-      "description": "Energy offer management. Public users browse active offers, compare them, and get bill-based recommendations. Admins manage the full lifecycle including creation, updates, status moderation (draft → active → expiring → expired → archived), and soft-deletion.",
+      "description": "Energy offer management. Public users browse active offers, compare them, and get bill-based recommendations. Admins manage the full lifecycle including creation, updates, status moderation (draft \u2192 active \u2192 expiring \u2192 expired \u2192 archived), and soft-deletion.",
       "item": [
         {
           "name": "Public",
@@ -2659,7 +2743,7 @@
                     }
                   ]
                 },
-                "description": "Returns a paginated list of published, active offers with supplier details. No authentication required.\n\n**Query parameters:**\n- `page` — Page number (default: 1)\n- `limit` — Items per page (default: 20, max: 100)\n- `search` — Search by name, description, or offer code"
+                "description": "Returns a paginated list of published, active offers with supplier details. No authentication required.\n\n**Query parameters:**\n- `page` \u2014 Page number (default: 1)\n- `limit` \u2014 Items per page (default: 20, max: 100)\n- `search` \u2014 Search by name, description, or offer code"
               },
               "response": [
                 {
@@ -2704,7 +2788,7 @@
                     "{{offerId}}"
                   ]
                 },
-                "description": "Returns a single offer with full supplier details. No authentication required.\n\n**Path parameters:**\n- `id` — Offer UUID"
+                "description": "Returns a single offer with full supplier details. No authentication required.\n\n**Path parameters:**\n- `id` \u2014 Offer UUID"
               },
               "response": [
                 {
@@ -2808,7 +2892,7 @@
                     "value": "Bearer {{accessToken}}"
                   }
                 ],
-                "description": "Returns up to 10 recommended offers based on the user's energy bill.\n\nMatches by energy type (electricity/gas), excludes the current supplier, and sorts by price ascending (cheapest first).\n\n**Path parameters:**\n- `billId` — UUID of the user's energy bill\n\n**Requires:** JWT authentication (user must own the bill)"
+                "description": "Returns up to 10 recommended offers based on the user's energy bill.\n\nMatches by energy type (electricity/gas), excludes the current supplier, and sorts by price ascending (cheapest first).\n\n**Path parameters:**\n- `billId` \u2014 UUID of the user's energy bill\n\n**Requires:** JWT authentication (user must own the bill)"
               },
               "response": [
                 {
@@ -2853,7 +2937,7 @@
         },
         {
           "name": "Admin",
-          "description": "Admin endpoints for managing energy offers. Requires `admin` role.\n\n**Offer status lifecycle (moderation):**\n- `draft` → `active` or `archived`\n- `active` → `expiring` or `archived`\n- `expiring` → `expired` or `archived`\n- `expired` → `archived`\n- `archived` = permanent (no further transitions)\n\nOnly `active` and `expiring` offers are visible to public users.",
+          "description": "Admin endpoints for managing energy offers. Requires `admin` role.\n\n**Offer status lifecycle (moderation):**\n- `draft` \u2192 `active` or `archived`\n- `active` \u2192 `expiring` or `archived`\n- `expiring` \u2192 `expired` or `archived`\n- `expired` \u2192 `archived`\n- `archived` = permanent (no further transitions)\n\nOnly `active` and `expiring` offers are visible to public users.",
           "item": [
             {
               "name": "Create Offer",
@@ -2906,7 +2990,7 @@
                     }
                   }
                 },
-                "description": "Creates a new energy offer.\n\n**Body Fields:**\n- `name` — (required) offer name, max 255 characters\n- `description` — (optional) detailed description of the offer\n- `energyType` — (required) Enum: `electricity`, `gas`, `dual`. Type of energy this offer covers\n- `marketType` — (required) Enum: `fixed`, `variable`, `indexed`. Pricing model type\n- `pricePerKwh` — (optional) price per kilowatt-hour in EUR, decimal (precision 10, scale 6). Used for electricity offers\n- `pricePerSmc` — (optional) price per standard cubic meter in EUR, decimal. Used for gas offers\n- `fixedMonthlyFee` — (required) fixed monthly fee in EUR, decimal (precision 10, scale 2, default: 0)\n- `activationCost` — (required) one-time activation cost in EUR, decimal (precision 10, scale 2, default: 0)\n- `contractDurationMonths` — (required) contract duration in months, integer (min: 1)\n- `isGreenEnergy` — (optional) boolean, whether the offer uses renewable energy sources (default: false)\n- `validFrom` — (required) offer validity start date, ISO 8601 format\n- `validUntil` — (optional) offer validity end date, ISO 8601 format\n- `termsUrl` — (optional) URL to the full terms and conditions document\n- `target` — (optional) Enum: `personal`, `business`, `both`. Target audience for this offer (default: `both`)\n- `highlights` — (optional) array of strings, key selling points displayed on the offer card\n- `supplierId` — (required) UUID of the supplier providing this offer\n- `offerCode` — (optional) unique internal offer code, max 50 characters\n- `offerStatus` — (optional) Enum: `draft`, `active`, `expiring`, `expired`, `archived`. Defaults to `draft`\n\nOffer is created with `draft` status. Use the Change Status endpoint to publish it.\n\nRequires **admin** role."
+                "description": "Creates a new energy offer.\n\n**Body Fields:**\n- `name` \u2014 (required) offer name, max 255 characters\n- `description` \u2014 (optional) detailed description of the offer\n- `energyType` \u2014 (required) Enum: `electricity`, `gas`, `dual`. Type of energy this offer covers\n- `marketType` \u2014 (required) Enum: `fixed`, `variable`, `indexed`. Pricing model type\n- `pricePerKwh` \u2014 (optional) price per kilowatt-hour in EUR, decimal (precision 10, scale 6). Used for electricity offers\n- `pricePerSmc` \u2014 (optional) price per standard cubic meter in EUR, decimal. Used for gas offers\n- `fixedMonthlyFee` \u2014 (required) fixed monthly fee in EUR, decimal (precision 10, scale 2, default: 0)\n- `activationCost` \u2014 (required) one-time activation cost in EUR, decimal (precision 10, scale 2, default: 0)\n- `contractDurationMonths` \u2014 (required) contract duration in months, integer (min: 1)\n- `isGreenEnergy` \u2014 (optional) boolean, whether the offer uses renewable energy sources (default: false)\n- `validFrom` \u2014 (required) offer validity start date, ISO 8601 format\n- `validUntil` \u2014 (optional) offer validity end date, ISO 8601 format\n- `termsUrl` \u2014 (optional) URL to the full terms and conditions document\n- `target` \u2014 (optional) Enum: `personal`, `business`, `both`. Target audience for this offer (default: `both`)\n- `highlights` \u2014 (optional) array of strings, key selling points displayed on the offer card\n- `supplierId` \u2014 (required) UUID of the supplier providing this offer\n- `offerCode` \u2014 (optional) unique internal offer code, max 50 characters\n- `offerStatus` \u2014 (optional) Enum: `draft`, `active`, `expiring`, `expired`, `archived`. Defaults to `draft`\n\nOffer is created with `draft` status. Use the Change Status endpoint to publish it.\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -3035,7 +3119,7 @@
                     "value": "Bearer {{accessToken}}"
                   }
                 ],
-                "description": "Returns a paginated list of all offers (including drafts, inactive, archived). Requires admin role.\n\n**Query parameters:**\n- `page` — Page number (default: 1)\n- `limit` — Items per page (default: 20, max: 100)\n- `energyType` — `electricity`, `gas`, `dual`\n- `marketType` — `fixed`, `variable`, `indexed`\n- `target` — `personal`, `business`, `both`\n- `isActive` — `true` or `false`\n- `offerStatus` — `draft`, `active`, `expiring`, `expired`, `archived`\n- `supplierId` — Supplier UUID\n- `search` — Search name, description, or offer code"
+                "description": "Returns a paginated list of all offers (including drafts, inactive, archived). Requires admin role.\n\n**Query parameters:**\n- `page` \u2014 Page number (default: 1)\n- `limit` \u2014 Items per page (default: 20, max: 100)\n- `energyType` \u2014 `electricity`, `gas`, `dual`\n- `marketType` \u2014 `fixed`, `variable`, `indexed`\n- `target` \u2014 `personal`, `business`, `both`\n- `isActive` \u2014 `true` or `false`\n- `offerStatus` \u2014 `draft`, `active`, `expiring`, `expired`, `archived`\n- `supplierId` \u2014 Supplier UUID\n- `search` \u2014 Search name, description, or offer code"
               },
               "response": [
                 {
@@ -3099,7 +3183,7 @@
                     }
                   }
                 },
-                "description": "Updates an existing offer's details. All fields are optional — only provided fields are updated.\n\n**Body Fields (all optional):**\n- `name` — offer name, max 255 characters\n- `description` — offer description\n- `pricePerKwh` — price per kWh in EUR, decimal\n- `pricePerSmc` — price per Smc in EUR, decimal\n- `fixedMonthlyFee` — monthly fee in EUR, decimal\n- `activationCost` — activation cost in EUR, decimal\n- `contractDurationMonths` — duration in months, integer\n- `isGreenEnergy` — boolean\n- `validFrom` / `validUntil` — ISO 8601 dates\n- `termsUrl` — URL to terms document\n- `target` — Enum: `personal`, `business`, `both`\n- `highlights` — array of strings\n- `offerCode` — unique offer code, max 50 characters\n\nRequires **admin** role."
+                "description": "Updates an existing offer's details. All fields are optional \u2014 only provided fields are updated.\n\n**Body Fields (all optional):**\n- `name` \u2014 offer name, max 255 characters\n- `description` \u2014 offer description\n- `pricePerKwh` \u2014 price per kWh in EUR, decimal\n- `pricePerSmc` \u2014 price per Smc in EUR, decimal\n- `fixedMonthlyFee` \u2014 monthly fee in EUR, decimal\n- `activationCost` \u2014 activation cost in EUR, decimal\n- `contractDurationMonths` \u2014 duration in months, integer\n- `isGreenEnergy` \u2014 boolean\n- `validFrom` / `validUntil` \u2014 ISO 8601 dates\n- `termsUrl` \u2014 URL to terms document\n- `target` \u2014 Enum: `personal`, `business`, `both`\n- `highlights` \u2014 array of strings\n- `offerCode` \u2014 unique offer code, max 50 characters\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -3162,7 +3246,7 @@
                     "value": "Bearer {{accessToken}}"
                   }
                 ],
-                "description": "Soft-deletes an offer by setting `deleted_at` timestamp. The offer is hidden from all queries but preserved in the database.\n\nThis is a permanent action — soft-deleted offers cannot be recovered via the API."
+                "description": "Soft-deletes an offer by setting `deleted_at` timestamp. The offer is hidden from all queries but preserved in the database.\n\nThis is a permanent action \u2014 soft-deleted offers cannot be recovered via the API."
               },
               "response": [
                 {
@@ -3192,7 +3276,7 @@
               ]
             },
             {
-              "name": "Change Status — Publish (Draft → Active)",
+              "name": "Change Status \u2014 Publish (Draft \u2192 Active)",
               "request": {
                 "method": "PATCH",
                 "url": {
@@ -3227,7 +3311,7 @@
                     }
                   }
                 },
-                "description": "Publishes a draft offer, making it visible to public users.\n\n**Body Fields:**\n- `offerStatus` — (required) Enum: `draft`, `active`, `expiring`, `expired`, `archived`. The target status.\n  - `draft` → `active` (publish)\n  - `active` → `expiring`, `expired`, or `archived`\n  - `expiring` → `expired` or `archived`\n\nRequires **admin** role."
+                "description": "Publishes a draft offer, making it visible to public users.\n\n**Body Fields:**\n- `offerStatus` \u2014 (required) Enum: `draft`, `active`, `expiring`, `expired`, `archived`. The target status.\n  - `draft` \u2192 `active` (publish)\n  - `active` \u2192 `expiring`, `expired`, or `archived`\n  - `expiring` \u2192 `expired` or `archived`\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -3269,7 +3353,7 @@
               ]
             },
             {
-              "name": "Change Status — Archive",
+              "name": "Change Status \u2014 Archive",
               "request": {
                 "method": "PATCH",
                 "url": {
@@ -3304,7 +3388,7 @@
                     }
                   }
                 },
-                "description": "Archives an offer, removing it from public listing.\n\n**Body Fields:**\n- `offerStatus` — (required) Enum: `draft`, `active`, `expiring`, `expired`, `archived`. Must be `archived` for this endpoint variant.\n\nRequires **admin** role."
+                "description": "Archives an offer, removing it from public listing.\n\n**Body Fields:**\n- `offerStatus` \u2014 (required) Enum: `draft`, `active`, `expiring`, `expired`, `archived`. Must be `archived` for this endpoint variant.\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -3343,7 +3427,7 @@
       "item": [
         {
           "name": "User",
-          "description": "User-facing agreement endpoints. Returns only active agreements matching the user's role (personal/business) and within validity dates.\n\nAccessed from the Profile screen → Others → Agreements in the mobile app.",
+          "description": "User-facing agreement endpoints. Returns only active agreements matching the user's role (personal/business) and within validity dates.\n\nAccessed from the Profile screen \u2192 Others \u2192 Agreements in the mobile app.",
           "item": [
             {
               "name": "List My Agreements",
@@ -3367,7 +3451,7 @@
                     "value": "Bearer {{accessToken}}"
                   }
                 ],
-                "description": "Returns active partner agreements available to the authenticated user.\n\nFiltered by:\n- `isActive = true`\n- `targetAudience` matches user's role or is `both`\n- `validFrom <= today` and (`validUntil` is null or `>= today`)\n\nSorted by `sortOrder` ascending, then by creation date. No pagination — typically 5-15 agreements."
+                "description": "Returns active partner agreements available to the authenticated user.\n\nFiltered by:\n- `isActive = true`\n- `targetAudience` matches user's role or is `both`\n- `validFrom <= today` and (`validUntil` is null or `>= today`)\n\nSorted by `sortOrder` ascending, then by creation date. No pagination \u2014 typically 5-15 agreements."
               },
               "response": [
                 {
@@ -3380,7 +3464,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"ag1a2b3c-d5e6-7890-abcd-ef1234567890\",\n      \"title\": \"20% Off on Enel Smart Home Kit\",\n      \"description\": \"Exclusive discount on smart home energy monitoring devices for EasyRisparmio users\",\n      \"partnerName\": \"Enel X\",\n      \"partnerLogoUrl\": \"https://cdn.easyresparmio.it/partners/enel-x.png\",\n      \"discountDescription\": \"20% off on all smart home kits. Use code EASY20 at checkout.\",\n      \"termsUrl\": \"https://www.enelx.com/terms/easy-risparmio\",\n      \"isActive\": true,\n      \"targetAudience\": \"both\",\n      \"validFrom\": \"2026-01-01\",\n      \"validUntil\": \"2026-12-31\",\n      \"sortOrder\": 1,\n      \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n      \"updatedAt\": \"2026-06-01T10:00:00.000Z\"\n    },\n    {\n      \"id\": \"ag2b3c4d-e6f7-8901-bcde-f23456789012\",\n      \"title\": \"Free Energy Audit from Edison\",\n      \"description\": \"Get a free home energy efficiency audit from Edison certified technicians\",\n      \"partnerName\": \"Edison\",\n      \"partnerLogoUrl\": \"https://cdn.easyresparmio.it/partners/edison.png\",\n      \"discountDescription\": \"Free in-home energy audit (valued at €150). Book via the partner website.\",\n      \"termsUrl\": \"https://www.edison.it/terms/easy-audit\",\n      \"isActive\": true,\n      \"targetAudience\": \"personal\",\n      \"validFrom\": \"2026-03-01\",\n      \"validUntil\": null,\n      \"sortOrder\": 2,\n      \"createdAt\": \"2026-05-15T08:00:00.000Z\",\n      \"updatedAt\": \"2026-05-15T08:00:00.000Z\"\n    }\n  ]\n}"
+                  "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"ag1a2b3c-d5e6-7890-abcd-ef1234567890\",\n      \"title\": \"20% Off on Enel Smart Home Kit\",\n      \"description\": \"Exclusive discount on smart home energy monitoring devices for EasyRisparmio users\",\n      \"partnerName\": \"Enel X\",\n      \"partnerLogoUrl\": \"https://cdn.easyresparmio.it/partners/enel-x.png\",\n      \"discountDescription\": \"20% off on all smart home kits. Use code EASY20 at checkout.\",\n      \"termsUrl\": \"https://www.enelx.com/terms/easy-risparmio\",\n      \"isActive\": true,\n      \"targetAudience\": \"both\",\n      \"validFrom\": \"2026-01-01\",\n      \"validUntil\": \"2026-12-31\",\n      \"sortOrder\": 1,\n      \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n      \"updatedAt\": \"2026-06-01T10:00:00.000Z\"\n    },\n    {\n      \"id\": \"ag2b3c4d-e6f7-8901-bcde-f23456789012\",\n      \"title\": \"Free Energy Audit from Edison\",\n      \"description\": \"Get a free home energy efficiency audit from Edison certified technicians\",\n      \"partnerName\": \"Edison\",\n      \"partnerLogoUrl\": \"https://cdn.easyresparmio.it/partners/edison.png\",\n      \"discountDescription\": \"Free in-home energy audit (valued at \u20ac150). Book via the partner website.\",\n      \"termsUrl\": \"https://www.edison.it/terms/easy-audit\",\n      \"isActive\": true,\n      \"targetAudience\": \"personal\",\n      \"validFrom\": \"2026-03-01\",\n      \"validUntil\": null,\n      \"sortOrder\": 2,\n      \"createdAt\": \"2026-05-15T08:00:00.000Z\",\n      \"updatedAt\": \"2026-05-15T08:00:00.000Z\"\n    }\n  ]\n}"
                 },
                 {
                   "name": "200 - No Agreements Available",
@@ -3517,7 +3601,7 @@
                     }
                   }
                 },
-                "description": "Creates a new partner agreement/discount.\n\n**Body Fields:**\n- `title` — (required) agreement title, max 255 characters\n- `description` — (optional) detailed description\n- `partnerName` — (required) name of the partner company, max 255 characters\n- `partnerLogoUrl` — (optional) URL to the partner's logo image\n- `discountDescription` — (optional) description of the discount/benefit offered\n- `termsUrl` — (optional) URL to the full terms and conditions\n- `targetAudience` — (optional) Enum: `personal`, `business`, `both`. Who can see this agreement (default: `both`)\n- `validFrom` — (required) start date, ISO 8601 format\n- `validUntil` — (optional) end date, ISO 8601 format\n- `sortOrder` — (optional) integer, display order priority (lower values appear first, default: 0)\n- `isActive` — (optional) boolean, whether visible to users (default: true)\n\nRequires **admin** role."
+                "description": "Creates a new partner agreement/discount.\n\n**Body Fields:**\n- `title` \u2014 (required) agreement title, max 255 characters\n- `description` \u2014 (optional) detailed description\n- `partnerName` \u2014 (required) name of the partner company, max 255 characters\n- `partnerLogoUrl` \u2014 (optional) URL to the partner's logo image\n- `discountDescription` \u2014 (optional) description of the discount/benefit offered\n- `termsUrl` \u2014 (optional) URL to the full terms and conditions\n- `targetAudience` \u2014 (optional) Enum: `personal`, `business`, `both`. Who can see this agreement (default: `both`)\n- `validFrom` \u2014 (required) start date, ISO 8601 format\n- `validUntil` \u2014 (optional) end date, ISO 8601 format\n- `sortOrder` \u2014 (optional) integer, display order priority (lower values appear first, default: 0)\n- `isActive` \u2014 (optional) boolean, whether visible to users (default: true)\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -3610,7 +3694,7 @@
                     "value": "Bearer {{accessToken}}"
                   }
                 ],
-                "description": "Returns a paginated list of all agreements (active and inactive). Requires admin role.\n\n**Query parameters:**\n- `page` — Page number (default: 1)\n- `limit` — Items per page (default: 20, max: 100)\n- `isActive` — Filter by active status\n- `targetAudience` — Filter: `personal`, `business`, `both`\n- `search` — Search by title, partner name, or description"
+                "description": "Returns a paginated list of all agreements (active and inactive). Requires admin role.\n\n**Query parameters:**\n- `page` \u2014 Page number (default: 1)\n- `limit` \u2014 Items per page (default: 20, max: 100)\n- `isActive` \u2014 Filter by active status\n- `targetAudience` \u2014 Filter: `personal`, `business`, `both`\n- `search` \u2014 Search by title, partner name, or description"
               },
               "response": [
                 {
@@ -3719,14 +3803,14 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"discountDescription\": \"25% off on all smart home kits — increased discount!\",\n  \"sortOrder\": 0\n}",
+                  "raw": "{\n  \"discountDescription\": \"25% off on all smart home kits \u2014 increased discount!\",\n  \"sortOrder\": 0\n}",
                   "options": {
                     "raw": {
                       "language": "json"
                     }
                   }
                 },
-                "description": "Updates an existing agreement's details. All fields are optional — only provided fields are updated.\n\n**Body Fields (all optional):**\n- `title` — agreement title, max 255 characters\n- `description` — detailed description\n- `partnerName` — partner company name, max 255 characters\n- `partnerLogoUrl` — URL to partner's logo\n- `discountDescription` — discount/benefit description\n- `termsUrl` — URL to terms document\n- `targetAudience` — Enum: `personal`, `business`, `both`\n- `validFrom` / `validUntil` — ISO 8601 dates\n- `sortOrder` — integer display order (lower = shown first)\n- `isActive` — boolean\n\nRequires **admin** role."
+                "description": "Updates an existing agreement's details. All fields are optional \u2014 only provided fields are updated.\n\n**Body Fields (all optional):**\n- `title` \u2014 agreement title, max 255 characters\n- `description` \u2014 detailed description\n- `partnerName` \u2014 partner company name, max 255 characters\n- `partnerLogoUrl` \u2014 URL to partner's logo\n- `discountDescription` \u2014 discount/benefit description\n- `termsUrl` \u2014 URL to terms document\n- `targetAudience` \u2014 Enum: `personal`, `business`, `both`\n- `validFrom` / `validUntil` \u2014 ISO 8601 dates\n- `sortOrder` \u2014 integer display order (lower = shown first)\n- `isActive` \u2014 boolean\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -3739,7 +3823,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"ag1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"title\": \"20% Off on Enel Smart Home Kit\",\n    \"partnerName\": \"Enel X\",\n    \"discountDescription\": \"25% off on all smart home kits — increased discount!\",\n    \"isActive\": true,\n    \"sortOrder\": 0,\n    \"updatedBy\": \"admin-uuid\",\n    \"updatedAt\": \"2026-06-10T14:00:00.000Z\"\n  }\n}"
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"ag1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"title\": \"20% Off on Enel Smart Home Kit\",\n    \"partnerName\": \"Enel X\",\n    \"discountDescription\": \"25% off on all smart home kits \u2014 increased discount!\",\n    \"isActive\": true,\n    \"sortOrder\": 0,\n    \"updatedBy\": \"admin-uuid\",\n    \"updatedAt\": \"2026-06-10T14:00:00.000Z\"\n  }\n}"
                 },
                 {
                   "name": "404 - Agreement Not Found",
@@ -3756,7 +3840,7 @@
               ]
             },
             {
-              "name": "Toggle Status — Activate",
+              "name": "Toggle Status \u2014 Activate",
               "request": {
                 "method": "PATCH",
                 "url": {
@@ -3791,7 +3875,7 @@
                     }
                   }
                 },
-                "description": "Activates a supplier/agreement, making it visible to users.\n\n**Body Fields:**\n- `isActive` — (required) boolean. Set to `true` to make the entity visible to users, `false` to hide it.\n\nRequires **admin** role."
+                "description": "Activates a supplier/agreement, making it visible to users.\n\n**Body Fields:**\n- `isActive` \u2014 (required) boolean. Set to `true` to make the entity visible to users, `false` to hide it.\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -3821,7 +3905,7 @@
               ]
             },
             {
-              "name": "Toggle Status — Deactivate",
+              "name": "Toggle Status \u2014 Deactivate",
               "request": {
                 "method": "PATCH",
                 "url": {
@@ -3856,7 +3940,7 @@
                     }
                   }
                 },
-                "description": "Deactivates a supplier/agreement, hiding it from users.\n\n**Body Fields:**\n- `isActive` — (required) boolean. Set to `true` to make the entity visible to users, `false` to hide it.\n\nRequires **admin** role."
+                "description": "Deactivates a supplier/agreement, hiding it from users.\n\n**Body Fields:**\n- `isActive` \u2014 (required) boolean. Set to `true` to make the entity visible to users, `false` to hide it.\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -3942,7 +4026,7 @@
     },
     {
       "name": "Support",
-      "description": "Support ticketing system and FAQ. Users create tickets and exchange messages with support agents. Admins manage tickets (assign agents, update status) and maintain FAQs. Accessed from Profile → Supporto in the mobile app.",
+      "description": "Support ticketing system and FAQ. Users create tickets and exchange messages with support agents. Admins manage tickets (assign agents, update status) and maintain FAQs. Accessed from Profile \u2192 Supporto in the mobile app.",
       "item": [
         {
           "name": "Tickets",
@@ -4000,7 +4084,7 @@
                     }
                   }
                 },
-                "description": "Creates a new support ticket.\n\n**Body Fields:**\n- `subject` — (required) ticket subject, max 255 characters\n- `category` — (required) Enum: `technical_support`, `billing_payments`, `switching`, `general`. Type of support request\n- `priority` — (optional) Enum: `low`, `medium`, `high`, `urgent`. Ticket priority (default: `medium`)\n- `message` — (required) initial message body text\n\nTicket is created with `open` status. Available to `personal` and `business` users."
+                "description": "Creates a new support ticket.\n\n**Body Fields:**\n- `subject` \u2014 (required) ticket subject, max 255 characters\n- `category` \u2014 (required) Enum: `technical_support`, `billing_payments`, `switching`, `general`. Type of support request\n- `priority` \u2014 (optional) Enum: `low`, `medium`, `high`, `urgent`. Ticket priority (default: `medium`)\n- `message` \u2014 (required) initial message body text\n\nTicket is created with `open` status. Available to `personal` and `business` users."
               },
               "response": [
                 {
@@ -4099,7 +4183,7 @@
                     "value": "Bearer {{accessToken}}"
                   }
                 ],
-                "description": "Returns a paginated list of support tickets.\n\nRegular users see only their own tickets. Admins see all tickets.\n\n**Query parameters:**\n- `page`, `limit`, `search` (subject)\n- `status` — `open`, `in_progress`, `resolved`, `closed`\n- `priority` — `low`, `medium`, `high`, `urgent`\n- `category` — `technical_support`, `billing_payments`, `switching`, `general`"
+                "description": "Returns a paginated list of support tickets.\n\nRegular users see only their own tickets. Admins see all tickets.\n\n**Query parameters:**\n- `page`, `limit`, `search` (subject)\n- `status` \u2014 `open`, `in_progress`, `resolved`, `closed`\n- `priority` \u2014 `low`, `medium`, `high`, `urgent`\n- `category` \u2014 `technical_support`, `billing_payments`, `switching`, `general`"
               },
               "response": [
                 {
@@ -4181,7 +4265,7 @@
               ]
             },
             {
-              "name": "Update Ticket — Assign Agent (Admin)",
+              "name": "Update Ticket \u2014 Assign Agent (Admin)",
               "request": {
                 "method": "PATCH",
                 "url": {
@@ -4216,7 +4300,7 @@
                     }
                   }
                 },
-                "description": "Assigns an admin agent to a support ticket.\n\n**Body Fields:**\n- `assignedAgentId` — (required) UUID of the admin user to assign as the support agent. Must be a user with `admin` role.\n\nIf the ticket status is `open`, it is automatically transitioned to `in_progress` upon assignment.\n\nRequires **admin** role."
+                "description": "Assigns an admin agent to a support ticket.\n\n**Body Fields:**\n- `assignedAgentId` \u2014 (required) UUID of the admin user to assign as the support agent. Must be a user with `admin` role.\n\nIf the ticket status is `open`, it is automatically transitioned to `in_progress` upon assignment.\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -4246,7 +4330,7 @@
               ]
             },
             {
-              "name": "Update Ticket — Resolve (Admin)",
+              "name": "Update Ticket \u2014 Resolve (Admin)",
               "request": {
                 "method": "PATCH",
                 "url": {
@@ -4281,7 +4365,7 @@
                     }
                   }
                 },
-                "description": "Resolves a support ticket.\n\n**Body Fields:**\n- `status` — (required) Enum: `open`, `in_progress`, `resolved`, `closed`. The target ticket status. Typically set to `resolved` from `in_progress`.\n\nRequires **admin** role."
+                "description": "Resolves a support ticket.\n\n**Body Fields:**\n- `status` \u2014 (required) Enum: `open`, `in_progress`, `resolved`, `closed`. The target ticket status. Typically set to `resolved` from `in_progress`.\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -4347,7 +4431,7 @@
                     }
                   }
                 },
-                "description": "Adds a message to an existing support ticket thread.\n\n**Body Fields:**\n- `message` — (required) message body text\n- `attachments` — (optional) array of URL strings pointing to uploaded files. No limit specified, but keep reasonable.\n\nAvailable to both users (ticket owner) and admins."
+                "description": "Adds a message to an existing support ticket thread.\n\n**Body Fields:**\n- `message` \u2014 (required) message body text\n- `attachments` \u2014 (optional) array of URL strings pointing to uploaded files. No limit specified, but keep reasonable.\n\nAvailable to both users (ticket owner) and admins."
               },
               "response": [
                 {
@@ -4447,7 +4531,7 @@
                     }
                   ]
                 },
-                "description": "Returns active FAQs sorted by category and display order. No authentication required.\n\n**Query parameters:**\n- `category` — Filter by FAQ category (optional)"
+                "description": "Returns active FAQs sorted by category and display order. No authentication required.\n\n**Query parameters:**\n- `category` \u2014 Filter by FAQ category (optional)"
               },
               "response": [
                 {
@@ -4516,7 +4600,7 @@
                     }
                   }
                 },
-                "description": "Creates a new FAQ entry.\n\n**Body Fields:**\n- `category` — (required) FAQ category. Enum: `billing`, `switching`, `technical`, `general`\n- `question` — (required) the FAQ question text\n- `answer` — (required) the FAQ answer text (supports markdown)\n- `sortOrder` — (optional) integer, display order within category (lower = shown first, default: 0)\n- `locale` — (optional) language code, e.g. `it` for Italian, `en` for English (default: `it`)\n- `targetAudience` — (optional) Enum: `personal`, `business`, `both`. Who sees this FAQ (default: `both`)\n- `isActive` — (optional) boolean, whether the FAQ is visible (default: true)\n\nRequires **admin** role."
+                "description": "Creates a new FAQ entry.\n\n**Body Fields:**\n- `category` \u2014 (required) FAQ category. Enum: `billing`, `switching`, `technical`, `general`\n- `question` \u2014 (required) the FAQ question text\n- `answer` \u2014 (required) the FAQ answer text (supports markdown)\n- `sortOrder` \u2014 (optional) integer, display order within category (lower = shown first, default: 0)\n- `locale` \u2014 (optional) language code, e.g. `it` for Italian, `en` for English (default: `it`)\n- `targetAudience` \u2014 (optional) Enum: `personal`, `business`, `both`. Who sees this FAQ (default: `both`)\n- `isActive` \u2014 (optional) boolean, whether the FAQ is visible (default: true)\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -4593,7 +4677,7 @@
                     }
                   }
                 },
-                "description": "Updates an existing FAQ entry. All fields are optional — only provided fields are updated.\n\n**Body Fields (all optional):**\n- `category` — Enum: `billing`, `switching`, `technical`, `general`\n- `question` — FAQ question text\n- `answer` — FAQ answer text (supports markdown)\n- `sortOrder` — integer display order (lower = shown first)\n- `locale` — language code (e.g. `it`, `en`)\n- `targetAudience` — Enum: `personal`, `business`, `both`\n- `isActive` — boolean\n\nRequires **admin** role."
+                "description": "Updates an existing FAQ entry. All fields are optional \u2014 only provided fields are updated.\n\n**Body Fields (all optional):**\n- `category` \u2014 Enum: `billing`, `switching`, `technical`, `general`\n- `question` \u2014 FAQ question text\n- `answer` \u2014 FAQ answer text (supports markdown)\n- `sortOrder` \u2014 integer display order (lower = shown first)\n- `locale` \u2014 language code (e.g. `it`, `en`)\n- `targetAudience` \u2014 Enum: `personal`, `business`, `both`\n- `isActive` \u2014 boolean\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -4738,12 +4822,12 @@
                       "key": "podNumber",
                       "value": "IT001E12345678",
                       "type": "text",
-                      "description": "(optional) POD code — Punto di Prelievo, electricity delivery point identifier. Required for electricity bills. Format varies by distributor."
+                      "description": "(optional) POD code \u2014 Punto di Prelievo, electricity delivery point identifier. Required for electricity bills. Format varies by distributor."
                     },
                     {
                       "key": "pdrNumber",
                       "value": "",
-                      "description": "(optional) PDR code — Punto di Riconsegna, gas delivery point identifier. Required for gas bills.",
+                      "description": "(optional) PDR code \u2014 Punto di Riconsegna, gas delivery point identifier. Required for gas bills.",
                       "type": "text",
                       "disabled": true
                     },
@@ -4985,7 +5069,7 @@
                     "value": "Bearer {{accessToken}}"
                   }
                 ],
-                "description": "Triggers AI analysis on an uploaded bill. Status transitions: uploaded → analyzing → analyzed (or error)."
+                "description": "Triggers AI analysis on an uploaded bill. Status transitions: uploaded \u2192 analyzing \u2192 analyzed (or error)."
               },
               "response": [
                 {
@@ -5199,11 +5283,23 @@
                 "method": "GET",
                 "url": {
                   "raw": "{{baseUrl}}/api/v1/bills/admin/{{billId}}/recommended-offers",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "v1", "bills", "admin", "{{billId}}", "recommended-offers"]
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "bills",
+                    "admin",
+                    "{{billId}}",
+                    "recommended-offers"
+                  ]
                 },
                 "header": [
-                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
                 ],
                 "description": "Returns the top 3 recommended offers stored from the bill's auto-analysis. Each offer includes supplier name, prices, and estimated savings.\n\nRequires **admin** role."
               },
@@ -5212,14 +5308,24 @@
                   "name": "200 - Recommended Offers",
                   "status": "OK",
                   "code": 200,
-                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
                   "body": "{\n  \"success\": true,\n  \"data\": {\n    \"billId\": \"bl1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"potentialSavings\": 18.08,\n    \"offersSentToUser\": false,\n    \"recommendedOffers\": [\n      {\n        \"id\": \"of1a2b3c-d5e6-7890-abcd-ef1234567890\",\n        \"name\": \"Luce Fissa 24\",\n        \"supplierName\": \"Eni Plenitude\",\n        \"pricePerKwh\": \"0.18\",\n        \"fixedMonthlyFee\": \"5.00\",\n        \"marketType\": \"fixed\",\n        \"estimatedSavings\": 18.08\n      },\n      {\n        \"id\": \"of2a2b3c-d5e6-7890-abcd-ef1234567890\",\n        \"name\": \"Gas Casa Web\",\n        \"supplierName\": \"Edison\",\n        \"pricePerKwh\": \"0.19\",\n        \"fixedMonthlyFee\": \"4.50\",\n        \"marketType\": \"variable\",\n        \"estimatedSavings\": 14.50\n      }\n    ]\n  }\n}"
                 },
                 {
                   "name": "404 - No Analysis",
                   "status": "Not Found",
                   "code": 404,
-                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
                   "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Analysis not found for this bill\"],\n  \"timestamp\": \"2026-06-24T12:00:00.000Z\"\n}"
                 }
               ]
@@ -5230,11 +5336,23 @@
                 "method": "POST",
                 "url": {
                   "raw": "{{baseUrl}}/api/v1/bills/admin/{{billId}}/send-offers",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "v1", "bills", "admin", "{{billId}}", "send-offers"]
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "bills",
+                    "admin",
+                    "{{billId}}",
+                    "send-offers"
+                  ]
                 },
                 "header": [
-                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
                 ],
                 "description": "Manually sends the recommended offers to the bill owner as a notification. Sets `offersSentToUser` to true on the analysis. Use when `autoSendOffers` is disabled.\n\nRequires **admin** role."
               },
@@ -5243,14 +5361,24 @@
                   "name": "200 - Offers Sent",
                   "status": "OK",
                   "code": 200,
-                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
                   "body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Offers sent to user successfully\"\n  }\n}"
                 },
                 {
                   "name": "404 - No Offers",
                   "status": "Not Found",
                   "code": 404,
-                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
                   "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"No recommended offers to send\"],\n  \"timestamp\": \"2026-06-24T12:00:00.000Z\"\n}"
                 }
               ]
@@ -5261,11 +5389,23 @@
                 "method": "POST",
                 "url": {
                   "raw": "{{baseUrl}}/api/v1/bills/admin/{{billId}}/reanalyze",
-                  "host": ["{{baseUrl}}"],
-                  "path": ["api", "v1", "bills", "admin", "{{billId}}", "reanalyze"]
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "bills",
+                    "admin",
+                    "{{billId}}",
+                    "reanalyze"
+                  ]
                 },
                 "header": [
-                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
                 ],
                 "description": "Re-triggers analysis for a bill against the current offers catalog. Useful when new offers are added or prices change.\n\nRequires **admin** role."
               },
@@ -5274,7 +5414,12 @@
                   "name": "200 - Re-Analyzed",
                   "status": "OK",
                   "code": 200,
-                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
                   "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"an1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"billId\": \"bl1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"potentialSavings\": \"18.08\",\n    \"currentMonthlyAvg\": \"102.50\",\n    \"recommendedMarketType\": \"fixed\",\n    \"confidenceScore\": \"0.90\",\n    \"recommendedOffers\": [...],\n    \"offersSentToUser\": false\n  }\n}"
                 }
               ]
@@ -5336,7 +5481,7 @@
                     }
                   }
                 },
-                "description": "Creates a new supplier switching case.\n\n**Body Fields:**\n- `billId` — (required) UUID of an energy bill. The bill must be in `analyzed` status and must belong to the authenticated user.\n- `selectedOfferId` — (required) UUID of the energy offer the user wants to switch to. The offer must be `active` and its energy type must match the bill's type.\n\nCase is created with `new` status. Available to `personal` and `business` users."
+                "description": "Creates a new supplier switching case.\n\n**Body Fields:**\n- `billId` \u2014 (required) UUID of an energy bill. The bill must be in `analyzed` status and must belong to the authenticated user.\n- `selectedOfferId` \u2014 (required) UUID of the energy offer the user wants to switch to. The offer must be `active` and its energy type must match the bill's type.\n\nCase is created with `new` status. Available to `personal` and `business` users."
               },
               "response": [
                 {
@@ -5508,7 +5653,7 @@
                     }
                   }
                 },
-                "description": "Uploads a document for a switching case.\n\n**Body Fields:**\n- `documentType` — (required) Enum: `bill`, `id_card`, `codice_fiscale`, `contract`, `signed_contract`, `partita_iva`. Type of document being uploaded.\n  - `bill` — energy bill copy\n  - `id_card` — identity document\n  - `codice_fiscale` — Italian tax ID card\n  - `contract` — unsigned contract\n  - `signed_contract` — signed contract\n  - `partita_iva` — VAT registration document (business users)\n- `fileUrl` — (required) URL of the pre-uploaded file (upload the file first via a file upload service)\n- `fileName` — (required) original file name for display purposes, max 255 characters"
+                "description": "Uploads a document for a switching case.\n\n**Body Fields:**\n- `documentType` \u2014 (required) Enum: `bill`, `id_card`, `codice_fiscale`, `contract`, `signed_contract`, `partita_iva`. Type of document being uploaded.\n  - `bill` \u2014 energy bill copy\n  - `id_card` \u2014 identity document\n  - `codice_fiscale` \u2014 Italian tax ID card\n  - `contract` \u2014 unsigned contract\n  - `signed_contract` \u2014 signed contract\n  - `partita_iva` \u2014 VAT registration document (business users)\n- `fileUrl` \u2014 (required) URL of the pre-uploaded file (upload the file first via a file upload service)\n- `fileName` \u2014 (required) original file name for display purposes, max 255 characters"
               },
               "response": [
                 {
@@ -5606,7 +5751,7 @@
                     }
                   }
                 },
-                "description": "Updates a switching case's status, assignment, or priority.\n\n**Body Fields (all optional):**\n- `status` — Enum: `new`, `in_progress`, `documents_pending`, `contract_sent`, `contract_signed`, `activated`, `rejected`, `cancelled`. The target case status.\n  - Lifecycle: `new` → `in_progress` → `documents_pending` → `contract_sent` → `contract_signed` → `activated`\n  - Terminal states: `activated`, `rejected`, `cancelled`\n- `assignedAgentId` — UUID of the admin user to assign to this case\n- `priority` — Enum: `low`, `medium`, `high`, `urgent`. Case priority level\n- `notes` — free-text notes visible to the user\n- `internalNotes` — free-text notes visible only to admins\n\nRequires **admin** role."
+                "description": "Updates a switching case's status, assignment, or priority.\n\n**Body Fields (all optional):**\n- `status` \u2014 Enum: `new`, `in_progress`, `documents_pending`, `contract_sent`, `contract_signed`, `activated`, `rejected`, `cancelled`. The target case status.\n  - Lifecycle: `new` \u2192 `in_progress` \u2192 `documents_pending` \u2192 `contract_sent` \u2192 `contract_signed` \u2192 `activated`\n  - Terminal states: `activated`, `rejected`, `cancelled`\n- `assignedAgentId` \u2014 UUID of the admin user to assign to this case\n- `priority` \u2014 Enum: `low`, `medium`, `high`, `urgent`. Case priority level\n- `notes` \u2014 free-text notes visible to the user\n- `internalNotes` \u2014 free-text notes visible only to admins\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -5660,7 +5805,7 @@
                     "value": "Bearer {{accessToken}}"
                   }
                 ],
-                "description": "Verifies or rejects a case document.\n\n**Body Fields:**\n- `verified` — (required) boolean. Set to `true` to verify the document, `false` to reject it.\n- `rejectionReason` — (optional, required if `verified` is `false`) reason for rejecting the document\n\nRequires **admin** role."
+                "description": "Verifies or rejects a case document.\n\n**Body Fields:**\n- `verified` \u2014 (required) boolean. Set to `true` to verify the document, `false` to reject it.\n- `rejectionReason` \u2014 (optional, required if `verified` is `false`) reason for rejecting the document\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -5787,7 +5932,7 @@
                     }
                   }
                 },
-                "description": "Updates the authenticated user's profile fields. All fields are optional.\n\n**Body Fields (all optional):**\n- `email` — valid email address\n- `firstName` — first name\n- `lastName` — last name\n- `phone` — phone number\n- `codiceFiscale` — Italian tax code (regex: `/^[A-Z]{6}\\d{2}[A-Z]\\d{2}[A-Z]\\d{3}[A-Z]$/i`)\n- `companyName` — company name (business users)\n- `partitaIva` — Italian VAT number (11 digits)\n- `pecEmail` — PEC certified email\n- `legalRepresentative` — legal representative name\n- `companyType` — company type\n- `atecoCode` — ATECO business classification code\n\nUsers cannot change their own role or status."
+                "description": "Updates the authenticated user's profile fields. All fields are optional.\n\n**Body Fields (all optional):**\n- `email` \u2014 valid email address\n- `firstName` \u2014 first name\n- `lastName` \u2014 last name\n- `phone` \u2014 phone number\n- `codiceFiscale` \u2014 Italian tax code (regex: `/^[A-Z]{6}\\d{2}[A-Z]\\d{2}[A-Z]\\d{3}[A-Z]$/i`)\n- `companyName` \u2014 company name (business users)\n- `partitaIva` \u2014 Italian VAT number (11 digits)\n- `pecEmail` \u2014 PEC certified email\n- `legalRepresentative` \u2014 legal representative name\n- `companyType` \u2014 company type\n- `atecoCode` \u2014 ATECO business classification code\n\nUsers cannot change their own role or status."
               },
               "response": [
                 {
@@ -5971,7 +6116,7 @@
                     }
                   }
                 },
-                "description": "Creates a new user account with the specified role.\n\n**Body Fields:**\n- `email` — (required) valid email, must be unique\n- `password` — (required) minimum 8 characters\n- `firstName` — (required) first name\n- `lastName` — (required) last name\n- `phone` — (optional) phone number\n- `role` — (required) Enum: `personal`, `business`\n- `status` — (optional) defaults to `pending_verification`\n- `codiceFiscale` — (optional) Italian tax code\n- `companyName` — (optional) for business users\n- `partitaIva` — (optional) 11-digit Italian VAT number\n- `pecEmail` — (optional) PEC certified email\n- `legalRepresentative` — (optional)\n- `companyType` — (optional)\n- `atecoCode` — (optional) ATECO classification code\n\n**Auto-saves** `userId` to collection variables.\n\nRequires **admin** role."
+                "description": "Creates a new user account with the specified role.\n\n**Body Fields:**\n- `email` \u2014 (required) valid email, must be unique\n- `password` \u2014 (required) minimum 8 characters\n- `firstName` \u2014 (required) first name\n- `lastName` \u2014 (required) last name\n- `phone` \u2014 (optional) phone number\n- `role` \u2014 (required) Enum: `personal`, `business`\n- `status` \u2014 (optional) defaults to `pending_verification`\n- `codiceFiscale` \u2014 (optional) Italian tax code\n- `companyName` \u2014 (optional) for business users\n- `partitaIva` \u2014 (optional) 11-digit Italian VAT number\n- `pecEmail` \u2014 (optional) PEC certified email\n- `legalRepresentative` \u2014 (optional)\n- `companyType` \u2014 (optional)\n- `atecoCode` \u2014 (optional) ATECO classification code\n\n**Auto-saves** `userId` to collection variables.\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -6320,7 +6465,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"data\": [\n      {\n        \"id\": \"n1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n        \"userId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n        \"title\": \"Bolletta Analizzata\",\n        \"body\": \"La tua bolletta elettrica è stata analizzata. Potresti risparmiare fino al 15% cambiando fornitore.\",\n        \"type\": \"bill_analyzed\",\n        \"data\": { \"billId\": \"b1c2d3e4-f5a6-7890-bcde-f12345678901\" },\n        \"isRead\": false,\n        \"readAt\": null,\n        \"createdAt\": \"2026-06-20T14:30:00.000Z\",\n        \"updatedAt\": \"2026-06-20T14:30:00.000Z\"\n      }\n    ],\n    \"meta\": {\n      \"total\": 1,\n      \"page\": 1,\n      \"limit\": 20,\n      \"totalPages\": 1\n    }\n  }\n}"
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"data\": [\n      {\n        \"id\": \"n1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n        \"userId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n        \"title\": \"Bolletta Analizzata\",\n        \"body\": \"La tua bolletta elettrica \u00e8 stata analizzata. Potresti risparmiare fino al 15% cambiando fornitore.\",\n        \"type\": \"bill_analyzed\",\n        \"data\": { \"billId\": \"b1c2d3e4-f5a6-7890-bcde-f12345678901\" },\n        \"isRead\": false,\n        \"readAt\": null,\n        \"createdAt\": \"2026-06-20T14:30:00.000Z\",\n        \"updatedAt\": \"2026-06-20T14:30:00.000Z\"\n      }\n    ],\n    \"meta\": {\n      \"total\": 1,\n      \"page\": 1,\n      \"limit\": 20,\n      \"totalPages\": 1\n    }\n  }\n}"
                 },
                 {
                   "name": "401 - Unauthorized",
@@ -6423,7 +6568,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"n1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"userId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"title\": \"Bolletta Analizzata\",\n    \"body\": \"La tua bolletta elettrica è stata analizzata.\",\n    \"type\": \"bill_analyzed\",\n    \"data\": { \"billId\": \"b1c2d3e4-f5a6-7890-bcde-f12345678901\" },\n    \"isRead\": true,\n    \"readAt\": \"2026-06-20T15:00:00.000Z\",\n    \"createdAt\": \"2026-06-20T14:30:00.000Z\",\n    \"updatedAt\": \"2026-06-20T15:00:00.000Z\"\n  }\n}"
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"n1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"userId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"title\": \"Bolletta Analizzata\",\n    \"body\": \"La tua bolletta elettrica \u00e8 stata analizzata.\",\n    \"type\": \"bill_analyzed\",\n    \"data\": { \"billId\": \"b1c2d3e4-f5a6-7890-bcde-f12345678901\" },\n    \"isRead\": true,\n    \"readAt\": \"2026-06-20T15:00:00.000Z\",\n    \"createdAt\": \"2026-06-20T14:30:00.000Z\",\n    \"updatedAt\": \"2026-06-20T15:00:00.000Z\"\n  }\n}"
                 },
                 {
                   "name": "404 - Notification Not Found",
@@ -6537,7 +6682,7 @@
                     }
                   }
                 },
-                "description": "Registers a device push notification token (FCM) for the authenticated user.\n\n**Body Fields:**\n- `token` — (required) FCM device push token\n- `platform` — (required) Enum: `ios`, `android`. Device platform.\n\nIf the token already exists, it is updated with the current user and platform. Each device should register its token on app startup."
+                "description": "Registers a device push notification token (FCM) for the authenticated user.\n\n**Body Fields:**\n- `token` \u2014 (required) FCM device push token\n- `platform` \u2014 (required) Enum: `ios`, `android`. Device platform.\n\nIf the token already exists, it is updated with the current user and platform. Each device should register its token on app startup."
               },
               "response": [
                 {
@@ -6676,14 +6821,14 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"userId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"title\": \"Nuova Offerta Disponibile\",\n  \"body\": \"Una nuova offerta energia è disponibile che potrebbe farti risparmiare il 20% sulla bolletta elettrica.\",\n  \"type\": \"offer_available\",\n  \"data\": {\n    \"offerId\": \"o1c2d3e4-f5a6-7890-bcde-f12345678901\"\n  }\n}",
+                  "raw": "{\n  \"userId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n  \"title\": \"Nuova Offerta Disponibile\",\n  \"body\": \"Una nuova offerta energia \u00e8 disponibile che potrebbe farti risparmiare il 20% sulla bolletta elettrica.\",\n  \"type\": \"offer_available\",\n  \"data\": {\n    \"offerId\": \"o1c2d3e4-f5a6-7890-bcde-f12345678901\"\n  }\n}",
                   "options": {
                     "raw": {
                       "language": "json"
                     }
                   }
                 },
-                "description": "Sends a notification to one or more users. Also triggers push notifications to registered devices.\n\n**Body Fields:**\n- `userId` — (optional) UUID of a single user to notify\n- `userIds` — (optional) array of UUIDs for multiple users\n- `title` — (required) notification title\n- `body` — (required) notification body text\n- `type` — (required) Enum: notification type (e.g. `offer_available`, `bill_analyzed`, `case_update`, `general`)\n- `data` — (optional) JSON object with additional data (e.g. offerId, billId)\n\nProvide either `userId` or `userIds`, not both.\n\nRequires **admin** role."
+                "description": "Sends a notification to one or more users. Also triggers push notifications to registered devices.\n\n**Body Fields:**\n- `userId` \u2014 (optional) UUID of a single user to notify\n- `userIds` \u2014 (optional) array of UUIDs for multiple users\n- `title` \u2014 (required) notification title\n- `body` \u2014 (required) notification body text\n- `type` \u2014 (required) Enum: notification type (e.g. `offer_available`, `bill_analyzed`, `case_update`, `general`)\n- `data` \u2014 (optional) JSON object with additional data (e.g. offerId, billId)\n\nProvide either `userId` or `userIds`, not both.\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -6696,7 +6841,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"n1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"userId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"title\": \"Nuova Offerta Disponibile\",\n    \"body\": \"Una nuova offerta energia è disponibile che potrebbe farti risparmiare il 20% sulla bolletta elettrica.\",\n    \"type\": \"offer_available\",\n    \"data\": { \"offerId\": \"o1c2d3e4-f5a6-7890-bcde-f12345678901\" },\n    \"isRead\": false,\n    \"readAt\": null,\n    \"createdAt\": \"2026-06-20T16:00:00.000Z\",\n    \"updatedAt\": \"2026-06-20T16:00:00.000Z\"\n  }\n}"
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"n1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"userId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"title\": \"Nuova Offerta Disponibile\",\n    \"body\": \"Una nuova offerta energia \u00e8 disponibile che potrebbe farti risparmiare il 20% sulla bolletta elettrica.\",\n    \"type\": \"offer_available\",\n    \"data\": { \"offerId\": \"o1c2d3e4-f5a6-7890-bcde-f12345678901\" },\n    \"isRead\": false,\n    \"readAt\": null,\n    \"createdAt\": \"2026-06-20T16:00:00.000Z\",\n    \"updatedAt\": \"2026-06-20T16:00:00.000Z\"\n  }\n}"
                 },
                 {
                   "name": "400 - Validation Error",
@@ -6777,7 +6922,7 @@
                 }
               }
             },
-            "description": "Creates a new energy supply contract linked to an existing switch case.\n\n**Body Fields:**\n- `caseId` — (required) UUID of the switching case\n- `contractNumber` — (required) unique contract number string\n- `podPdrNumber` — (optional) POD/PDR delivery point code\n\nContract is created with `draft` status.\n\n**Auto-saves** `contractId` to collection variables.\n\nRequires **admin** role."
+            "description": "Creates a new energy supply contract linked to an existing switch case.\n\n**Body Fields:**\n- `caseId` \u2014 (required) UUID of the switching case\n- `contractNumber` \u2014 (required) unique contract number string\n- `podPdrNumber` \u2014 (optional) POD/PDR delivery point code\n\nContract is created with `draft` status.\n\n**Auto-saves** `contractId` to collection variables.\n\nRequires **admin** role."
           },
           "response": [
             {
@@ -6984,7 +7129,7 @@
                 }
               }
             },
-            "description": "Updates an existing contract.\n\n**Body Fields (all optional):**\n- `status` — Enum: `draft`, `sent`, `signed`, `active`, `expired`, `cancelled`\n- `activationDate` — ISO date string (e.g. `2026-02-01`)\n- `expiryDate` — ISO date string\n- `signedDocumentUrl` — URL to the signed contract document\n- `monthlyEstimate` — estimated monthly cost (number)\n\nRequires **admin** role."
+            "description": "Updates an existing contract.\n\n**Body Fields (all optional):**\n- `status` \u2014 Enum: `draft`, `sent`, `signed`, `active`, `expired`, `cancelled`\n- `activationDate` \u2014 ISO date string (e.g. `2026-02-01`)\n- `expiryDate` \u2014 ISO date string\n- `signedDocumentUrl` \u2014 URL to the signed contract document\n- `monthlyEstimate` \u2014 estimated monthly cost (number)\n\nRequires **admin** role."
           },
           "response": [
             {
@@ -7302,7 +7447,7 @@
                 }
               }
             },
-            "description": "Creates a commission rule that defines how much commission is earned per contract activation for a given supplier and energy type.\n\n**Body Fields:**\n- `supplierId` — (required) UUID of the energy supplier\n- `energyType` — (required) Enum: `electricity`, `gas`, `dual`\n- `commissionAmount` — (required) fixed EUR amount per activation\n- `commissionPercentage` — (optional) percentage-based commission\n- `isActive` — (optional, default: true) whether the rule is active\n- `validFrom` — (required) ISO date string (start of validity)\n- `validUntil` — (optional) ISO date string (end of validity, null = indefinite)\n\n**Auto-saves** `commissionRuleId` to collection variables.\n\nRequires **admin** role."
+            "description": "Creates a commission rule that defines how much commission is earned per contract activation for a given supplier and energy type.\n\n**Body Fields:**\n- `supplierId` \u2014 (required) UUID of the energy supplier\n- `energyType` \u2014 (required) Enum: `electricity`, `gas`, `dual`\n- `commissionAmount` \u2014 (required) fixed EUR amount per activation\n- `commissionPercentage` \u2014 (optional) percentage-based commission\n- `isActive` \u2014 (optional, default: true) whether the rule is active\n- `validFrom` \u2014 (required) ISO date string (start of validity)\n- `validUntil` \u2014 (optional) ISO date string (end of validity, null = indefinite)\n\n**Auto-saves** `commissionRuleId` to collection variables.\n\nRequires **admin** role."
           },
           "response": [
             {
@@ -7710,11 +7855,22 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/api/v1/dashboard/admin/settings",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "dashboard", "admin", "settings"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dashboard",
+                "admin",
+                "settings"
+              ]
             },
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "description": "Returns admin-wide settings including the auto-send offers toggle and max recommended offers count.\n\nRequires **admin** role."
           },
@@ -7723,7 +7879,12 @@
               "name": "200 - Settings",
               "status": "OK",
               "code": 200,
-              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"set1a2b3-d5e6-7890-abcd-ef1234567890\",\n    \"autoSendOffers\": false,\n    \"maxRecommendedOffers\": 3,\n    \"updatedBy\": null,\n    \"createdAt\": \"2026-06-24T12:00:00.000Z\",\n    \"updatedAt\": \"2026-06-24T12:00:00.000Z\"\n  }\n}"
             }
           ]
@@ -7734,12 +7895,26 @@
             "method": "PATCH",
             "url": {
               "raw": "{{baseUrl}}/api/v1/dashboard/admin/settings",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "dashboard", "admin", "settings"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dashboard",
+                "admin",
+                "settings"
+              ]
             },
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -7752,7 +7927,12 @@
               "name": "200 - Updated",
               "status": "OK",
               "code": 200,
-              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
               "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"set1a2b3-d5e6-7890-abcd-ef1234567890\",\n    \"autoSendOffers\": true,\n    \"maxRecommendedOffers\": 3,\n    \"updatedBy\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"createdAt\": \"2026-06-24T12:00:00.000Z\",\n    \"updatedAt\": \"2026-06-24T12:30:00.000Z\"\n  }\n}"
             }
           ]
@@ -7842,7 +8022,7 @@
                 "indices"
               ]
             },
-            "description": "Returns the most recent value for each energy market index (PUN, GME, PSV, etc.).\n\n**Public endpoint** — no authentication required."
+            "description": "Returns the most recent value for each energy market index (PUN, GME, PSV, etc.).\n\n**Public endpoint** \u2014 no authentication required."
           },
           "response": [
             {
@@ -7889,7 +8069,7 @@
                 }
               ]
             },
-            "description": "Returns historical price data for a specific market index.\n\n**Path Parameters:**\n- `name` — Market index name (e.g. `PUN`, `PSV`, `GME`)\n\n**Query Parameters (optional):**\n- `from` — Start date in YYYY-MM-DD format\n- `to` — End date in YYYY-MM-DD format\n\n**Public endpoint** — no authentication required."
+            "description": "Returns historical price data for a specific market index.\n\n**Path Parameters:**\n- `name` \u2014 Market index name (e.g. `PUN`, `PSV`, `GME`)\n\n**Query Parameters (optional):**\n- `from` \u2014 Start date in YYYY-MM-DD format\n- `to` \u2014 End date in YYYY-MM-DD format\n\n**Public endpoint** \u2014 no authentication required."
           },
           "response": [
             {
@@ -7953,7 +8133,7 @@
                 }
               }
             },
-            "description": "Creates a new data point for a market index. Used to record daily energy market prices.\n\n**Body Fields:**\n- `indexName` — (required) index name, e.g. `PUN`, `PSV`, `GME`\n- `value` — (required) numeric value\n- `unit` — (required) unit of measurement, e.g. `EUR/kWh`, `EUR/Smc`\n- `date` — (required) date in YYYY-MM-DD format\n\nRequires **admin** role and Bearer token."
+            "description": "Creates a new data point for a market index. Used to record daily energy market prices.\n\n**Body Fields:**\n- `indexName` \u2014 (required) index name, e.g. `PUN`, `PSV`, `GME`\n- `value` \u2014 (required) numeric value\n- `unit` \u2014 (required) unit of measurement, e.g. `EUR/kWh`, `EUR/Smc`\n- `date` \u2014 (required) date in YYYY-MM-DD format\n\nRequires **admin** role and Bearer token."
           },
           "response": [
             {

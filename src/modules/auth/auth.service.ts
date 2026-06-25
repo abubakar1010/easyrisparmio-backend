@@ -17,6 +17,7 @@ import { RefreshToken } from './entities/refresh-token.entity';
 import { OtpCode } from './entities/otp-code.entity';
 import { RegisterDto } from './dto/register.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { ResendOtpDto } from './dto/resend-otp.dto';
 import { ForgotPasswordDto, ResetPasswordDto } from './dto/reset-password.dto';
 import { UserRole } from '../../common/enums/role.enum';
 import { UserStatus, OtpType, AuthProvider } from '../../common/enums/user.enum';
@@ -121,8 +122,9 @@ export class AuthService {
     meta?: { ipAddress?: string; deviceInfo?: string },
   ) {
     if (user.status === UserStatus.PENDING_VERIFICATION) {
-      await this.generateAndSaveOtp(user, OtpType.EMAIL_VERIFICATION);
-      throw new UnauthorizedException('Please verify your email before logging in. A new verification code has been sent to your email.');
+      throw new UnauthorizedException(
+        'Please verify your email before logging in. Use /auth/resend-otp to request a new verification code.',
+      );
     }
 
     if (user.status === UserStatus.SUSPENDED) {
@@ -199,6 +201,48 @@ export class AuthService {
     }
 
     return { message: 'OTP verified successfully' };
+  }
+
+  async resendOtp(dto: ResendOtpDto) {
+    // Only allow email_verification and password_reset
+    if (dto.type === OtpType.PHONE_VERIFICATION) {
+      throw new BadRequestException('Phone verification OTP cannot be resent via this endpoint');
+    }
+
+    const user = await this.usersService.findByEmail(dto.email);
+    if (!user) {
+      // Don't reveal whether email exists — return same success response
+      return { message: 'If the email is registered, a new verification code has been sent' };
+    }
+
+    // For email verification, only allow if user is still pending
+    if (
+      dto.type === OtpType.EMAIL_VERIFICATION &&
+      user.status !== UserStatus.PENDING_VERIFICATION
+    ) {
+      return { message: 'If the email is registered, a new verification code has been sent' };
+    }
+
+    // Cooldown: check if the last OTP of this type was sent less than 60 seconds ago
+    const lastOtp = await this.otpCodeRepository.findOne({
+      where: { userId: user.id, type: dto.type },
+      order: { createdAt: 'DESC' },
+    });
+
+    if (lastOtp) {
+      const secondsSinceLastOtp =
+        (Date.now() - lastOtp.createdAt.getTime()) / 1000;
+      if (secondsSinceLastOtp < 60) {
+        const waitSeconds = Math.ceil(60 - secondsSinceLastOtp);
+        throw new BadRequestException(
+          `Please wait ${waitSeconds} seconds before requesting a new code`,
+        );
+      }
+    }
+
+    await this.generateAndSaveOtp(user, dto.type);
+
+    return { message: 'If the email is registered, a new verification code has been sent' };
   }
 
   async forgotPassword(dto: ForgotPasswordDto) {

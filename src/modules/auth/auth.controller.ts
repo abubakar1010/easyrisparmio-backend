@@ -25,9 +25,10 @@ import {
 } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
-import { RegisterDto, RegisterBusinessDto } from './dto/register.dto';
+import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { ResendOtpDto } from './dto/resend-otp.dto';
 import { ForgotPasswordDto, ResetPasswordDto } from './dto/reset-password.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { SocialLoginDto } from './dto/social-login.dto';
@@ -54,10 +55,12 @@ export class AuthController {
   @Post('register')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({
-    summary: 'Register a new personal user',
+    summary: 'Register a new user (personal or business)',
     description:
-      'Creates a personal user account. After registration the user receives a 6-digit OTP ' +
-      'for email verification. The account status is `pending_verification` until the OTP is verified. ' +
+      'Creates a user account. The `role` field determines the account type. ' +
+      'When `role` is `business`, the business fields (`companyName`, `partitaIva`) are required. ' +
+      'After registration the user receives a 6-digit OTP for email verification. ' +
+      'The account status is `pending_verification` until the OTP is verified. ' +
       'Admin role cannot be used for registration.',
   })
   @ApiBody({ type: RegisterDto })
@@ -66,24 +69,53 @@ export class AuthController {
     type: RegisterResponseDto,
     content: {
       'application/json': {
-        example: {
-          success: true,
-          data: {
-            message: 'Registration successful. Please verify your email.',
-            user: {
-              id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-              email: 'mario.rossi@email.com',
-              firstName: 'Mario',
-              lastName: 'Rossi',
-              phone: '+393331234567',
-              role: 'personal',
-              status: 'pending_verification',
-              authProvider: 'local',
-              firebaseUid: null,
-              emailVerified: false,
-              phoneVerified: false,
-              createdAt: '2026-06-09T10:00:00.000Z',
-              updatedAt: '2026-06-09T10:00:00.000Z',
+        examples: {
+          personal: {
+            summary: 'Personal user registration',
+            value: {
+              success: true,
+              data: {
+                message: 'Registration successful. Please verify your email.',
+                user: {
+                  id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                  email: 'mario.rossi@email.com',
+                  firstName: 'Mario',
+                  lastName: 'Rossi',
+                  phone: '+393331234567',
+                  role: 'personal',
+                  status: 'pending_verification',
+                  authProvider: 'local',
+                  firebaseUid: null,
+                  emailVerified: false,
+                  phoneVerified: false,
+                  createdAt: '2026-06-09T10:00:00.000Z',
+                  updatedAt: '2026-06-09T10:00:00.000Z',
+                },
+              },
+            },
+          },
+          business: {
+            summary: 'Business user registration',
+            value: {
+              success: true,
+              data: {
+                message: 'Registration successful. Please verify your email.',
+                user: {
+                  id: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
+                  email: 'info@rossi-srl.it',
+                  firstName: 'Mario',
+                  lastName: 'Rossi',
+                  phone: '+393331234567',
+                  role: 'business',
+                  status: 'pending_verification',
+                  authProvider: 'local',
+                  firebaseUid: null,
+                  emailVerified: false,
+                  phoneVerified: false,
+                  createdAt: '2026-06-09T10:00:00.000Z',
+                  updatedAt: '2026-06-09T10:00:00.000Z',
+                },
+              },
             },
           },
         },
@@ -104,6 +136,18 @@ export class AuthController {
               message: [
                 'email must be an email',
                 'password must be longer than or equal to 8 characters',
+              ],
+              timestamp: '2026-06-09T12:00:00.000Z',
+            },
+          },
+          business_validation: {
+            summary: 'Business fields missing for business role',
+            value: {
+              success: false,
+              statusCode: 400,
+              message: [
+                'companyName should not be empty',
+                'Partita IVA must be exactly 11 digits',
               ],
               timestamp: '2026-06-09T12:00:00.000Z',
             },
@@ -136,79 +180,6 @@ export class AuthController {
     },
   })
   async register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
-  }
-
-  @Post('register/business')
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
-  @ApiOperation({
-    summary: 'Register a new business user',
-    description:
-      'Creates a business user account with company profile (Partita IVA, PEC, etc.). ' +
-      'After registration the user receives a 6-digit OTP for email verification.',
-  })
-  @ApiBody({ type: RegisterBusinessDto })
-  @ApiCreatedResponse({
-    description: 'Business user registered successfully. OTP sent for email verification.',
-    type: RegisterResponseDto,
-    content: {
-      'application/json': {
-        example: {
-          success: true,
-          data: {
-            message: 'Registration successful. Please verify your email.',
-            user: {
-              id: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
-              email: 'info@rossi-srl.it',
-              firstName: 'Mario',
-              lastName: 'Rossi',
-              phone: '+393331234567',
-              role: 'business',
-              status: 'pending_verification',
-              authProvider: 'local',
-              firebaseUid: null,
-              emailVerified: false,
-              phoneVerified: false,
-              createdAt: '2026-06-09T10:00:00.000Z',
-              updatedAt: '2026-06-09T10:00:00.000Z',
-            },
-          },
-        },
-      },
-    },
-  })
-  @ApiBadRequestResponse({
-    description: 'Validation failed',
-    type: ErrorResponseDto,
-    content: {
-      'application/json': {
-        example: {
-          success: false,
-          statusCode: 400,
-          message: [
-            'Partita IVA must be exactly 11 digits',
-            'companyName should not be empty',
-          ],
-          timestamp: '2026-06-09T12:00:00.000Z',
-        },
-      },
-    },
-  })
-  @ApiConflictResponse({
-    description: 'Email already registered',
-    type: ErrorResponseDto,
-    content: {
-      'application/json': {
-        example: {
-          success: false,
-          statusCode: 409,
-          message: ['Email already registered'],
-          timestamp: '2026-06-09T12:00:00.000Z',
-        },
-      },
-    },
-  })
-  async registerBusiness(@Body() dto: RegisterBusinessDto) {
     return this.authService.register(dto);
   }
 
@@ -276,7 +247,7 @@ export class AuthController {
             value: {
               success: false,
               statusCode: 401,
-              message: ['Please verify your email before logging in'],
+              message: ['Please verify your email before logging in. Use /auth/resend-otp to request a new verification code.'],
               timestamp: '2026-06-09T12:00:00.000Z',
             },
           },
@@ -501,6 +472,65 @@ export class AuthController {
   })
   async verifyOtp(@Body() dto: VerifyOtpDto) {
     return this.authService.verifyOtp(dto);
+  }
+
+  // ─── Resend OTP ───────────────────────────────────────────
+
+  @Post('resend-otp')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  @ApiOperation({
+    summary: 'Resend OTP code',
+    description:
+      'Resends a 6-digit OTP code to the user\'s email. Supports `email_verification` and `password_reset` types. ' +
+      'Enforces a 60-second cooldown between requests. ' +
+      'Response does not reveal whether the email exists (prevents user enumeration).',
+  })
+  @ApiBody({ type: ResendOtpDto })
+  @ApiOkResponse({
+    description: 'OTP resent (or not — response is always the same to prevent user enumeration)',
+    type: MessageResponseDto,
+    content: {
+      'application/json': {
+        example: {
+          success: true,
+          data: {
+            message: 'If the email is registered, a new verification code has been sent',
+          },
+        },
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'Cooldown not elapsed or invalid OTP type',
+    type: ErrorResponseDto,
+    content: {
+      'application/json': {
+        examples: {
+          cooldown: {
+            summary: 'Cooldown period active',
+            value: {
+              success: false,
+              statusCode: 400,
+              message: ['Please wait 45 seconds before requesting a new code'],
+              timestamp: '2026-06-09T12:00:00.000Z',
+            },
+          },
+          invalid_type: {
+            summary: 'Invalid OTP type',
+            value: {
+              success: false,
+              statusCode: 400,
+              message: ['Phone verification OTP cannot be resent via this endpoint'],
+              timestamp: '2026-06-09T12:00:00.000Z',
+            },
+          },
+        },
+      },
+    },
+  })
+  async resendOtp(@Body() dto: ResendOtpDto) {
+    return this.authService.resendOtp(dto);
   }
 
   // ─── Password Reset ───────────────────────────────────────

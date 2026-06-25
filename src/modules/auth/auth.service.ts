@@ -15,7 +15,7 @@ import { User } from '../users/entities/user.entity';
 import { BusinessProfile } from '../users/entities/business-profile.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { OtpCode } from './entities/otp-code.entity';
-import { RegisterDto, RegisterBusinessDto } from './dto/register.dto';
+import { RegisterDto } from './dto/register.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ForgotPasswordDto, ResetPasswordDto } from './dto/reset-password.dto';
 import { UserRole } from '../../common/enums/role.enum';
@@ -45,7 +45,7 @@ export class AuthService {
     private readonly dataSource: DataSource,
   ) {}
 
-  async register(dto: RegisterDto | RegisterBusinessDto) {
+  async register(dto: RegisterDto) {
     if ((dto.role as string) === UserRole.ADMIN) {
       throw new BadRequestException('Cannot register as admin');
     }
@@ -67,16 +67,15 @@ export class AuthService {
       status: UserStatus.PENDING_VERIFICATION,
     });
 
-    if (dto.role === UserRole.BUSINESS && 'companyName' in dto) {
-      const businessDto = dto as RegisterBusinessDto;
+    if (dto.role === UserRole.BUSINESS && dto.companyName) {
       const businessProfile = this.businessProfileRepository.create({
         userId: user.id,
-        companyName: businessDto.companyName,
-        partitaIva: businessDto.partitaIva,
-        pecEmail: businessDto.pecEmail,
-        legalRepresentative: businessDto.legalRepresentative,
-        companyType: businessDto.companyType,
-        atecoCode: businessDto.atecoCode,
+        companyName: dto.companyName,
+        partitaIva: dto.partitaIva,
+        pecEmail: dto.pecEmail,
+        legalRepresentative: dto.legalRepresentative,
+        companyType: dto.companyType,
+        atecoCode: dto.atecoCode,
       });
       await this.businessProfileRepository.save(businessProfile);
     }
@@ -122,7 +121,8 @@ export class AuthService {
     meta?: { ipAddress?: string; deviceInfo?: string },
   ) {
     if (user.status === UserStatus.PENDING_VERIFICATION) {
-      throw new UnauthorizedException('Please verify your email before logging in');
+      await this.generateAndSaveOtp(user, OtpType.EMAIL_VERIFICATION);
+      throw new UnauthorizedException('Please verify your email before logging in. A new verification code has been sent to your email.');
     }
 
     if (user.status === UserStatus.SUSPENDED) {

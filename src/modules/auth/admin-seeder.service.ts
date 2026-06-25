@@ -15,6 +15,10 @@ export class AdminSeederService implements OnApplicationBootstrap {
   ) {}
 
   async onApplicationBootstrap() {
+    if (process.env.SKIP_AUTO_SEED === 'true') {
+      this.logger.log('Skipping auto admin seed (SKIP_AUTO_SEED)');
+      return;
+    }
     await this.seedAdmin();
   }
 

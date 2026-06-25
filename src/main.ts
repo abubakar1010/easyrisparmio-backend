@@ -60,7 +60,8 @@ async function bootstrap() {
     .addTag('Notifications', 'Push notifications & in-app alerts')
     .addTag('Dashboard', 'Analytics & KPI dashboards')
     .addTag('Market Data', 'Italian energy market indices')
-    .addTag('Upload', 'File upload service')
+    .addTag('Meters', 'Utility meter management')
+    .addTag('File Upload', 'File upload service')
     .addTag('Referrals', 'Referral program & invite tracking')
     .addTag('Agreements', 'Exclusive partner discounts & agreements')
     .build();

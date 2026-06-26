@@ -62,6 +62,13 @@ export class RegisterDataDto {
 
   @ApiProperty({ type: UserProfileDto })
   user: UserProfileDto;
+
+  @ApiProperty({
+    description:
+      'Signed JWT token (10 min expiry) to use with verify-otp and resend-otp endpoints instead of raw email.',
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+  })
+  verificationToken: string;
 }
 
 export class RegisterResponseDto {

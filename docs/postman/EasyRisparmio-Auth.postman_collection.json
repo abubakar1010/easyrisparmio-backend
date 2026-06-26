@@ -106,6 +106,11 @@
       "value": "",
       "type": "string",
       "description": "Commission Rule UUID (auto-set by Create Commission Rule request)"
+    },
+    {
+      "key": "verificationToken",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -161,7 +166,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Registration successful. Please verify your email.\",\n    \"user\": {\n      \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"email\": \"mario.rossi@email.com\",\n      \"firstName\": \"Mario\",\n      \"lastName\": \"Rossi\",\n      \"phone\": \"+393331234567\",\n      \"role\": \"personal\",\n      \"status\": \"pending_verification\",\n      \"authProvider\": \"local\",\n      \"firebaseUid\": null,\n      \"emailVerified\": false,\n      \"phoneVerified\": false,\n      \"createdAt\": \"2026-06-09T10:00:00.000Z\",\n      \"updatedAt\": \"2026-06-09T10:00:00.000Z\"\n    }\n  }\n}"
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Registration successful. Please verify your email.\",\n    \"user\": {\n      \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"email\": \"mario.rossi@email.com\",\n      \"firstName\": \"Mario\",\n      \"lastName\": \"Rossi\",\n      \"phone\": \"+393331234567\",\n      \"role\": \"personal\",\n      \"status\": \"pending_verification\",\n      \"authProvider\": \"local\",\n      \"firebaseUid\": null,\n      \"emailVerified\": false,\n      \"phoneVerified\": false,\n      \"createdAt\": \"2026-06-09T10:00:00.000Z\",\n      \"updatedAt\": \"2026-06-09T10:00:00.000Z\"\n    },\n    \"verificationToken\": \"eyJhbGciOiJIUzI1NiIs...\"\n  }\n}"
                 },
                 {
                   "name": "201 - Business Registration Successful",
@@ -173,7 +178,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Registration successful. Please verify your email.\",\n    \"user\": {\n      \"id\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n      \"email\": \"info@rossi-srl.it\",\n      \"firstName\": \"Mario\",\n      \"lastName\": \"Rossi\",\n      \"phone\": \"+393331234567\",\n      \"role\": \"business\",\n      \"status\": \"pending_verification\",\n      \"authProvider\": \"local\",\n      \"firebaseUid\": null,\n      \"emailVerified\": false,\n      \"phoneVerified\": false,\n      \"createdAt\": \"2026-06-09T10:00:00.000Z\",\n      \"updatedAt\": \"2026-06-09T10:00:00.000Z\"\n    }\n  }\n}"
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Registration successful. Please verify your email.\",\n    \"user\": {\n      \"id\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n      \"email\": \"info@rossi-srl.it\",\n      \"firstName\": \"Mario\",\n      \"lastName\": \"Rossi\",\n      \"phone\": \"+393331234567\",\n      \"role\": \"business\",\n      \"status\": \"pending_verification\",\n      \"authProvider\": \"local\",\n      \"firebaseUid\": null,\n      \"emailVerified\": false,\n      \"phoneVerified\": false,\n      \"createdAt\": \"2026-06-09T10:00:00.000Z\",\n      \"updatedAt\": \"2026-06-09T10:00:00.000Z\"\n    },\n    \"verificationToken\": \"eyJhbGciOiJIUzI1NiIs...\"\n  }\n}"
                 },
                 {
                   "name": "400 - Validation Error",
@@ -211,6 +216,24 @@
                   ],
                   "body": "{\n  \"success\": false,\n  \"statusCode\": 409,\n  \"message\": [\n    \"Email already registered\"\n  ],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
                 }
+              ],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "",
+                      "// Save verificationToken for OTP verification",
+                      "if (pm.response.code === 201) {",
+                      "    var jsonData = pm.response.json();",
+                      "    if (jsonData.data && jsonData.data.verificationToken) {",
+                      "        pm.collectionVariables.set(\"verificationToken\", jsonData.data.verificationToken);",
+                      "    }",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
               ]
             }
           ]
@@ -232,6 +255,14 @@
                       "    if (res.success && res.data) {",
                       "        pm.collectionVariables.set('accessToken', res.data.accessToken);",
                       "        pm.collectionVariables.set('refreshToken', res.data.refreshToken);",
+                      "    }",
+                      "}",
+                      "",
+                      "// Save verificationToken from 403 (unverified email)",
+                      "if (pm.response.code === 403) {",
+                      "    var data = pm.response.json();",
+                      "    if (data.data && data.data.verificationToken) {",
+                      "        pm.collectionVariables.set(\"verificationToken\", data.data.verificationToken);",
                       "    }",
                       "}"
                     ]
@@ -295,16 +326,16 @@
                   "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\"Unauthorized\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
                 },
                 {
-                  "name": "401 - Email Not Verified",
-                  "status": "Unauthorized",
-                  "code": 401,
+                  "name": "403 - Email Not Verified (OTP Auto-Sent)",
+                  "status": "Forbidden",
+                  "code": 403,
                   "header": [
                     {
                       "key": "Content-Type",
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\n    \"Please verify your email before logging in. Use /auth/resend-otp to request a new verification code.\"\n  ],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\n    \"Your email is not verified. A verification code has been sent to your email.\"\n  ],\n  \"data\": {\n    \"verificationToken\": \"eyJhbGciOiJIUzI1NiIs...\"\n  },\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
                 },
                 {
                   "name": "401 - Account Suspended",
@@ -439,14 +470,14 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"email\": \"mario.rossi@email.com\",\n  \"code\": \"123456\",\n  \"type\": \"email_verification\"\n}",
+                  "raw": "{\n  \"verificationToken\": \"{{verificationToken}}\",\n  \"code\": \"123456\",\n  \"type\": \"email_verification\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
                     }
                   }
                 },
-                "description": "Verifies a 6-digit OTP code sent to the user's email.\n\n**Body Fields:**\n- `email` \u2014 (required) the email address the OTP was sent to\n- `code` \u2014 (required) 6-digit numeric OTP code (sent as string, e.g. `\"123456\"`)\n- `type` \u2014 (required) Enum: `email_verification`, `phone_verification`, `password_reset`. Determines which verification flow to complete.\n  - `email_verification` \u2014 activates the account (status changes from `pending_verification` to `active`)\n  - `phone_verification` \u2014 marks phone as verified\n  - `password_reset` \u2014 validates OTP for password reset (does NOT activate the account)\n\n**Behavior:** 10-minute expiry, single-use, previous unused OTPs of same type are invalidated. Maximum 5 failed attempts before lockout."
+                "description": "Verifies a 6-digit OTP code. Use verificationToken (from register or login 403 response) instead of raw email for secure identification.\n\nBody options:\n- verificationToken + code + type (preferred)\n- email + code + type (backward compatible)\n\nFor email_verification: activates the account.\nFor phone_verification: marks phone verified.\n\nOTP codes expire after 10 minutes, single-use, max 5 attempts."
               },
               "response": [
                 {
@@ -472,6 +503,19 @@
                     }
                   ],
                   "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\"Invalid or expired OTP code\"],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "400 - Invalid Verification Token",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\n    \"Invalid or expired verification token\"\n  ],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
                 }
               ]
             },
@@ -499,14 +543,14 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"email\": \"mario.rossi@email.com\",\n  \"type\": \"email_verification\"\n}",
+                  "raw": "{\n  \"verificationToken\": \"{{verificationToken}}\",\n  \"type\": \"email_verification\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
                     }
                   }
                 },
-                "description": "Resends a 6-digit OTP code to the user's email address.\n\n**Body Fields:**\n- `email` \u2014 (required) the email address to send the OTP to\n- `type` \u2014 (required) Enum: `email_verification`, `password_reset`. Determines which OTP type to resend. `phone_verification` is not supported via this endpoint.\n\n**Security:**\n- 60-second cooldown between resend requests per user\n- Rate limited to 3 requests per minute\n- Response does not reveal whether the email exists (prevents user enumeration)\n- Previous unused OTPs of the same type are invalidated when a new one is generated\n- For `email_verification`, only works if the user's account is still in `pending_verification` status"
+                "description": "Resends a 6-digit OTP code. Use verificationToken (from register or login 403 response) instead of raw email for secure identification.\n\nBody options:\n- verificationToken + type (preferred)\n- email + type (backward compatible)\n\nSupports email_verification and password_reset types.\nEnforces 60-second cooldown between requests."
               },
               "response": [
                 {
@@ -556,6 +600,19 @@
                     }
                   ],
                   "body": "{\n  \"success\": false,\n  \"statusCode\": 429,\n  \"message\": [\n    \"ThrottlerException: Too Many Requests\"\n  ],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "400 - Invalid Verification Token",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\n    \"Invalid or expired verification token\"\n  ],\n  \"timestamp\": \"2026-06-09T12:00:00.000Z\"\n}"
                 }
               ]
             },

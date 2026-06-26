@@ -61,6 +61,8 @@ export class AuthController {
       'Creates a user account. The `role` field determines the account type. ' +
       'When `role` is `business`, the business fields (`companyName`, `partitaIva`) are required. ' +
       'After registration the user receives a 6-digit OTP for email verification. ' +
+      'The response includes a `verificationToken` — a signed JWT (10 min expiry) that should be ' +
+      'passed to `/auth/verify-otp` or `/auth/resend-otp` instead of the raw email. ' +
       'The account status is `pending_verification` until the OTP is verified. ' +
       'Admin role cannot be used for registration.',
   })
@@ -92,6 +94,7 @@ export class AuthController {
                   createdAt: '2026-06-09T10:00:00.000Z',
                   updatedAt: '2026-06-09T10:00:00.000Z',
                 },
+                verificationToken: 'eyJhbGciOiJIUzI1NiIs...',
               },
             },
           },
@@ -116,6 +119,7 @@ export class AuthController {
                   createdAt: '2026-06-09T10:00:00.000Z',
                   updatedAt: '2026-06-09T10:00:00.000Z',
                 },
+                verificationToken: 'eyJhbGciOiJIUzI1NiIs...',
               },
             },
           },
@@ -194,7 +198,10 @@ export class AuthController {
     summary: 'Login with email and password',
     description:
       'Authenticates with email and password. Returns JWT access token (15 min) ' +
-      'and a UUID refresh token (7 days). Login is blocked for unverified and suspended accounts.',
+      'and a UUID refresh token (7 days). ' +
+      'If the email is not verified, returns **403** with a `verificationToken` and auto-sends an OTP. ' +
+      'The frontend should redirect to the OTP screen and pass the token to `/auth/verify-otp`. ' +
+      'Suspended accounts receive 401.',
   })
   @ApiBody({ type: LoginDto })
   @ApiOkResponse({
@@ -434,9 +441,10 @@ export class AuthController {
   @ApiOperation({
     summary: 'Verify OTP code (email verification, phone verification, password reset)',
     description:
-      'Verifies a 6-digit OTP code. For `email_verification`, activates the user account ' +
-      '(sets `emailVerified: true` and `status: active`). For `phone_verification`, ' +
-      'sets `phoneVerified: true`. OTP codes expire after 10 minutes and are single-use.',
+      'Verifies a 6-digit OTP code. Accepts either `verificationToken` (preferred) or `email` to identify the user. ' +
+      'The `verificationToken` is a signed JWT received from the register response or login 403 response. ' +
+      'For `email_verification`, activates the user account (sets `emailVerified: true` and `status: active`). ' +
+      'For `phone_verification`, sets `phoneVerified: true`. OTP codes expire after 10 minutes and are single-use.',
   })
   @ApiBody({ type: VerifyOtpDto })
   @ApiOkResponse({
@@ -454,7 +462,7 @@ export class AuthController {
     },
   })
   @ApiBadRequestResponse({
-    description: 'Invalid or expired OTP, or user not found',
+    description: 'Invalid or expired OTP, invalid verification token, or user not found',
     type: ErrorResponseDto,
     content: {
       'application/json': {
@@ -468,12 +476,21 @@ export class AuthController {
               timestamp: '2026-06-09T12:00:00.000Z',
             },
           },
-          user_not_found: {
-            summary: 'User not found',
+          invalid_token: {
+            summary: 'Invalid or expired verification token',
             value: {
               success: false,
               statusCode: 400,
-              message: ['User not found'],
+              message: ['Invalid or expired verification token'],
+              timestamp: '2026-06-09T12:00:00.000Z',
+            },
+          },
+          missing_identifier: {
+            summary: 'Neither email nor verificationToken provided',
+            value: {
+              success: false,
+              statusCode: 400,
+              message: ['Either email or verificationToken is required'],
               timestamp: '2026-06-09T12:00:00.000Z',
             },
           },
@@ -493,7 +510,8 @@ export class AuthController {
   @ApiOperation({
     summary: 'Resend OTP code',
     description:
-      'Resends a 6-digit OTP code to the user\'s email. Supports `email_verification` and `password_reset` types. ' +
+      'Resends a 6-digit OTP code to the user\'s email. Accepts either `verificationToken` (preferred) or `email`. ' +
+      'Supports `email_verification` and `password_reset` types. ' +
       'Enforces a 60-second cooldown between requests. ' +
       'Response does not reveal whether the email exists (prevents user enumeration).',
   })

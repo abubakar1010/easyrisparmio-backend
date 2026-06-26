@@ -124,9 +124,11 @@ export class AuthService {
   ) {
     if (user.status === UserStatus.PENDING_VERIFICATION) {
       await this.generateAndSaveOtp(user, OtpType.EMAIL_VERIFICATION);
-      throw new ForbiddenException(
-        'Your email is not verified. A verification code has been sent to your email.',
-      );
+      throw new ForbiddenException({
+        message:
+          'Your email is not verified. A verification code has been sent to your email.',
+        data: { email: user.email },
+      });
     }
 
     if (user.status === UserStatus.SUSPENDED) {

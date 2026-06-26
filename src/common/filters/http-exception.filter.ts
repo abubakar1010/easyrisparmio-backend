@@ -22,17 +22,27 @@ export class AllExceptionsFilter implements ExceptionFilter {
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = 'Internal server error';
 
+    let data: Record<string, any> | undefined;
+
     if (exception instanceof HttpException) {
       status = exception.getStatus();
       const res = exception.getResponse();
       message = typeof res === 'string' ? res : (res as any).message || message;
+      if (typeof res === 'object' && (res as any).data) {
+        data = (res as any).data;
+      }
     }
 
-    response.status(status).json({
+    const body: Record<string, any> = {
       success: false,
       statusCode: status,
       message: Array.isArray(message) ? message : [message],
       timestamp: new Date().toISOString(),
-    });
+    };
+    if (data) {
+      body.data = data;
+    }
+
+    response.status(status).json(body);
   }
 }

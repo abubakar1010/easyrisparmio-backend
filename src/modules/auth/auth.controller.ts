@@ -269,6 +269,7 @@ export class AuthController {
           message: [
             'Your email is not verified. A verification code has been sent to your email.',
           ],
+          data: { email: 'laura.bianchi@email.it' },
           timestamp: '2026-06-09T12:00:00.000Z',
         },
       },

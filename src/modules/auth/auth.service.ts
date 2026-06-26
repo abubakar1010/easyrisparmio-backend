@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -123,7 +124,7 @@ export class AuthService {
   ) {
     if (user.status === UserStatus.PENDING_VERIFICATION) {
       await this.generateAndSaveOtp(user, OtpType.EMAIL_VERIFICATION);
-      throw new UnauthorizedException(
+      throw new ForbiddenException(
         'Your email is not verified. A verification code has been sent to your email.',
       );
     }

@@ -22,6 +22,7 @@ import {
   ApiConflictResponse,
   ApiInternalServerErrorResponse,
   ApiBody,
+  ApiResponse,
 } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
@@ -228,7 +229,7 @@ export class AuthController {
     },
   })
   @ApiUnauthorizedResponse({
-    description: 'Invalid credentials, unverified email, or suspended account',
+    description: 'Invalid credentials or suspended account',
     type: ErrorResponseDto,
     content: {
       'application/json': {
@@ -242,15 +243,6 @@ export class AuthController {
               timestamp: '2026-06-09T12:00:00.000Z',
             },
           },
-          pending_verification: {
-            summary: 'Email not verified',
-            value: {
-              success: false,
-              statusCode: 401,
-              message: ['Please verify your email before logging in. Use /auth/resend-otp to request a new verification code.'],
-              timestamp: '2026-06-09T12:00:00.000Z',
-            },
-          },
           suspended: {
             summary: 'Account suspended',
             value: {
@@ -260,6 +252,24 @@ export class AuthController {
               timestamp: '2026-06-09T12:00:00.000Z',
             },
           },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Email not verified. OTP has been sent automatically — redirect user to OTP verification screen.',
+    type: ErrorResponseDto,
+    content: {
+      'application/json': {
+        example: {
+          success: false,
+          statusCode: 403,
+          message: [
+            'Your email is not verified. A verification code has been sent to your email.',
+          ],
+          timestamp: '2026-06-09T12:00:00.000Z',
         },
       },
     },

@@ -1,15 +1,27 @@
-import { IsEmail, IsEnum, IsNotEmpty, IsString, Length } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, Length, ValidateIf } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { OtpType } from '../../../common/enums/user.enum';
 
 export class VerifyOtpDto {
-  @ApiProperty({
-    description: 'Email address of the user verifying the OTP',
+  @ApiPropertyOptional({
+    description:
+      'Email address of the user. Required if verificationToken is not provided.',
     example: 'mario.rossi@email.com',
   })
+  @ValidateIf((o) => !o.verificationToken)
   @IsEmail()
   @IsNotEmpty()
-  email: string;
+  email?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Signed token received from register or login (403) response. Use this instead of email.',
+    example: 'eyJhbGciOiJIUzI1NiIs...',
+  })
+  @ValidateIf((o) => !o.email)
+  @IsString()
+  @IsNotEmpty()
+  verificationToken?: string;
 
   @ApiProperty({
     description: '6-digit OTP code received via email or SMS',

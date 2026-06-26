@@ -97,10 +97,12 @@ export class AuthService {
 
     await this.generateAndSaveOtp(user, OtpType.EMAIL_VERIFICATION);
 
+    const verificationToken = this.generateVerificationToken(user.email);
     const { passwordHash: _, ...result } = user;
     return {
       message: 'Registration successful. Please verify your email.',
       user: result,
+      verificationToken,
     };
   }
 
@@ -124,10 +126,11 @@ export class AuthService {
   ) {
     if (user.status === UserStatus.PENDING_VERIFICATION) {
       await this.generateAndSaveOtp(user, OtpType.EMAIL_VERIFICATION);
+      const verificationToken = this.generateVerificationToken(user.email);
       throw new ForbiddenException({
         message:
           'Your email is not verified. A verification code has been sent to your email.',
-        data: { email: user.email },
+        data: { verificationToken },
       });
     }
 
@@ -145,7 +148,13 @@ export class AuthService {
   }
 
   async verifyOtp(dto: VerifyOtpDto) {
-    const user = await this.usersService.findByEmail(dto.email);
+    const email = dto.verificationToken
+      ? this.resolveEmailFromToken(dto.verificationToken)
+      : dto.email;
+    if (!email) {
+      throw new BadRequestException('Either email or verificationToken is required');
+    }
+    const user = await this.usersService.findByEmail(email);
     if (!user) {
       // Generic error to prevent user enumeration
       throw new BadRequestException('Invalid or expired OTP code');
@@ -213,7 +222,13 @@ export class AuthService {
       throw new BadRequestException('Phone verification OTP cannot be resent via this endpoint');
     }
 
-    const user = await this.usersService.findByEmail(dto.email);
+    const email = dto.verificationToken
+      ? this.resolveEmailFromToken(dto.verificationToken)
+      : dto.email;
+    if (!email) {
+      throw new BadRequestException('Either email or verificationToken is required');
+    }
+    const user = await this.usersService.findByEmail(email);
     if (!user) {
       // Don't reveal whether email exists — return same success response
       return { message: 'If the email is registered, a new verification code has been sent' };
@@ -537,5 +552,25 @@ export class AuthService {
     }
 
     return code;
+  }
+
+  generateVerificationToken(email: string): string {
+    return this.jwtService.sign(
+      { email, purpose: 'otp_verification' },
+      { expiresIn: '10m' },
+    );
+  }
+
+  resolveEmailFromToken(token: string): string {
+    try {
+      const payload = this.jwtService.verify(token);
+      if (payload.purpose !== 'otp_verification') {
+        throw new BadRequestException('Invalid verification token');
+      }
+      return payload.email;
+    } catch (err) {
+      if (err instanceof BadRequestException) throw err;
+      throw new BadRequestException('Invalid or expired verification token');
+    }
   }
 }

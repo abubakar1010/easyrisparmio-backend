@@ -9,6 +9,8 @@ import { Commission } from '../commissions/entities/commission.entity';
 import { EnergyBill } from '../bills/entities/energy-bill.entity';
 import { BillAnalysis } from '../bills/entities/bill-analysis.entity';
 import { AdminSettings } from './entities/admin-settings.entity';
+import { AdminAlert } from '../alerts/entities/admin-alert.entity';
+import { ActivityLog } from '../activity-log/entities/activity-log.entity';
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { AdminSettings } from './entities/admin-settings.entity';
       EnergyBill,
       BillAnalysis,
       AdminSettings,
+      AdminAlert,
+      ActivityLog,
     ]),
   ],
   controllers: [DashboardController],

@@ -32,33 +32,66 @@ export class DashboardController {
       'active cases, contracts by status, commission totals, and recent activity. Admin only.',
   })
   @ApiOkResponse({
-    description: 'Admin dashboard KPIs',
+    description: 'Admin dashboard KPIs, charts, tasks, alerts, and activity',
     content: {
       'application/json': {
         example: {
           success: true,
           data: {
-            totalUsers: 1245,
-            totalPersonalUsers: 980,
-            totalBusinessUsers: 265,
-            totalCases: 387,
-            activeCases: 52,
-            totalContracts: 312,
-            contractsByStatus: {
-              draft: 15,
-              sent: 23,
-              signed: 8,
-              active: 248,
-              expired: 12,
-              cancelled: 6,
+            kpiStats: {
+              totalSwitches: { value: 342, delta: 12.5 },
+              activeCustomers: { value: 1247, delta: 8.2 },
+              conversionRate: { value: 32.4, delta: 3.1 },
+              avgProcessingTime: { value: 18, delta: 2 },
             },
-            commissions: {
-              totalPending: '2340.00',
-              totalApproved: '8750.50',
-              totalPaid: '45230.00',
+            financialKpis: {
+              acquisitionCommission: { total: 12340, count: 124 },
+              recurringCommission: { total: 8920, count: 892 },
+              pendingRevenue: { total: 34560, count: 67 },
+              churnRate: 2.8,
             },
-            recentSignups: 34,
-            monthlyRevenue: '12500.00',
+            priorityTasks: {
+              missingDocuments: 23,
+              expiringContracts: 12,
+              pendingValidation: 12,
+              followUpRequired: 12,
+            },
+            conversionFunnel: {
+              requestReceived: 342,
+              documentation: 298,
+              validation: 267,
+              activation: 234,
+              rejected: 44,
+              conversionRate: 68.4,
+            },
+            revenueTrend: [
+              { month: '2025-07', potential: 11500, validated: 8200, collected: 6100 },
+              { month: '2025-08', potential: 12300, validated: 9100, collected: 7200 },
+            ],
+            activeAlerts: [
+              {
+                id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                alertType: 'duplicate_pod',
+                severity: 'critical',
+                title: 'Duplicate POD/PDR Detected',
+                description: 'Customer ID 4521 has matching meter number with existing contract',
+                entityType: 'contract',
+                entityId: 'f1a2b3c4-d5e6-7890-abcd-ef1234567890',
+                relatedData: null,
+                createdAt: '2026-06-24T10:00:00.000Z',
+              },
+            ],
+            recentActivity: [
+              {
+                id: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
+                action: 'Contract Activated',
+                entityType: 'contract',
+                entityId: 'c3d4e5f6-a7b8-9012-cdef-123456789012',
+                metadata: { contractNumber: 'CTR-2026-001234' },
+                createdAt: '2026-06-24T12:00:00.000Z',
+                user: { id: 'd4e5f6a7-b8c9-0123-defa-234567890123', firstName: 'Mario', lastName: 'Rossi' },
+              },
+            ],
           },
         },
       },

@@ -1,26 +1,48 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
+import * as nodemailer from 'nodemailer';
+import type { Transporter } from 'nodemailer';
 
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private resend: Resend | null = null;
+  private smtpTransport: Transporter | null = null;
   private fromAddress: string;
   private appName: string;
 
   constructor(private readonly configService: ConfigService) {
-    const apiKey = this.configService.get<string>('email.resendApiKey');
-    this.fromAddress = this.configService.get<string>('email.fromAddress') || 'EasyRisparmio <noreply@easyresparmio.it>';
-    this.appName = this.configService.get<string>('email.appName') || 'EasyRisparmio';
+    this.fromAddress =
+      this.configService.get<string>('email.fromAddress') ||
+      'EasyRisparmio <noreply@easyresparmio.it>';
+    this.appName =
+      this.configService.get<string>('email.appName') || 'EasyRisparmio';
 
-    if (apiKey) {
-      this.resend = new Resend(apiKey);
-      this.logger.log('Resend email service initialized');
-    } else {
-      this.logger.warn(
-        'RESEND_API_KEY not configured — emails will be logged to console only',
+    const smtpHost = this.configService.get<string>('email.smtpHost');
+    const smtpPort = this.configService.get<number>('email.smtpPort');
+
+    if (smtpHost) {
+      // Development: use SMTP (Mailhog)
+      this.smtpTransport = nodemailer.createTransport({
+        host: smtpHost,
+        port: smtpPort,
+        ignoreTLS: true,
+      });
+      this.logger.log(
+        `SMTP email transport initialized (${smtpHost}:${smtpPort})`,
       );
+    } else {
+      // Production: use Resend
+      const apiKey = this.configService.get<string>('email.resendApiKey');
+      if (apiKey) {
+        this.resend = new Resend(apiKey);
+        this.logger.log('Resend email service initialized');
+      } else {
+        this.logger.warn(
+          'No email transport configured — emails will be logged to console only',
+        );
+      }
     }
   }
 
@@ -61,24 +83,45 @@ export class EmailService {
       </div>
     `;
 
-    if (!this.resend) {
-      this.logger.warn(
-        `[EMAIL NOT SENT — no API key] To: ${to} | Subject: ${subject} | OTP: ${code}`,
-      );
+    // SMTP (Mailhog in dev)
+    if (this.smtpTransport) {
+      try {
+        await this.smtpTransport.sendMail({
+          from: this.fromAddress,
+          to,
+          subject,
+          html,
+        });
+        this.logger.log(`OTP email sent to ${to} via SMTP (${type})`);
+      } catch (error) {
+        this.logger.error(
+          `Failed to send OTP email to ${to} via SMTP: ${error.message}`,
+        );
+      }
       return;
     }
 
-    try {
-      await this.resend.emails.send({
-        from: this.fromAddress,
-        to,
-        subject,
-        html,
-      });
-      this.logger.log(`OTP email sent to ${to} (${type})`);
-    } catch (error) {
-      this.logger.error(`Failed to send OTP email to ${to}: ${error.message}`);
-      // Don't throw — email failure should not block auth flow
+    // Resend (production)
+    if (this.resend) {
+      try {
+        await this.resend.emails.send({
+          from: this.fromAddress,
+          to,
+          subject,
+          html,
+        });
+        this.logger.log(`OTP email sent to ${to} via Resend (${type})`);
+      } catch (error) {
+        this.logger.error(
+          `Failed to send OTP email to ${to} via Resend: ${error.message}`,
+        );
+      }
+      return;
     }
+
+    // No transport configured
+    this.logger.warn(
+      `[EMAIL NOT SENT — no transport] To: ${to} | Subject: ${subject} | OTP: ${code}`,
+    );
   }
 }

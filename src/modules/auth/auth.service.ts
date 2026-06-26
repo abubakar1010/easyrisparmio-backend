@@ -122,8 +122,9 @@ export class AuthService {
     meta?: { ipAddress?: string; deviceInfo?: string },
   ) {
     if (user.status === UserStatus.PENDING_VERIFICATION) {
+      await this.generateAndSaveOtp(user, OtpType.EMAIL_VERIFICATION);
       throw new UnauthorizedException(
-        'Please verify your email before logging in. Use /auth/resend-otp to request a new verification code.',
+        'Your email is not verified. A verification code has been sent to your email.',
       );
     }
 

@@ -65,7 +65,9 @@ export class SuppliersService {
   async findAllAdmin(
     query: QuerySuppliersDto,
   ): Promise<PaginatedResponseDto<Supplier>> {
-    const qb = this.supplierRepository.createQueryBuilder('supplier');
+    const qb = this.supplierRepository
+      .createQueryBuilder('supplier')
+      .leftJoinAndSelect('supplier.offers', 'offers');
 
     if (query.isActive !== undefined) {
       qb.andWhere('supplier.isActive = :isActive', {
@@ -73,9 +75,19 @@ export class SuppliersService {
       });
     }
 
+    if (query.status) {
+      qb.andWhere('supplier.status = :status', { status: query.status });
+    }
+
+    if (query.commodity) {
+      qb.andWhere('supplier.commodity = :commodity', {
+        commodity: query.commodity,
+      });
+    }
+
     if (query.search) {
       qb.andWhere(
-        '(supplier.name ILIKE :search OR supplier.contactEmail ILIKE :search OR supplier.supplierCode ILIKE :search)',
+        '(supplier.name ILIKE :search OR supplier.legalName ILIKE :search OR supplier.contactEmail ILIKE :search OR supplier.supplierCode ILIKE :search OR supplier.taxId ILIKE :search)',
         { search: `%${query.search}%` },
       );
     }

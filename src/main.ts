@@ -14,14 +14,11 @@ async function bootstrap() {
   app.setGlobalPrefix('api/v1');
 
   // CORS
-  const corsOrigins: string[] = [configService.get('app.frontendUrl')].filter(Boolean);
-  if (configService.get('app.env') === 'development') {
-    corsOrigins.push('http://localhost:3000', 'http://localhost:3001');
-  }
   app.enableCors({
-    origin: corsOrigins,
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    credentials: true,
+    origin: '*',
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: '*',
+    exposedHeaders: '*',
   });
 
   // Global validation pipe

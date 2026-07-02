@@ -7,10 +7,13 @@ import {
   MaxLength,
   MinLength,
   Matches,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserRole } from '../../../common/enums/role.enum';
 import { UserStatus } from '../../../common/enums/user.enum';
+import { CreateAddressDto } from './create-address.dto';
 
 export class CreateUserDto {
   @ApiProperty({ example: 'mario.rossi@email.com' })
@@ -94,4 +97,10 @@ export class CreateUserDto {
   @IsString()
   @MaxLength(10)
   atecoCode?: string;
+
+  @ApiPropertyOptional({ type: () => CreateAddressDto, description: 'Primary address for the user' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CreateAddressDto)
+  address?: CreateAddressDto;
 }

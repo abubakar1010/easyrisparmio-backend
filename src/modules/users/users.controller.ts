@@ -26,6 +26,7 @@ import {
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { QueryUsersDto } from './dto/query-users.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -172,7 +173,7 @@ export class UsersController {
     summary: 'List all users (admin only, paginated)',
     description:
       'Returns a paginated list of all users. Supports filtering by role, status, and text search (name, email). ' +
-      'Results include user details without password hashes. Soft-deleted users are excluded.',
+      'Results include user details without password hashes and bill count per user. Soft-deleted users are excluded.',
   })
   @ApiOkResponse({
     description: 'Paginated list of users',
@@ -195,23 +196,10 @@ export class UsersController {
                 phoneVerified: false,
                 lastLoginAt: '2026-06-20T08:30:00.000Z',
                 createdAt: '2026-01-15T10:00:00.000Z',
-              },
-              {
-                id: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
-                email: 'giulia.bianchi@azienda.it',
-                phone: '+393487654321',
-                firstName: 'Giulia',
-                lastName: 'Bianchi',
-                codiceFiscale: null,
-                role: 'business',
-                status: 'active',
-                emailVerified: true,
-                phoneVerified: true,
-                lastLoginAt: '2026-06-22T14:15:00.000Z',
-                createdAt: '2026-03-10T09:00:00.000Z',
+                billCount: 2,
               },
             ],
-            meta: { total: 2, page: 1, limit: 20, totalPages: 1 },
+            meta: { total: 1, page: 1, limit: 20, totalPages: 1 },
           },
         },
       },
@@ -236,7 +224,7 @@ export class UsersController {
     description:
       'Creates a new user account with the specified role (personal or business). ' +
       'The email must be unique. For business users, business profile fields (companyName, partitaIva, etc.) can be provided. ' +
-      'The admin can optionally set the initial status; defaults to pending_verification.',
+      'An optional address can be provided. The admin can optionally set the initial status; defaults to active.',
   })
   @ApiBody({ type: CreateUserDto })
   @ApiCreatedResponse({
@@ -252,18 +240,10 @@ export class UsersController {
             firstName: 'Luigi',
             lastName: 'Verdi',
             codiceFiscale: 'VRDLGU90A01F205X',
-            avatar: null,
-            authProvider: 'local',
-            firebaseUid: null,
-            referralCode: null,
             role: 'personal',
-            status: 'pending_verification',
-            emailVerified: false,
-            phoneVerified: false,
-            lastLoginAt: null,
-            deletedAt: null,
+            status: 'active',
+            emailVerified: true,
             createdAt: '2026-06-24T12:00:00.000Z',
-            updatedAt: '2026-06-24T12:00:00.000Z',
           },
         },
       },
@@ -276,7 +256,7 @@ export class UsersController {
         example: {
           success: false,
           statusCode: 400,
-          message: ['email must be an email', 'password must be longer than or equal to 8 characters', 'role must be a valid enum value'],
+          message: ['email must be an email', 'password must be longer than or equal to 8 characters'],
           timestamp: '2026-06-24T12:00:00.000Z',
         },
       },
@@ -286,12 +266,7 @@ export class UsersController {
     description: 'Email already in use',
     content: {
       'application/json': {
-        example: {
-          success: false,
-          statusCode: 409,
-          message: ['A user with this email already exists'],
-          timestamp: '2026-06-24T12:00:00.000Z',
-        },
+        example: { success: false, statusCode: 409, message: ['A user with this email already exists'], timestamp: '2026-06-24T12:00:00.000Z' },
       },
     },
   })
@@ -314,38 +289,11 @@ export class UsersController {
   @ApiOperation({
     summary: 'Get user by ID (admin only)',
     description:
-      'Returns a single user\'s full profile by UUID. Includes all fields except the password hash. ' +
+      'Returns a single user\'s full profile by UUID including addresses and preferences. ' +
       'Returns 404 if the user does not exist or has been soft-deleted.',
   })
   @ApiOkResponse({
-    description: 'User details',
-    content: {
-      'application/json': {
-        example: {
-          success: true,
-          data: {
-            id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-            email: 'mario.rossi@email.com',
-            phone: '+393331234567',
-            firstName: 'Mario',
-            lastName: 'Rossi',
-            codiceFiscale: 'RSSMRA85M01H501Z',
-            avatar: null,
-            authProvider: 'local',
-            firebaseUid: null,
-            referralCode: 'MARIO2025',
-            role: 'personal',
-            status: 'active',
-            emailVerified: true,
-            phoneVerified: false,
-            lastLoginAt: '2026-06-20T08:30:00.000Z',
-            deletedAt: null,
-            createdAt: '2026-01-15T10:00:00.000Z',
-            updatedAt: '2026-06-20T08:30:00.000Z',
-          },
-        },
-      },
-    },
+    description: 'User details with addresses and preferences',
   })
   @ApiNotFoundResponse({
     description: 'User not found',
@@ -368,6 +316,111 @@ export class UsersController {
     return result;
   }
 
+  // ─── Sub-resource endpoints (must be before generic :id routes) ───
+
+  @Patch(':id/toggle-status')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Toggle user status between active and suspended (admin only)',
+    description:
+      'Toggles the user\'s status between ACTIVE and SUSPENDED. Suspended users cannot log in. ' +
+      'Any other status (e.g. INACTIVE, PENDING_VERIFICATION) will be set to ACTIVE.',
+  })
+  @ApiOkResponse({ description: 'User status toggled successfully' })
+  @ApiNotFoundResponse({
+    description: 'User not found',
+    content: { 'application/json': { example: { success: false, statusCode: 404, message: ['User not found'], timestamp: '2026-06-24T12:00:00.000Z' } } },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing or invalid JWT access token',
+    content: { 'application/json': { example: { success: false, statusCode: 401, message: ['Unauthorized'], timestamp: '2026-06-24T12:00:00.000Z' } } },
+  })
+  @ApiForbiddenResponse({
+    description: 'User does not have admin role',
+    content: { 'application/json': { example: { success: false, statusCode: 403, message: ['Forbidden resource'], timestamp: '2026-06-24T12:00:00.000Z' } } },
+  })
+  async toggleStatus(@Param('id', ParseUUIDPipe) id: string) {
+    const user = await this.usersService.toggleStatus(id);
+    const { passwordHash: _, ...result } = user;
+    return result;
+  }
+
+  @Post(':id/reset-password')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Admin-triggered password reset (admin only)',
+    description:
+      'Sends a password reset OTP code to the user\'s email. The user can then use the standard reset-password flow to set a new password.',
+  })
+  @ApiOkResponse({ description: 'Password reset code sent to user email' })
+  @ApiNotFoundResponse({
+    description: 'User not found',
+    content: { 'application/json': { example: { success: false, statusCode: 404, message: ['User not found'], timestamp: '2026-06-24T12:00:00.000Z' } } },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing or invalid JWT access token',
+    content: { 'application/json': { example: { success: false, statusCode: 401, message: ['Unauthorized'], timestamp: '2026-06-24T12:00:00.000Z' } } },
+  })
+  @ApiForbiddenResponse({
+    description: 'User does not have admin role',
+    content: { 'application/json': { example: { success: false, statusCode: 403, message: ['Forbidden resource'], timestamp: '2026-06-24T12:00:00.000Z' } } },
+  })
+  async resetPassword(@Param('id', ParseUUIDPipe) id: string) {
+    return this.usersService.adminResetPassword(id);
+  }
+
+  @Get(':id/preferences')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Get user preferences (admin only)',
+    description: 'Returns user preferences including payment method, invoice delivery, and language.',
+  })
+  @ApiOkResponse({ description: 'User preferences retrieved' })
+  @ApiNotFoundResponse({
+    description: 'User not found',
+    content: { 'application/json': { example: { success: false, statusCode: 404, message: ['User not found'], timestamp: '2026-06-24T12:00:00.000Z' } } },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing or invalid JWT access token',
+    content: { 'application/json': { example: { success: false, statusCode: 401, message: ['Unauthorized'], timestamp: '2026-06-24T12:00:00.000Z' } } },
+  })
+  @ApiForbiddenResponse({
+    description: 'User does not have admin role',
+    content: { 'application/json': { example: { success: false, statusCode: 403, message: ['Forbidden resource'], timestamp: '2026-06-24T12:00:00.000Z' } } },
+  })
+  async getPreferences(@Param('id', ParseUUIDPipe) id: string) {
+    return this.usersService.getPreferences(id);
+  }
+
+  @Patch(':id/preferences')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Update user preferences (admin only)',
+    description: 'Updates user preferences. Creates preferences record if one does not exist yet.',
+  })
+  @ApiBody({ type: UpdatePreferencesDto })
+  @ApiOkResponse({ description: 'User preferences updated successfully' })
+  @ApiNotFoundResponse({
+    description: 'User not found',
+    content: { 'application/json': { example: { success: false, statusCode: 404, message: ['User not found'], timestamp: '2026-06-24T12:00:00.000Z' } } },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing or invalid JWT access token',
+    content: { 'application/json': { example: { success: false, statusCode: 401, message: ['Unauthorized'], timestamp: '2026-06-24T12:00:00.000Z' } } },
+  })
+  @ApiForbiddenResponse({
+    description: 'User does not have admin role',
+    content: { 'application/json': { example: { success: false, statusCode: 403, message: ['Forbidden resource'], timestamp: '2026-06-24T12:00:00.000Z' } } },
+  })
+  async updatePreferences(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdatePreferencesDto,
+  ) {
+    return this.usersService.updatePreferences(id, dto);
+  }
+
+  // ─── Generic :id endpoints ────────────────────────────────
+
   @Patch(':id')
   @Roles(UserRole.ADMIN)
   @ApiOperation({
@@ -379,33 +432,6 @@ export class UsersController {
   @ApiBody({ type: UpdateUserDto })
   @ApiOkResponse({
     description: 'User updated successfully',
-    content: {
-      'application/json': {
-        example: {
-          success: true,
-          data: {
-            id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-            email: 'mario.rossi@email.com',
-            phone: '+393331234567',
-            firstName: 'Mario',
-            lastName: 'Rossi',
-            codiceFiscale: 'RSSMRA85M01H501Z',
-            avatar: null,
-            authProvider: 'local',
-            firebaseUid: null,
-            referralCode: 'MARIO2025',
-            role: 'personal',
-            status: 'active',
-            emailVerified: true,
-            phoneVerified: false,
-            lastLoginAt: '2026-06-20T08:30:00.000Z',
-            deletedAt: null,
-            createdAt: '2026-01-15T10:00:00.000Z',
-            updatedAt: '2026-06-24T14:00:00.000Z',
-          },
-        },
-      },
-    },
   })
   @ApiBadRequestResponse({
     description: 'Validation failed',
@@ -450,30 +476,9 @@ export class UsersController {
   @ApiOperation({
     summary: 'Soft-delete user by ID (admin only)',
     description:
-      'Soft-deletes a user by setting the `deleted_at` timestamp. The user is excluded from all queries but preserved in the database. ' +
-      'This action can be reversed by an admin by clearing the deleted_at field.',
+      'Soft-deletes a user by setting the status to inactive. The user is preserved in the database.',
   })
-  @ApiOkResponse({
-    description: 'User soft-deleted successfully',
-    content: {
-      'application/json': {
-        example: {
-          success: true,
-          data: {
-            id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-            email: 'mario.rossi@email.com',
-            firstName: 'Mario',
-            lastName: 'Rossi',
-            role: 'personal',
-            status: 'active',
-            deletedAt: '2026-06-24T15:00:00.000Z',
-            createdAt: '2026-01-15T10:00:00.000Z',
-            updatedAt: '2026-06-24T15:00:00.000Z',
-          },
-        },
-      },
-    },
-  })
+  @ApiOkResponse({ description: 'User soft-deleted successfully' })
   @ApiNotFoundResponse({
     description: 'User not found',
     content: { 'application/json': { example: { success: false, statusCode: 404, message: ['User not found'], timestamp: '2026-06-24T12:00:00.000Z' } } },

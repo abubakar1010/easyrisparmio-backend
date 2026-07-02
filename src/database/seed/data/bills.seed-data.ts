@@ -19,7 +19,6 @@ export async function seedEnergyBills(
     {
       userId: marco.id,
       supplierId: enel.id,
-      meterId: ctx.meters[0].id, // Marco's electricity meter
       fileUrl: '/uploads/bills/seed-marco-electricity-jan.pdf',
       billType: BillType.ELECTRICITY,
       status: BillStatus.ANALYZED,
@@ -43,7 +42,6 @@ export async function seedEnergyBills(
     {
       userId: marco.id,
       supplierId: eni.id,
-      meterId: ctx.meters[1].id, // Marco's gas meter
       fileUrl: '/uploads/bills/seed-marco-gas-jan.pdf',
       billType: BillType.GAS,
       status: BillStatus.ANALYZED,
@@ -78,7 +76,6 @@ export async function seedEnergyBills(
     {
       userId: giuseppe.id,
       supplierId: a2a.id,
-      meterId: ctx.meters[3].id, // Giuseppe's electricity meter
       fileUrl: '/uploads/bills/seed-giuseppe-electricity.pdf',
       billType: BillType.ELECTRICITY,
       status: BillStatus.ANALYZING,

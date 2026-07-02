@@ -26,7 +26,6 @@ import {
 import { MetersService } from './meters.service';
 import { CreateMeterDto } from './dto/create-meter.dto';
 import { UpdateMeterDto } from './dto/update-meter.dto';
-import { UpdateMeterStatusDto } from './dto/update-meter-status.dto';
 import { QueryMetersDto } from './dto/query-meters.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -41,45 +40,40 @@ import { UserRole } from '../../common/enums/role.enum';
 export class MetersController {
   constructor(private readonly metersService: MetersService) {}
 
-  // ─── User Endpoint (named route first) ────────────────────
+  // ─── User Endpoints (named routes first) ──────────────────
 
-  @Get('my-meters')
+  @Get('my-services')
   @Roles(UserRole.PERSONAL, UserRole.BUSINESS)
   @ApiOperation({
-    summary: 'List my active meters/utilities',
+    summary: 'List my activated services',
     description:
-      'Returns the authenticated user\'s active meters with supplier and address details. ' +
-      'Only meters with `active` status are returned. No pagination — users typically have 2-5 utilities.',
+      'Returns the authenticated user\'s activated services — offers where the switch case is completed ' +
+      'and the contract is active. Each item includes offer details, supplier info, and contract data.',
   })
   @ApiOkResponse({
-    description: 'List of user\'s active meters',
+    description: 'List of user\'s activated services',
     content: {
       'application/json': {
         example: {
           success: true,
           data: [
             {
-              id: 'm1a2b3c4-d5e6-7890-abcd-ef1234567890',
-              userId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-              utilityType: 'electricity',
-              meterCode: 'IT001E556779',
-              supplierId: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
-              status: 'active',
-              annualConsumption: '12500.00',
-              consumptionUnit: 'kWh',
-              contractedPowerKw: '3.00',
-              activationDate: '2025-01-15',
-              createdAt: '2026-06-01T10:00:00.000Z',
-              supplier: {
-                id: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
-                name: 'Ener Energia',
-              },
-              address: {
-                id: 'c3d4e5f6-a7b8-9012-cdef-123456789012',
-                streetAddress: 'Via Roma 42',
-                city: 'Milano',
-                postalCode: '20121',
-              },
+              id: 'contract-uuid',
+              caseId: 'case-uuid',
+              offerId: 'offer-uuid',
+              energyType: 'electricity',
+              offerName: 'Luce Fissa 2026',
+              supplierName: 'Ener Energia',
+              contractNumber: 'CNT-20260630-00001',
+              podPdrNumber: 'IT001E556779',
+              activationDate: '2026-06-15',
+              expiryDate: '2027-06-15',
+              monthlyEstimate: '85.00',
+              pricePerKwh: '0.085000',
+              pricePerSmc: null,
+              fixedMonthlyFee: '10.00',
+              contractDurationMonths: 12,
+              isGreenEnergy: true,
             },
           ],
         },
@@ -90,17 +84,26 @@ export class MetersController {
     description: 'Missing or invalid JWT access token',
     content: {
       'application/json': {
-        example: {
-          success: false,
-          statusCode: 401,
-          message: ['Unauthorized'],
-          timestamp: '2026-06-09T12:00:00.000Z',
-        },
+        example: { success: false, statusCode: 401, message: ['Unauthorized'], timestamp: '2026-06-09T12:00:00.000Z' },
       },
     },
   })
-  getMyMeters(@CurrentUser('id') userId: string) {
-    return this.metersService.findUserActiveMeters(userId);
+  getMyServices(@CurrentUser('id') userId: string) {
+    return this.metersService.findUserActivatedServices(userId);
+  }
+
+  @Get('my-meters')
+  @Roles(UserRole.PERSONAL, UserRole.BUSINESS)
+  @ApiOperation({
+    summary: 'List my active meters (deprecated)',
+    description:
+      'Deprecated — use `GET /meters/my-services` instead. ' +
+      'This endpoint is kept for backward compatibility and returns an empty array.',
+    deprecated: true,
+  })
+  @ApiOkResponse({ description: 'Empty array (deprecated endpoint)' })
+  getMyMeters() {
+    return [];
   }
 
   // ─── Admin Endpoints ──────────────────────────────────────
@@ -108,31 +111,24 @@ export class MetersController {
   @Post()
   @Roles(UserRole.ADMIN)
   @ApiOperation({
-    summary: 'Create a new meter (admin)',
+    summary: 'Create a new service type (admin)',
     description:
-      'Creates a meter/utility point for a user. The meter code + utility type combination must be unique. ' +
-      'The `createdBy` field is automatically set to the admin user.',
+      'Creates a service type entry in the catalog. Each utility type (electricity, gas, water, internet) ' +
+      'can only exist once.',
   })
   @ApiBody({ type: CreateMeterDto })
   @ApiCreatedResponse({
-    description: 'Meter created successfully',
+    description: 'Service type created successfully',
     content: {
       'application/json': {
         example: {
           success: true,
           data: {
             id: 'm1a2b3c4-d5e6-7890-abcd-ef1234567890',
-            userId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
             utilityType: 'electricity',
-            meterCode: 'IT001E556779',
-            supplierId: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
-            status: 'active',
-            annualConsumption: '12500.00',
-            consumptionUnit: 'kWh',
-            contractedPowerKw: '3.00',
-            addressId: null,
-            activationDate: '2025-01-15',
-            notes: null,
+            name: 'Electricity',
+            description: 'Residential and business electricity supply',
+            isActive: true,
             createdBy: 'admin-uuid',
             updatedBy: 'admin-uuid',
             createdAt: '2026-06-09T12:00:00.000Z',
@@ -149,20 +145,20 @@ export class MetersController {
         example: {
           success: false,
           statusCode: 400,
-          message: ['meterCode should not be empty', 'utilityType must be a valid enum value'],
+          message: ['name should not be empty', 'utilityType must be a valid enum value'],
           timestamp: '2026-06-09T12:00:00.000Z',
         },
       },
     },
   })
   @ApiConflictResponse({
-    description: 'Duplicate meter code + utility type',
+    description: 'Duplicate utility type',
     content: {
       'application/json': {
         example: {
           success: false,
           statusCode: 409,
-          message: ['A meter with this code and utility type already exists'],
+          message: ['A service type with this utility type already exists'],
           timestamp: '2026-06-09T12:00:00.000Z',
         },
       },
@@ -186,13 +182,13 @@ export class MetersController {
   @Get()
   @Roles(UserRole.ADMIN)
   @ApiOperation({
-    summary: 'List all meters (admin, paginated)',
+    summary: 'List all service types (admin, paginated)',
     description:
-      'Returns a paginated list of all meters with user, supplier, and address details. ' +
-      'Supports filtering by utility type, status, user ID, supplier ID, and text search (meter code, user name/email).',
+      'Returns a paginated list of all service type catalog entries. ' +
+      'Supports filtering by utility type, active status, and text search.',
   })
   @ApiOkResponse({
-    description: 'Paginated list of meters',
+    description: 'Paginated list of service types',
     content: {
       'application/json': {
         example: {
@@ -202,13 +198,10 @@ export class MetersController {
               {
                 id: 'm1a2b3c4-d5e6-7890-abcd-ef1234567890',
                 utilityType: 'electricity',
-                meterCode: 'IT001E556779',
-                status: 'active',
-                annualConsumption: '12500.00',
-                consumptionUnit: 'kWh',
+                name: 'Electricity',
+                description: 'Residential and business electricity supply',
+                isActive: true,
                 createdAt: '2026-06-01T10:00:00.000Z',
-                user: { id: 'a1b2c3d4...', email: 'mario.rossi@email.com', firstName: 'Mario', lastName: 'Rossi' },
-                supplier: { id: 'b2c3d4e5...', name: 'Ener Energia' },
               },
             ],
             meta: { total: 1, page: 1, limit: 20, totalPages: 1 },
@@ -232,33 +225,25 @@ export class MetersController {
   @Get(':id')
   @Roles(UserRole.ADMIN)
   @ApiOperation({
-    summary: 'Get meter detail (admin)',
-    description: 'Returns a single meter with full user, supplier, and address details.',
+    summary: 'Get service type detail (admin)',
+    description: 'Returns a single service type catalog entry.',
   })
   @ApiOkResponse({
-    description: 'Meter details',
+    description: 'Service type details',
     content: {
       'application/json': {
         example: {
           success: true,
           data: {
             id: 'm1a2b3c4-d5e6-7890-abcd-ef1234567890',
-            userId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
             utilityType: 'electricity',
-            meterCode: 'IT001E556779',
-            status: 'active',
-            annualConsumption: '12500.00',
-            consumptionUnit: 'kWh',
-            contractedPowerKw: '3.00',
-            activationDate: '2025-01-15',
-            notes: 'Verified via supplier portal',
+            name: 'Electricity',
+            description: 'Residential and business electricity supply',
+            isActive: true,
             createdBy: 'admin-uuid',
             updatedBy: 'admin-uuid',
             createdAt: '2026-06-01T10:00:00.000Z',
             updatedAt: '2026-06-09T12:00:00.000Z',
-            user: { id: 'a1b2c3d4...', email: 'mario.rossi@email.com', firstName: 'Mario', lastName: 'Rossi' },
-            supplier: { id: 'b2c3d4e5...', name: 'Ener Energia' },
-            address: { id: 'c3d4e5f6...', streetAddress: 'Via Roma 42', city: 'Milano', postalCode: '20121' },
           },
         },
       },
@@ -279,21 +264,21 @@ export class MetersController {
   @Patch(':id')
   @Roles(UserRole.ADMIN)
   @ApiOperation({
-    summary: 'Update meter fields (admin)',
-    description: 'Updates meter fields. All fields are optional. Use `PATCH :id/status` for status moderation.',
+    summary: 'Update service type (admin)',
+    description: 'Updates service type fields. All fields are optional.',
   })
   @ApiBody({ type: UpdateMeterDto })
   @ApiOkResponse({
-    description: 'Meter updated successfully',
-    content: { 'application/json': { example: { success: true, data: { id: 'm1a2b3c4...', meterCode: 'IT001E556779', annualConsumption: '15000.00', updatedBy: 'admin-uuid', updatedAt: '2026-06-09T14:00:00.000Z' } } } },
+    description: 'Service type updated successfully',
+    content: { 'application/json': { example: { success: true, data: { id: 'm1a2b3c4...', name: 'Electricity', isActive: true, updatedBy: 'admin-uuid', updatedAt: '2026-06-09T14:00:00.000Z' } } } },
   })
   @ApiNotFoundResponse({
     description: 'Meter not found',
     content: { 'application/json': { example: { success: false, statusCode: 404, message: ['Meter not found'], timestamp: '2026-06-09T12:00:00.000Z' } } },
   })
   @ApiConflictResponse({
-    description: 'Duplicate meter code + utility type after update',
-    content: { 'application/json': { example: { success: false, statusCode: 409, message: ['A meter with this code and utility type already exists'], timestamp: '2026-06-09T12:00:00.000Z' } } },
+    description: 'Duplicate utility type after update',
+    content: { 'application/json': { example: { success: false, statusCode: 409, message: ['A service type with this utility type already exists'], timestamp: '2026-06-09T12:00:00.000Z' } } },
   })
   @ApiUnauthorizedResponse({
     description: 'Missing or invalid JWT access token',
@@ -310,11 +295,11 @@ export class MetersController {
   @Delete(':id')
   @Roles(UserRole.ADMIN)
   @ApiOperation({
-    summary: 'Soft-delete a meter (admin)',
-    description: 'Marks the meter as deleted (sets `deleted_at`). The meter is hidden from all queries but preserved in the database.',
+    summary: 'Soft-delete a service type (admin)',
+    description: 'Marks the service type as deleted. It is hidden from all queries but preserved in the database.',
   })
   @ApiOkResponse({
-    description: 'Meter deleted successfully',
+    description: 'Service type deleted successfully',
     content: { 'application/json': { example: { success: true, data: { message: 'Meter deleted successfully' } } } },
   })
   @ApiNotFoundResponse({
@@ -328,82 +313,5 @@ export class MetersController {
   async remove(@Param('id', ParseUUIDPipe) id: string) {
     await this.metersService.softDelete(id);
     return { message: 'Meter deleted successfully' };
-  }
-
-  @Patch(':id/status')
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({
-    summary: 'Change meter status (admin moderation)',
-    description:
-      'Updates a meter\'s status. Controls whether the meter is visible to the user.\n\n' +
-      'Valid transitions:\n' +
-      '- PENDING → ACTIVE or TERMINATED\n' +
-      '- ACTIVE → INACTIVE or TERMINATED\n' +
-      '- INACTIVE → ACTIVE or TERMINATED\n' +
-      '- TERMINATED is a terminal state (no further transitions)',
-  })
-  @ApiBody({ type: UpdateMeterStatusDto })
-  @ApiOkResponse({
-    description: 'Meter status updated',
-    content: {
-      'application/json': {
-        examples: {
-          activated: {
-            summary: 'Meter activated (visible to user)',
-            value: {
-              success: true,
-              data: {
-                id: 'm1a2b3c4-d5e6-7890-abcd-ef1234567890',
-                meterCode: 'IT001E556779',
-                status: 'active',
-                updatedBy: 'admin-uuid',
-                updatedAt: '2026-06-09T14:00:00.000Z',
-              },
-            },
-          },
-          deactivated: {
-            summary: 'Meter deactivated (hidden from user)',
-            value: {
-              success: true,
-              data: {
-                id: 'm1a2b3c4-d5e6-7890-abcd-ef1234567890',
-                meterCode: 'IT001E556779',
-                status: 'inactive',
-                updatedBy: 'admin-uuid',
-                updatedAt: '2026-06-09T14:00:00.000Z',
-              },
-            },
-          },
-        },
-      },
-    },
-  })
-  @ApiBadRequestResponse({
-    description: 'Invalid status transition',
-    content: {
-      'application/json': {
-        example: {
-          success: false,
-          statusCode: 400,
-          message: ['Cannot transition from terminated to active'],
-          timestamp: '2026-06-09T12:00:00.000Z',
-        },
-      },
-    },
-  })
-  @ApiNotFoundResponse({
-    description: 'Meter not found',
-    content: { 'application/json': { example: { success: false, statusCode: 404, message: ['Meter not found'], timestamp: '2026-06-09T12:00:00.000Z' } } },
-  })
-  @ApiUnauthorizedResponse({
-    description: 'Missing or invalid JWT access token',
-    content: { 'application/json': { example: { success: false, statusCode: 401, message: ['Unauthorized'], timestamp: '2026-06-09T12:00:00.000Z' } } },
-  })
-  updateStatus(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: UpdateMeterStatusDto,
-    @CurrentUser('id') adminId: string,
-  ) {
-    return this.metersService.updateStatus(id, dto, adminId);
   }
 }

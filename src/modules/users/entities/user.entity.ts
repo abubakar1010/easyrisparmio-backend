@@ -10,6 +10,8 @@ import { BaseEntity } from '../../../common/entities/base.entity';
 import { UserRole } from '../../../common/enums/role.enum';
 import { UserStatus, AuthProvider } from '../../../common/enums/user.enum';
 import { BusinessProfile } from './business-profile.entity';
+import { UserAddress } from './user-address.entity';
+import { UserPreference } from './user-preference.entity';
 import { EnergyBill } from '../../bills/entities/energy-bill.entity';
 import { SupportTicket } from '../../support/entities/support-ticket.entity';
 import { Notification } from '../../notifications/entities/notification.entity';
@@ -85,8 +87,17 @@ export class User extends BaseEntity {
   })
   businessProfile: BusinessProfile;
 
+  @OneToMany(() => UserAddress, (address) => address.user)
+  addresses: UserAddress[];
+
+  @OneToOne(() => UserPreference, (pref) => pref.user)
+  preferences: UserPreference;
+
   @OneToMany(() => EnergyBill, (bill) => bill.user)
   bills: EnergyBill[];
+
+  // Virtual property populated by loadRelationCountAndMap
+  billCount?: number;
 
   @OneToMany('SwitchCase', 'user')
   cases: any[];

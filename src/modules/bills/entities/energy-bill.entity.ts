@@ -125,10 +125,6 @@ export class EnergyBill extends BaseEntity {
   @DeleteDateColumn({ name: 'deleted_at' })
   deletedAt: Date | null;
 
-  @ManyToOne('Meter', { nullable: true, eager: false })
-  @JoinColumn({ name: 'meter_id' })
-  meter: any;
-
   @OneToOne(() => BillAnalysis, (analysis) => analysis.bill)
   analysis: BillAnalysis;
 }

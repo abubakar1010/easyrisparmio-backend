@@ -1,5 +1,5 @@
-import { IsEmail, IsNotEmpty, IsString, Length, MinLength } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, Length, MinLength, ValidateIf } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ForgotPasswordDto {
   @ApiProperty({
@@ -12,24 +12,34 @@ export class ForgotPasswordDto {
 }
 
 export class ResetPasswordDto {
-  @ApiProperty({
-    description: 'Email address of the account to reset',
+  @ApiPropertyOptional({
+    description: 'Signed reset token received from verify-otp (preferred). If provided, email and code are not required.',
+    example: 'eyJhbGciOiJIUzI1NiIs...',
+  })
+  @IsOptional()
+  @IsString()
+  resetToken?: string;
+
+  @ApiPropertyOptional({
+    description: 'Email address of the account to reset. Required if resetToken is not provided.',
     example: 'mario.rossi@email.com',
   })
+  @ValidateIf((o) => !o.resetToken)
   @IsEmail()
   @IsNotEmpty()
-  email: string;
+  email?: string;
 
-  @ApiProperty({
-    description: '6-digit OTP code received from the forgot-password request',
+  @ApiPropertyOptional({
+    description: '6-digit OTP code received from the forgot-password request. Required if resetToken is not provided.',
     example: '123456',
     minLength: 6,
     maxLength: 6,
   })
+  @ValidateIf((o) => !o.resetToken)
   @IsString()
   @IsNotEmpty()
   @Length(6, 6)
-  code: string;
+  code?: string;
 
   @ApiProperty({
     description: 'New password (minimum 8 characters)',

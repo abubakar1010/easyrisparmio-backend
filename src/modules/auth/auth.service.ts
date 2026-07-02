@@ -213,6 +213,16 @@ export class AuthService {
       });
     }
 
+    // For password reset, return a short-lived reset token so the client
+    // can proceed to POST /auth/reset-password without the raw OTP code.
+    if (dto.type === OtpType.PASSWORD_RESET) {
+      const resetToken = this.jwtService.sign(
+        { email, purpose: 'password_reset' },
+        { expiresIn: '5m' },
+      );
+      return { message: 'OTP verified successfully', resetToken };
+    }
+
     return { message: 'OTP verified successfully' };
   }
 
@@ -277,41 +287,66 @@ export class AuthService {
   }
 
   async resetPassword(dto: ResetPasswordDto) {
-    const user = await this.usersService.findByEmail(dto.email);
-    if (!user) {
-      throw new BadRequestException('Invalid or expired OTP code');
-    }
+    let email: string;
 
-    const otpCode = await this.otpCodeRepository.findOne({
-      where: {
-        userId: user.id,
-        type: OtpType.PASSWORD_RESET,
-        used: false,
-        expiresAt: MoreThan(new Date()),
-      },
-      order: { createdAt: 'DESC' },
-    });
+    if (dto.resetToken) {
+      // Secure flow: resetToken was issued by verify-otp after OTP was validated
+      try {
+        const payload = this.jwtService.verify(dto.resetToken);
+        if (payload.purpose !== 'password_reset') {
+          throw new BadRequestException('Invalid reset token');
+        }
+        email = payload.email;
+      } catch (err) {
+        if (err instanceof BadRequestException) throw err;
+        throw new BadRequestException('Invalid or expired reset token');
+      }
+    } else if (dto.email && dto.code) {
+      // Legacy flow: validate OTP directly
+      email = dto.email;
+      const user = await this.usersService.findByEmail(email);
+      if (!user) {
+        throw new BadRequestException('Invalid or expired OTP code');
+      }
 
-    if (!otpCode) {
-      throw new BadRequestException('Invalid or expired OTP code');
-    }
+      const otpCode = await this.otpCodeRepository.findOne({
+        where: {
+          userId: user.id,
+          type: OtpType.PASSWORD_RESET,
+          used: false,
+          expiresAt: MoreThan(new Date()),
+        },
+        order: { createdAt: 'DESC' },
+      });
 
-    if (otpCode.attempts >= MAX_OTP_ATTEMPTS) {
+      if (!otpCode) {
+        throw new BadRequestException('Invalid or expired OTP code');
+      }
+
+      if (otpCode.attempts >= MAX_OTP_ATTEMPTS) {
+        otpCode.used = true;
+        await this.otpCodeRepository.save(otpCode);
+        throw new BadRequestException(
+          'Too many failed attempts. Please request a new code.',
+        );
+      }
+
+      if (otpCode.code !== dto.code) {
+        otpCode.attempts += 1;
+        await this.otpCodeRepository.save(otpCode);
+        throw new BadRequestException('Invalid or expired OTP code');
+      }
+
       otpCode.used = true;
       await this.otpCodeRepository.save(otpCode);
-      throw new BadRequestException(
-        'Too many failed attempts. Please request a new code.',
-      );
+    } else {
+      throw new BadRequestException('Either resetToken or email+code is required');
     }
 
-    if (otpCode.code !== dto.code) {
-      otpCode.attempts += 1;
-      await this.otpCodeRepository.save(otpCode);
-      throw new BadRequestException('Invalid or expired OTP code');
+    const user = await this.usersService.findByEmail(email);
+    if (!user) {
+      throw new BadRequestException('Invalid request');
     }
-
-    otpCode.used = true;
-    await this.otpCodeRepository.save(otpCode);
 
     const passwordHash = await bcrypt.hash(dto.newPassword, 10);
     await this.usersService.update(user.id, { passwordHash });

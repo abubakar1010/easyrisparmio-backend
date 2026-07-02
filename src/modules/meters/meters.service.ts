@@ -2,23 +2,25 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
-  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Meter } from './entities/meter.entity';
 import { CreateMeterDto } from './dto/create-meter.dto';
 import { UpdateMeterDto } from './dto/update-meter.dto';
-import { UpdateMeterStatusDto } from './dto/update-meter-status.dto';
 import { QueryMetersDto } from './dto/query-meters.dto';
 import { PaginatedResponseDto } from '../../common/dto/pagination.dto';
-import { MeterStatus } from '../../common/enums/utility.enum';
+import { Contract } from '../contracts/entities/contract.entity';
+import { ContractStatus } from '../../common/enums/contract.enum';
+import { CaseStatus } from '../../common/enums/case.enum';
 
 @Injectable()
 export class MetersService {
   constructor(
     @InjectRepository(Meter)
     private readonly meterRepository: Repository<Meter>,
+    @InjectRepository(Contract)
+    private readonly contractRepository: Repository<Contract>,
   ) {}
 
   // ─── Admin Methods ────────────────────────────────────────
@@ -35,7 +37,7 @@ export class MetersService {
     } catch (error: any) {
       if (error.code === '23505') {
         throw new ConflictException(
-          'A meter with this code and utility type already exists',
+          'A service type with this utility type already exists',
         );
       }
       throw error;
@@ -45,11 +47,7 @@ export class MetersService {
   async findAll(
     query: QueryMetersDto,
   ): Promise<PaginatedResponseDto<Meter>> {
-    const qb = this.meterRepository
-      .createQueryBuilder('meter')
-      .leftJoinAndSelect('meter.user', 'user')
-      .leftJoinAndSelect('meter.supplier', 'supplier')
-      .leftJoinAndSelect('meter.address', 'address');
+    const qb = this.meterRepository.createQueryBuilder('meter');
 
     if (query.utilityType) {
       qb.andWhere('meter.utilityType = :utilityType', {
@@ -57,23 +55,14 @@ export class MetersService {
       });
     }
 
-    if (query.status) {
-      qb.andWhere('meter.status = :status', { status: query.status });
-    }
-
-    if (query.userId) {
-      qb.andWhere('meter.userId = :userId', { userId: query.userId });
-    }
-
-    if (query.supplierId) {
-      qb.andWhere('meter.supplierId = :supplierId', {
-        supplierId: query.supplierId,
-      });
+    if (query.isActive !== undefined) {
+      const isActive = query.isActive === 'true';
+      qb.andWhere('meter.isActive = :isActive', { isActive });
     }
 
     if (query.search) {
       qb.andWhere(
-        '(meter.meterCode ILIKE :search OR user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.email ILIKE :search)',
+        '(meter.name ILIKE :search OR CAST(meter.utilityType AS TEXT) ILIKE :search)',
         { search: `%${query.search}%` },
       );
     }
@@ -90,7 +79,6 @@ export class MetersService {
   async findById(id: string): Promise<Meter> {
     const meter = await this.meterRepository.findOne({
       where: { id },
-      relations: ['user', 'supplier', 'address'],
     });
 
     if (!meter) {
@@ -115,7 +103,7 @@ export class MetersService {
     } catch (error: any) {
       if (error.code === '23505') {
         throw new ConflictException(
-          'A meter with this code and utility type already exists',
+          'A service type with this utility type already exists',
         );
       }
       throw error;
@@ -127,51 +115,38 @@ export class MetersService {
     await this.meterRepository.softRemove(meter);
   }
 
-  async updateStatus(
-    id: string,
-    dto: UpdateMeterStatusDto,
-    adminId: string,
-  ): Promise<Meter> {
-    const meter = await this.findById(id);
-
-    this.validateStatusTransition(meter.status, dto.status);
-
-    meter.status = dto.status;
-    meter.updatedBy = adminId;
-
-    return this.meterRepository.save(meter);
-  }
-
   // ─── User Methods ─────────────────────────────────────────
 
-  async findUserActiveMeters(userId: string): Promise<Meter[]> {
-    return this.meterRepository
-      .createQueryBuilder('meter')
-      .leftJoinAndSelect('meter.supplier', 'supplier')
-      .leftJoinAndSelect('meter.address', 'address')
-      .where('meter.userId = :userId', { userId })
-      .andWhere('meter.status = :status', { status: MeterStatus.ACTIVE })
-      .orderBy('meter.createdAt', 'DESC')
+  async findUserActivatedServices(userId: string) {
+    const contracts = await this.contractRepository
+      .createQueryBuilder('c')
+      .leftJoinAndSelect('c.switchCase', 'sc')
+      .leftJoinAndSelect('c.offer', 'offer')
+      .leftJoin('offer.supplier', 'supplier')
+      .addSelect(['supplier.id', 'supplier.name', 'supplier.logoUrl'])
+      .where('c.userId = :userId', { userId })
+      .andWhere('c.status = :contractStatus', { contractStatus: ContractStatus.ACTIVE })
+      .andWhere('sc.status = :caseStatus', { caseStatus: CaseStatus.ACTIVATED })
+      .orderBy('c.createdAt', 'DESC')
       .getMany();
-  }
 
-  // ─── Helpers ──────────────────────────────────────────────
-
-  private validateStatusTransition(
-    currentStatus: MeterStatus,
-    newStatus: MeterStatus,
-  ): void {
-    const validTransitions: Record<MeterStatus, MeterStatus[]> = {
-      [MeterStatus.PENDING]: [MeterStatus.ACTIVE, MeterStatus.TERMINATED],
-      [MeterStatus.ACTIVE]: [MeterStatus.INACTIVE, MeterStatus.TERMINATED],
-      [MeterStatus.INACTIVE]: [MeterStatus.ACTIVE, MeterStatus.TERMINATED],
-      [MeterStatus.TERMINATED]: [],
-    };
-
-    if (!validTransitions[currentStatus]?.includes(newStatus)) {
-      throw new BadRequestException(
-        `Cannot transition from ${currentStatus} to ${newStatus}`,
-      );
-    }
+    return contracts.map((contract) => ({
+      id: contract.id,
+      caseId: contract.caseId,
+      offerId: contract.offerId,
+      energyType: contract.offer?.energyType || null,
+      offerName: contract.offer?.name || null,
+      supplierName: contract.offer?.supplier?.name || null,
+      contractNumber: contract.contractNumber,
+      podPdrNumber: contract.podPdrNumber || null,
+      activationDate: contract.activationDate || null,
+      expiryDate: contract.expiryDate || null,
+      monthlyEstimate: contract.monthlyEstimate || null,
+      pricePerKwh: contract.offer?.pricePerKwh || null,
+      pricePerSmc: contract.offer?.pricePerSmc || null,
+      fixedMonthlyFee: contract.offer?.fixedMonthlyFee || null,
+      contractDurationMonths: contract.offer?.contractDurationMonths || null,
+      isGreenEnergy: contract.offer?.isGreenEnergy || false,
+    }));
   }
 }

@@ -37,7 +37,6 @@ export async function seedSwitchCases(
       estimatedAnnualValue: 2200.0,
       fromSupplierId: enel.id,
       toSupplierId: eni.id,
-      meterId: ctx.meters[0].id,
     },
     {
       userId: marco.id,
@@ -53,7 +52,6 @@ export async function seedSwitchCases(
       estimatedAnnualValue: 1140.0,
       fromSupplierId: eni.id,
       toSupplierId: enel.id,
-      meterId: ctx.meters[1].id,
     },
     {
       userId: giuseppe.id,
@@ -72,7 +70,6 @@ export async function seedSwitchCases(
       estimatedAnnualValue: 54000.0,
       fromSupplierId: a2a.id,
       toSupplierId: eni.id,
-      meterId: ctx.meters[3].id,
     },
   ];
 

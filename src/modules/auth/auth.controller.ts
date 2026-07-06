@@ -696,6 +696,42 @@ export class AuthController {
     });
   }
 
+  // ─── Logout ───────────────────────────────────────────────
+
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Logout and revoke refresh token',
+    description:
+      'Revokes the provided refresh token so it can no longer be used. ' +
+      'Requires a valid JWT access token. The client should discard both tokens after calling this.',
+  })
+  @ApiBody({ type: RefreshTokenDto })
+  @ApiOkResponse({
+    description: 'Logged out successfully. Refresh token revoked.',
+    type: MessageResponseDto,
+    content: {
+      'application/json': {
+        example: {
+          success: true,
+          data: { message: 'Logged out successfully' },
+        },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing or invalid JWT access token',
+    type: ErrorResponseDto,
+  })
+  async logout(
+    @Body() dto: RefreshTokenDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.authService.logout(user.id, dto.refreshToken);
+  }
+
   // ─── Profile ──────────────────────────────────────────────
 
   @Get('me')

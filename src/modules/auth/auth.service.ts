@@ -414,6 +414,19 @@ export class AuthService {
     });
   }
 
+  async logout(userId: string, refreshTokenValue: string) {
+    const token = await this.refreshTokenRepository.findOne({
+      where: { token: refreshTokenValue, userId, revoked: false },
+    });
+
+    if (token) {
+      token.revoked = true;
+      await this.refreshTokenRepository.save(token);
+    }
+
+    return { message: 'Logged out successfully' };
+  }
+
   async getProfile(userId: string) {
     const user = await this.usersService.findById(userId);
     if (!user) {

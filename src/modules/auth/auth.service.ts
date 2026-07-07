@@ -10,7 +10,7 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThan, DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { randomInt, randomUUID } from 'crypto';
+import { randomInt, randomUUID, timingSafeEqual } from 'crypto';
 
 import { User } from '../users/entities/user.entity';
 import { BusinessProfile } from '../users/entities/business-profile.entity';
@@ -135,8 +135,12 @@ export class AuthService {
     }
 
     if (user.status === UserStatus.SUSPENDED) {
-      throw new UnauthorizedException('Your account has been suspended');
+      throw new UnauthorizedException(
+        'Your account has been suspended. Please contact support for assistance.',
+      );
     }
+
+    await this.usersService.update(user.id, { lastLoginAt: new Date() });
 
     const tokens = await this.generateTokens(user, meta);
     const { passwordHash: _, ...userWithoutPassword } = user;
@@ -188,7 +192,7 @@ export class AuthService {
     // Timing-safe comparison for the OTP code
     const isMatch =
       otpCode.code.length === dto.code.length &&
-      otpCode.code === dto.code;
+      timingSafeEqual(Buffer.from(otpCode.code), Buffer.from(dto.code));
 
     if (!isMatch) {
       // Increment failed attempts
@@ -331,7 +335,10 @@ export class AuthService {
         );
       }
 
-      if (otpCode.code !== dto.code) {
+      if (
+        otpCode.code.length !== dto.code.length ||
+        !timingSafeEqual(Buffer.from(otpCode.code), Buffer.from(dto.code))
+      ) {
         otpCode.attempts += 1;
         await this.otpCodeRepository.save(otpCode);
         throw new BadRequestException('Invalid or expired OTP code');
@@ -511,7 +518,9 @@ export class AuthService {
     }
 
     if (user.status === UserStatus.SUSPENDED) {
-      throw new UnauthorizedException('Your account has been suspended');
+      throw new UnauthorizedException(
+        'Your account has been suspended. Please contact support for assistance.',
+      );
     }
 
     await this.usersService.update(user.id, { lastLoginAt: new Date() });

@@ -246,7 +246,7 @@ export class AuthController {
             value: {
               success: false,
               statusCode: 401,
-              message: ['Unauthorized'],
+              message: ['Invalid email or password'],
               timestamp: '2026-06-09T12:00:00.000Z',
             },
           },
@@ -255,7 +255,7 @@ export class AuthController {
             value: {
               success: false,
               statusCode: 401,
-              message: ['Your account has been suspended'],
+              message: ['Your account has been suspended. Please contact support for assistance.'],
               timestamp: '2026-06-09T12:00:00.000Z',
             },
           },
@@ -297,6 +297,7 @@ export class AuthController {
 
   @Post('social-login')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({
     summary: 'Login or register via social provider (Google, Facebook, Apple)',
     description:
@@ -406,7 +407,7 @@ export class AuthController {
         example: {
           success: false,
           statusCode: 401,
-          message: ['Your account has been suspended'],
+          message: ['Your account has been suspended. Please contact support for assistance.'],
           timestamp: '2026-06-09T12:00:00.000Z',
         },
       },

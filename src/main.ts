@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
@@ -10,15 +11,24 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
 
+  // Security headers
+  app.use(helmet());
+
   // Global prefix
   app.setGlobalPrefix('api/v1');
 
   // CORS
+  const corsOrigins = configService.get<string>('CORS_ORIGINS');
   app.enableCors({
-    origin: '*',
+    origin: corsOrigins
+      ? corsOrigins.split(',').map((o) => o.trim())
+      : configService.get('app.env') === 'production'
+        ? false
+        : '*',
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    allowedHeaders: '*',
-    exposedHeaders: '*',
+    allowedHeaders: 'Content-Type,Authorization',
+    exposedHeaders: 'Content-Disposition',
+    credentials: true,
   });
 
   // Global validation pipe

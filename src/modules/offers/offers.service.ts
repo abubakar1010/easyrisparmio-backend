@@ -26,6 +26,24 @@ export class OffersService {
     private readonly billRepository: Repository<EnergyBill>,
   ) {}
 
+  resolveOfferLocale(offer: Offer, locale?: string): Offer {
+    if (!locale || locale === 'it') return offer;
+    if (offer.nameI18n && offer.nameI18n[locale]) {
+      offer.name = offer.nameI18n[locale];
+    }
+    if (offer.descriptionI18n && offer.descriptionI18n[locale]) {
+      offer.description = offer.descriptionI18n[locale];
+    }
+    if (offer.highlightsI18n && offer.highlightsI18n[locale]) {
+      offer.highlights = offer.highlightsI18n[locale];
+    }
+    return offer;
+  }
+
+  resolveOffersLocale(offers: Offer[], locale?: string): Offer[] {
+    return offers.map((offer) => this.resolveOfferLocale(offer, locale));
+  }
+
   async create(dto: CreateOfferDto, adminId: string): Promise<Offer> {
     const offer = this.offerRepository.create({
       ...dto,

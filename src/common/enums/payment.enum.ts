@@ -10,7 +10,5 @@ export enum InvoiceDelivery {
   PAPER = 'paper',
 }
 
-export enum LanguagePref {
-  ITALIANO = 'italiano',
-  ENGLISH = 'english',
-}
+// LanguagePref moved to language.enum.ts
+export { LanguagePref } from './language.enum';

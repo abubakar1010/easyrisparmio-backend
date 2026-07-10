@@ -200,11 +200,12 @@ export class SupportService {
     });
   }
 
-  async getFaqs(category?: string): Promise<Faq[]> {
+  async getFaqs(category?: string, locale?: string): Promise<Faq[]> {
     const where: any = { isActive: true };
     if (category) {
       where.category = category;
     }
+    where.locale = locale || 'it';
 
     return this.faqRepository.find({
       where,

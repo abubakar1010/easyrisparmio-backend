@@ -23,6 +23,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     let message = 'Internal server error';
 
     let data: Record<string, any> | undefined;
+    let errorCode: string | undefined;
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
@@ -30,6 +31,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
       message = typeof res === 'string' ? res : (res as any).message || message;
       if (typeof res === 'object' && (res as any).data) {
         data = (res as any).data;
+      }
+      if (typeof res === 'object' && (res as any).errorCode) {
+        errorCode = (res as any).errorCode;
       }
     }
 
@@ -39,6 +43,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
       message: Array.isArray(message) ? message : [message],
       timestamp: new Date().toISOString(),
     };
+    if (errorCode) {
+      body.errorCode = errorCode;
+    }
     if (data) {
       body.data = data;
     }

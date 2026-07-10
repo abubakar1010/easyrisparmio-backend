@@ -165,6 +165,38 @@ export class UsersController {
     return result;
   }
 
+  @Get('me/preferences')
+  @ApiOperation({
+    summary: 'Get own preferences',
+    description: 'Returns the authenticated user\'s preferences including language, payment method, and invoice delivery.',
+  })
+  @ApiOkResponse({ description: 'User preferences retrieved' })
+  @ApiUnauthorizedResponse({
+    description: 'Missing or invalid JWT access token',
+    content: { 'application/json': { example: { success: false, statusCode: 401, message: ['Unauthorized'], timestamp: '2026-06-24T12:00:00.000Z' } } },
+  })
+  async getOwnPreferences(@CurrentUser() user: User) {
+    return this.usersService.getPreferences(user.id);
+  }
+
+  @Patch('me/preferences')
+  @ApiOperation({
+    summary: 'Update own preferences',
+    description: 'Updates the authenticated user\'s preferences. Creates a preferences record if one does not exist yet.',
+  })
+  @ApiBody({ type: UpdatePreferencesDto })
+  @ApiOkResponse({ description: 'User preferences updated successfully' })
+  @ApiUnauthorizedResponse({
+    description: 'Missing or invalid JWT access token',
+    content: { 'application/json': { example: { success: false, statusCode: 401, message: ['Unauthorized'], timestamp: '2026-06-24T12:00:00.000Z' } } },
+  })
+  async updateOwnPreferences(
+    @CurrentUser() user: User,
+    @Body() dto: UpdatePreferencesDto,
+  ) {
+    return this.usersService.updatePreferences(user.id, dto);
+  }
+
   // ─── Admin Endpoints ──────────────────────────────────────
 
   @Get()

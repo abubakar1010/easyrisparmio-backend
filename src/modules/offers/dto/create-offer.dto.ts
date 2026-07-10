@@ -93,6 +93,27 @@ export class CreateOfferDto {
   @IsString({ each: true })
   highlights?: string[];
 
+  @ApiPropertyOptional({
+    description: 'Translated offer names by locale',
+    example: { it: 'Casa Luce Fix 12', en: 'Home Light Fix 12' },
+  })
+  @IsOptional()
+  nameI18n?: Record<string, string>;
+
+  @ApiPropertyOptional({
+    description: 'Translated offer descriptions by locale',
+    example: { it: 'Piano luce a prezzo fisso', en: 'Fixed-price electricity plan' },
+  })
+  @IsOptional()
+  descriptionI18n?: Record<string, string>;
+
+  @ApiPropertyOptional({
+    description: 'Translated highlight bullet points by locale',
+    example: { it: ['Prezzo fisso 12 mesi'], en: ['Fixed price 12 months'] },
+  })
+  @IsOptional()
+  highlightsI18n?: Record<string, string[]>;
+
   @ApiProperty({ description: 'Supplier UUID', example: 's1a2b3c4-d5e6-7890-abcd-ef1234567890' })
   @IsUUID()
   supplierId: string;

@@ -1,7 +1,8 @@
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { LocaleMiddleware } from './common/middleware/locale.middleware';
 
 import appConfig from './config/app.config';
 import databaseConfig from './config/database.config';
@@ -105,4 +106,8 @@ import { EmailModule } from './modules/email/email.module';
     AgreementsModule,
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(LocaleMiddleware).forRoutes('*');
+  }
+}

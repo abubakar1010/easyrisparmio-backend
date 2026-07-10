@@ -46,25 +46,59 @@ export class EmailService {
     }
   }
 
+  private getOtpEmailContent(
+    type: 'email_verification' | 'password_reset',
+    locale: string = 'it',
+  ) {
+    const templates = {
+      en: {
+        email_verification: {
+          subject: `${this.appName} — Verify your email`,
+          heading: 'Verify your email address',
+          instruction: 'Use the code below to verify your email and activate your account.',
+          expiry: 'This code expires in 10 minutes.',
+          footer: `You received this email because an account was registered on ${this.appName} with this address. If you didn't request this, you can safely ignore it.`,
+        },
+        password_reset: {
+          subject: `${this.appName} — Password reset code`,
+          heading: 'Reset your password',
+          instruction: 'Use the code below to reset your password. If you did not request this, ignore this email.',
+          expiry: 'This code expires in 10 minutes.',
+          footer: `You received this email because an account was registered on ${this.appName} with this address. If you didn't request this, you can safely ignore it.`,
+        },
+      },
+      it: {
+        email_verification: {
+          subject: `${this.appName} — Verifica la tua email`,
+          heading: 'Verifica il tuo indirizzo email',
+          instruction: 'Usa il codice qui sotto per verificare la tua email e attivare il tuo account.',
+          expiry: 'Questo codice scade tra 10 minuti.',
+          footer: `Hai ricevuto questa email perché un account è stato registrato su ${this.appName} con questo indirizzo. Se non hai effettuato questa richiesta, puoi ignorare questo messaggio.`,
+        },
+        password_reset: {
+          subject: `${this.appName} — Codice di reset password`,
+          heading: 'Reimposta la tua password',
+          instruction: 'Usa il codice qui sotto per reimpostare la tua password. Se non hai effettuato questa richiesta, ignora questa email.',
+          expiry: 'Questo codice scade tra 10 minuti.',
+          footer: `Hai ricevuto questa email perché un account è stato registrato su ${this.appName} con questo indirizzo. Se non hai effettuato questa richiesta, puoi ignorare questo messaggio.`,
+        },
+      },
+    };
+
+    const lang = locale in templates ? locale : 'it';
+    return templates[lang][type];
+  }
+
   async sendOtpEmail(
     to: string,
     code: string,
     type: 'email_verification' | 'password_reset',
+    locale: string = 'it',
   ): Promise<void> {
-    const subject =
-      type === 'email_verification'
-        ? `${this.appName} — Verify your email`
-        : `${this.appName} — Password reset code`;
-
-    const heading =
-      type === 'email_verification'
-        ? 'Verify your email address'
-        : 'Reset your password';
-
-    const instruction =
-      type === 'email_verification'
-        ? 'Use the code below to verify your email and activate your account.'
-        : 'Use the code below to reset your password. If you did not request this, ignore this email.';
+    const content = this.getOtpEmailContent(type, locale);
+    const subject = content.subject;
+    const heading = content.heading;
+    const instruction = content.instruction;
 
     const html = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
@@ -74,11 +108,10 @@ export class EmailService {
         <div style="background: #f3f4f6; border-radius: 12px; padding: 24px; text-align: center; margin: 24px 0;">
           <span style="font-size: 32px; font-weight: 700; letter-spacing: 8px; color: #6D28D9;">${code}</span>
         </div>
-        <p style="color: #9ca3af; font-size: 14px;">This code expires in 10 minutes.</p>
+        <p style="color: #9ca3af; font-size: 14px;">${content.expiry}</p>
         <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
         <p style="color: #9ca3af; font-size: 12px;">
-          You received this email because an account was registered on ${this.appName} with this address.
-          If you didn't request this, you can safely ignore it.
+          ${content.footer}
         </p>
       </div>
     `;

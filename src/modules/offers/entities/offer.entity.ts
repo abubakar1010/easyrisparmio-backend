@@ -98,6 +98,15 @@ export class Offer extends BaseEntity {
   @Column({ type: 'jsonb', nullable: true })
   highlights: string[];
 
+  @Column({ name: 'name_i18n', type: 'jsonb', nullable: true })
+  nameI18n: Record<string, string> | null;
+
+  @Column({ name: 'description_i18n', type: 'jsonb', nullable: true })
+  descriptionI18n: Record<string, string> | null;
+
+  @Column({ name: 'highlights_i18n', type: 'jsonb', nullable: true })
+  highlightsI18n: Record<string, string[]> | null;
+
   @Column({ name: 'offer_code', type: 'varchar', length: 50, nullable: true })
   offerCode: string | null;
 

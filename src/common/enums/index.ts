@@ -14,6 +14,7 @@ export * from './user.enum';
 export * from './utility.enum';
 export * from './address.enum';
 export * from './payment.enum';
+export * from './language.enum';
 export * from './alert.enum';
 export * from './reconciliation.enum';
 export * from './referral.enum';

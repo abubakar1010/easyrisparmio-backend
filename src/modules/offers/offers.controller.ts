@@ -7,6 +7,7 @@ import {
   Param,
   Body,
   Query,
+  Req,
   UseGuards,
   ParseUUIDPipe,
 } from '@nestjs/common';
@@ -106,8 +107,10 @@ export class OffersController {
       },
     },
   })
-  findAllPublic(@Query() query: PaginationDto) {
-    return this.offersService.findAllPublic(query);
+  async findAllPublic(@Query() query: PaginationDto, @Req() req: any) {
+    const result = await this.offersService.findAllPublic(query);
+    result.data = this.offersService.resolveOffersLocale(result.data, (req as any).locale);
+    return result;
   }
 
   @Get('compare')
@@ -151,9 +154,10 @@ export class OffersController {
     description: 'No offers found for the provided IDs',
     content: { 'application/json': { example: { success: false, statusCode: 404, message: ['No offers found for the provided IDs'], timestamp: '2026-06-10T12:00:00.000Z' } } },
   })
-  compareOffers(@Query('ids') ids: string) {
+  async compareOffers(@Query('ids') ids: string, @Req() req: any) {
     const idArray = ids.split(',').map((id) => id.trim());
-    return this.offersService.compareOffers(idArray);
+    const offers = await this.offersService.compareOffers(idArray);
+    return this.offersService.resolveOffersLocale(offers, (req as any).locale);
   }
 
   @Get('recommended/:billId')
@@ -195,11 +199,13 @@ export class OffersController {
     description: 'Missing or invalid JWT access token',
     content: { 'application/json': { example: ERROR_401 } },
   })
-  getRecommendedOffers(
+  async getRecommendedOffers(
     @CurrentUser('id') userId: string,
     @Param('billId', ParseUUIDPipe) billId: string,
+    @Req() req: any,
   ) {
-    return this.offersService.getRecommendedOffers(billId, userId);
+    const offers = await this.offersService.getRecommendedOffers(billId, userId);
+    return this.offersService.resolveOffersLocale(offers, (req as any).locale);
   }
 
   @Get('admin')
@@ -271,8 +277,9 @@ export class OffersController {
     description: 'Offer not found',
     content: { 'application/json': { example: { success: false, statusCode: 404, message: ['Offer not found'], timestamp: '2026-06-10T12:00:00.000Z' } } },
   })
-  findById(@Param('id', ParseUUIDPipe) id: string) {
-    return this.offersService.findById(id);
+  async findById(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
+    const offer = await this.offersService.findById(id);
+    return this.offersService.resolveOfferLocale(offer, (req as any).locale);
   }
 
   // ─── Admin Endpoints ──────────────────────────────────────

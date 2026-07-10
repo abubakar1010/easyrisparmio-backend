@@ -393,6 +393,7 @@ export class SupportController {
       'Optionally filter by category.',
   })
   @ApiQuery({ name: 'category', required: false, description: 'Filter by FAQ category', example: 'billing' })
+  @ApiQuery({ name: 'locale', required: false, description: 'Language locale (it or en, defaults to it)', example: 'it' })
   @ApiOkResponse({
     description: 'List of active FAQs',
     content: {
@@ -413,8 +414,11 @@ export class SupportController {
       },
     },
   })
-  getFaqs(@Query('category') category?: string) {
-    return this.supportService.getFaqs(category);
+  getFaqs(
+    @Query('category') category?: string,
+    @Query('locale') locale?: string,
+  ) {
+    return this.supportService.getFaqs(category, locale);
   }
 
   @Post('faqs')

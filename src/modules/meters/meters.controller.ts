@@ -92,20 +92,6 @@ export class MetersController {
     return this.metersService.findUserActivatedServices(userId);
   }
 
-  @Get('my-meters')
-  @Roles(UserRole.PERSONAL, UserRole.BUSINESS)
-  @ApiOperation({
-    summary: 'List my active meters (deprecated)',
-    description:
-      'Deprecated — use `GET /meters/my-services` instead. ' +
-      'This endpoint is kept for backward compatibility and returns an empty array.',
-    deprecated: true,
-  })
-  @ApiOkResponse({ description: 'Empty array (deprecated endpoint)' })
-  getMyMeters() {
-    return [];
-  }
-
   // ─── Admin Endpoints ──────────────────────────────────────
 
   @Post()

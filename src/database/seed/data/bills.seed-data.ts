@@ -12,6 +12,7 @@ export async function seedEnergyBills(
   const repo = ds.getRepository(EnergyBill);
   const marco = ctx.users.personal[0];
   const laura = ctx.users.personal[1];
+  const testUser = ctx.users.personal[2]; // test@yopmail.com
   const giuseppe = ctx.users.business[0];
   const [enel, eni, a2a] = ctx.suppliers;
 
@@ -87,6 +88,54 @@ export async function seedEnergyBills(
       costPerUnit: 0.092,
       fixedCharges: 250.0,
       taxes: 580.0,
+    },
+    // test@yopmail.com — electricity bill
+    {
+      userId: testUser.id,
+      supplierId: enel.id,
+      fileUrl: '/uploads/bills/seed-test-electricity.pdf',
+      billType: BillType.ELECTRICITY,
+      status: BillStatus.ANALYZED,
+      podNumber: 'IT001E55667788',
+      billingPeriodStart: new Date('2026-03-01'),
+      billingPeriodEnd: new Date('2026-04-30'),
+      totalAmount: 145.0,
+      consumptionKwh: 420.0,
+      costPerUnit: 0.091,
+      fixedCharges: 25.0,
+      taxes: 21.8,
+      rawAnalysisData: {
+        ocrConfidence: 0.93,
+        extractedFields: {
+          pod: 'IT001E55667788',
+          totalKwh: 420,
+          totalAmount: 145.0,
+        },
+      },
+    },
+    // test@yopmail.com — gas bill
+    {
+      userId: testUser.id,
+      supplierId: eni.id,
+      fileUrl: '/uploads/bills/seed-test-gas.pdf',
+      billType: BillType.GAS,
+      status: BillStatus.ANALYZED,
+      pdrNumber: '98765432109876',
+      billingPeriodStart: new Date('2026-03-01'),
+      billingPeriodEnd: new Date('2026-04-30'),
+      totalAmount: 78.5,
+      consumptionSmc: 150.0,
+      costPerUnit: 0.41,
+      fixedCharges: 15.0,
+      taxes: 10.0,
+      rawAnalysisData: {
+        ocrConfidence: 0.9,
+        extractedFields: {
+          pdr: '98765432109876',
+          totalSmc: 150,
+          totalAmount: 78.5,
+        },
+      },
     },
   ];
 

@@ -20,6 +20,7 @@ export async function seedUsers(
 ): Promise<void> {
   const userRepo = ds.getRepository(User);
   const passwordHash = await bcrypt.hash('Password123!', 10);
+  const testUserPasswordHash = await bcrypt.hash('SecurePass123!', 10);
 
   const usersData = [
     {
@@ -90,6 +91,21 @@ export async function seedUsers(
       phone: '+39 338 7771234',
       codiceFiscale: 'FRRNNA88D52L219P',
       lastLoginAt: new Date('2026-06-18T09:15:00Z'),
+    },
+    {
+      email: 'test@yopmail.com',
+      firstName: 'Test',
+      lastName: 'Utente',
+      role: UserRole.PERSONAL,
+      status: UserStatus.ACTIVE,
+      emailVerified: true,
+      phoneVerified: true,
+      authProvider: AuthProvider.LOCAL,
+      passwordHash: testUserPasswordHash,
+      referralCode: 'SEED-TEST',
+      phone: '+39 320 1234567',
+      codiceFiscale: 'TSTTNX90A01H501Y',
+      lastLoginAt: new Date('2026-07-08T12:00:00Z'),
     },
   ];
 

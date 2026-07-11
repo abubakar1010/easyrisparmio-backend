@@ -16,6 +16,7 @@ export async function seedSwitchCases(
 ): Promise<void> {
   const repo = ds.getRepository(SwitchCase);
   const marco = ctx.users.personal[0];
+  const testUser = ctx.users.personal[2]; // test@yopmail.com
   const giuseppe = ctx.users.business[0];
   const admin = ctx.users.admin;
   const [enel, eni, a2a] = ctx.suppliers;
@@ -70,6 +71,38 @@ export async function seedSwitchCases(
       estimatedAnnualValue: 54000.0,
       fromSupplierId: a2a.id,
       toSupplierId: eni.id,
+    },
+    // test@yopmail.com — electricity switch (ACTIVATED)
+    {
+      userId: testUser.id,
+      billId: ctx.bills[4].id, // test user's electricity bill
+      selectedOfferId: ctx.offers[0].id, // Luce Fissa 24 (Enel)
+      assignedAgentId: admin.id,
+      status: CaseStatus.ACTIVATED,
+      priority: CasePriority.MEDIUM,
+      caseNumber: 'SEED-CASE-004',
+      caseType: CaseType.SWITCH,
+      notes: 'Switch luce completato e attivato.',
+      slaDaysTotal: 30,
+      estimatedAnnualValue: 1740.0,
+      fromSupplierId: eni.id,
+      toSupplierId: enel.id,
+    },
+    // test@yopmail.com — gas switch (ACTIVATED)
+    {
+      userId: testUser.id,
+      billId: ctx.bills[5].id, // test user's gas bill
+      selectedOfferId: ctx.offers[1].id, // Gas Casa (Enel)
+      assignedAgentId: admin.id,
+      status: CaseStatus.ACTIVATED,
+      priority: CasePriority.LOW,
+      caseNumber: 'SEED-CASE-005',
+      caseType: CaseType.SWITCH,
+      notes: 'Switch gas completato e attivato.',
+      slaDaysTotal: 30,
+      estimatedAnnualValue: 942.0,
+      fromSupplierId: eni.id,
+      toSupplierId: enel.id,
     },
   ];
 
@@ -214,6 +247,8 @@ export async function seedContracts(
   const repo = ds.getRepository(Contract);
   const marco = ctx.users.personal[0];
 
+  const testUser = ctx.users.personal[2]; // test@yopmail.com
+
   const contractsData = [
     {
       caseId: ctx.cases[1].id, // SEED-CASE-002 (CONTRACT_SIGNED)
@@ -227,6 +262,34 @@ export async function seedContracts(
       signedAt: new Date('2026-06-05T14:00:00Z'),
       signedDocumentUrl: '/uploads/documents/seed-case002-contract.pdf',
       monthlyEstimate: 47.65,
+    },
+    // test@yopmail.com — electricity contract (ACTIVE)
+    {
+      caseId: ctx.cases[3].id, // SEED-CASE-004 (ACTIVATED)
+      offerId: ctx.offers[0].id, // Luce Fissa 24
+      userId: testUser.id,
+      contractNumber: 'SEED-CTR-002',
+      status: ContractStatus.ACTIVE,
+      podPdrNumber: 'IT001E55667788',
+      activationDate: new Date('2026-05-15'),
+      expiryDate: new Date('2028-05-15'),
+      signedAt: new Date('2026-05-10T10:00:00Z'),
+      signedDocumentUrl: '/uploads/documents/seed-test-electricity-contract.pdf',
+      monthlyEstimate: 72.5,
+    },
+    // test@yopmail.com — gas contract (ACTIVE)
+    {
+      caseId: ctx.cases[4].id, // SEED-CASE-005 (ACTIVATED)
+      offerId: ctx.offers[1].id, // Gas Casa
+      userId: testUser.id,
+      contractNumber: 'SEED-CTR-003',
+      status: ContractStatus.ACTIVE,
+      podPdrNumber: '98765432109876',
+      activationDate: new Date('2026-06-01'),
+      expiryDate: new Date('2027-06-01'),
+      signedAt: new Date('2026-05-25T14:00:00Z'),
+      signedDocumentUrl: '/uploads/documents/seed-test-gas-contract.pdf',
+      monthlyEstimate: 52.3,
     },
   ];
 

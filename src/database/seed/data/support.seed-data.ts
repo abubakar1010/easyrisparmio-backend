@@ -111,9 +111,9 @@ export async function seedFaqs(ds: DataSource): Promise<void> {
       targetAudience: UserTarget.BOTH,
     },
 
-    // ── Bollette e Analisi ────────────────────────────────────────
+    // ── Bollette ───────────────────────────────────────────────────
     {
-      category: 'Bollette e Analisi',
+      category: 'Bollette',
       question: 'Come leggo la mia bolletta della luce?',
       answer:
         'La bolletta della luce si compone di quattro voci principali: spesa per la materia energia (il costo effettivo dell\'elettricità), trasporto e gestione del contatore (costi di rete), oneri di sistema (costi regolamentati) e imposte (IVA e accise). Carica la tua bolletta su EasyRisparmio e il nostro sistema AI la analizzerà in dettaglio, evidenziando eventuali anomalie e opportunità di risparmio.',
@@ -123,7 +123,7 @@ export async function seedFaqs(ds: DataSource): Promise<void> {
       targetAudience: UserTarget.PERSONAL,
     },
     {
-      category: 'Bollette e Analisi',
+      category: 'Bollette',
       question: 'Come leggo la mia bolletta del gas?',
       answer:
         'La bolletta del gas è strutturata in modo simile a quella della luce: spesa per la materia gas naturale, trasporto e gestione del contatore, oneri di sistema e imposte. I consumi sono espressi in SMc (Standard metri cubi). Il costo unitario varia in base alla classe di consumo (da C1 a C5). Caricando la bolletta sull\'app, otterrai un\'analisi dettagliata con confronto rispetto alle tariffe di mercato.',
@@ -133,7 +133,7 @@ export async function seedFaqs(ds: DataSource): Promise<void> {
       targetAudience: UserTarget.PERSONAL,
     },
     {
-      category: 'Bollette e Analisi',
+      category: 'Bollette',
       question: 'Come funziona l\'analisi AI della bolletta?',
       answer:
         'Dopo aver caricato la bolletta (foto o PDF), il nostro sistema di intelligenza artificiale estrae automaticamente tutti i dati chiave: fornitore attuale, tipo di tariffa, consumi, codice POD/PDR e importi. L\'analisi identifica il costo medio per kWh o SMc, lo confronta con le migliori offerte sul mercato e calcola il potenziale risparmio annuo. Riceverai un report dettagliato con le offerte più convenienti per il tuo profilo di consumo.',
@@ -143,7 +143,7 @@ export async function seedFaqs(ds: DataSource): Promise<void> {
       targetAudience: UserTarget.BOTH,
     },
     {
-      category: 'Bollette e Analisi',
+      category: 'Bollette',
       question: 'Quali formati di bolletta posso caricare?',
       answer:
         'Puoi caricare la bolletta in formato PDF o come foto (JPG, PNG). Assicurati che l\'immagine sia nitida e leggibile, con tutte le pagine incluse. Per ottenere i risultati migliori dall\'analisi, carica la bolletta più recente e completa. La dimensione massima del file è di 10 MB.',
@@ -153,7 +153,7 @@ export async function seedFaqs(ds: DataSource): Promise<void> {
       targetAudience: UserTarget.BOTH,
     },
     {
-      category: 'Bollette e Analisi',
+      category: 'Bollette',
       question: 'Cos\'è il codice POD e dove lo trovo?',
       answer:
         'Il codice POD (Point of Delivery) è il codice identificativo univoco del tuo punto di fornitura elettrica. È composto da 14-15 caratteri e inizia sempre con "IT". Lo trovi sulla prima pagina della bolletta della luce, nella sezione "Dati fornitura" o "Dati tecnici". Il codice PDR è l\'equivalente per il gas naturale e ha 14 cifre.',

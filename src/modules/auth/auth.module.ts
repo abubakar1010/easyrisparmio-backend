@@ -25,14 +25,16 @@ import { ReferralsModule } from '../referrals/referrals.module';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        const secret = configService.get<string>('JWT_SECRET');
+        const secret = configService.get<string>('jwt.secret');
         if (!secret) {
           throw new Error(
             'JWT_SECRET environment variable is not set. Server cannot start without it.',
           );
         }
-        const expiresInSeconds =
-          parseInt(configService.get<string>('JWT_EXPIRES_IN_SECONDS') || '900', 10);
+        const expiresInSeconds = parseInt(
+          configService.get<string>('JWT_EXPIRES_IN_SECONDS') || '3600',
+          10,
+        );
         return {
           secret,
           signOptions: {

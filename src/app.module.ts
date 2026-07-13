@@ -9,6 +9,7 @@ import databaseConfig from './config/database.config';
 import jwtConfig from './config/jwt.config';
 import firebaseConfig from './config/firebase.config';
 import emailConfig from './config/email.config';
+import aiConfig from './config/ai.config';
 
 // Feature modules
 import { AuthModule } from './modules/auth/auth.module';
@@ -30,6 +31,7 @@ import { AlertsModule } from './modules/alerts/alerts.module';
 import { ReconciliationModule } from './modules/reconciliation/reconciliation.module';
 import { ReferralsModule } from './modules/referrals/referrals.module';
 import { AgreementsModule } from './modules/agreements/agreements.module';
+import { StaticPagesModule } from './modules/static-pages/static-pages.module';
 import { EmailModule } from './modules/email/email.module';
 
 @Module({
@@ -37,7 +39,7 @@ import { EmailModule } from './modules/email/email.module';
     // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, databaseConfig, jwtConfig, firebaseConfig, emailConfig],
+      load: [appConfig, databaseConfig, jwtConfig, firebaseConfig, emailConfig, aiConfig],
       envFilePath: '.env',
     }),
 
@@ -104,6 +106,7 @@ import { EmailModule } from './modules/email/email.module';
     ReconciliationModule,
     ReferralsModule,
     AgreementsModule,
+    StaticPagesModule,
   ],
 })
 export class AppModule implements NestModule {

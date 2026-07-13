@@ -421,9 +421,9 @@ export class AuthService {
     });
   }
 
-  async logout(userId: string, refreshTokenValue: string) {
+  async logout(refreshTokenValue: string) {
     const token = await this.refreshTokenRepository.findOne({
-      where: { token: refreshTokenValue, userId, revoked: false },
+      where: { token: refreshTokenValue, revoked: false },
     });
 
     if (token) {

@@ -1,6 +1,6 @@
-import { IsString, IsNotEmpty, IsEnum, IsOptional, MaxLength } from 'class-validator';
+import { IsString, IsNotEmpty, IsEnum, IsOptional, IsUUID, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { TicketPriority, TicketCategory } from '../../../common/enums/support.enum';
+import { TicketPriority } from '../../../common/enums/support.enum';
 
 export class CreateTicketDto {
   @ApiProperty({ description: 'Ticket subject', example: 'Unable to upload my electricity bill', maxLength: 255 })
@@ -9,10 +9,10 @@ export class CreateTicketDto {
   @MaxLength(255)
   subject: string;
 
-  @ApiProperty({ enum: TicketCategory, description: 'Ticket category', example: TicketCategory.BILLING_PAYMENTS })
-  @IsEnum(TicketCategory)
+  @ApiProperty({ description: 'Support topic ID', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' })
+  @IsUUID()
   @IsNotEmpty()
-  category: TicketCategory;
+  topicId: string;
 
   @ApiPropertyOptional({ enum: TicketPriority, description: 'Ticket priority (defaults to medium)', example: TicketPriority.MEDIUM, default: TicketPriority.MEDIUM })
   @IsOptional()

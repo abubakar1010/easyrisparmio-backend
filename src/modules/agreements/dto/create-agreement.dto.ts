@@ -45,6 +45,12 @@ export class CreateAgreementDto {
   @MaxLength(500)
   termsUrl?: string;
 
+  @ApiPropertyOptional({ description: 'Physical address of the partner', example: 'Via Cesare Sersale 1, 80139 Napoli NA', maxLength: 500 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  address?: string;
+
   @ApiPropertyOptional({ description: 'Whether the agreement is active (visible to users)', example: true, default: true })
   @IsOptional()
   @IsBoolean()

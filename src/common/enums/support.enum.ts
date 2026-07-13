@@ -12,9 +12,3 @@ export enum TicketPriority {
   URGENT = 'urgent',
 }
 
-export enum TicketCategory {
-  TECHNICAL_SUPPORT = 'technical_support',
-  BILLING_PAYMENTS = 'billing_payments',
-  SWITCHING = 'switching',
-  GENERAL = 'general',
-}

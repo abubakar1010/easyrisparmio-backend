@@ -9,12 +9,92 @@ services:
       POSTGRES_DB: easyresparmio
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   mailhog:
     image: mailhog/mailhog:latest
     ports:
       - "1026:1025" # SMTP
       - "4000:8025" # Web UI
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/easyresparmio
+      SMTP_HOST: mailhog
+      SMTP_PORT: 1025
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
 
 volumes:
   pgdata:

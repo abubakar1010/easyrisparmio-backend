@@ -10,7 +10,9 @@ import { EnergyBill } from './entities/energy-bill.entity';
 import { BillAnalysis } from './entities/bill-analysis.entity';
 import { Offer } from '../offers/entities/offer.entity';
 import { AdminSettings } from '../dashboard/entities/admin-settings.entity';
+import { Supplier } from '../suppliers/entities/supplier.entity';
 import { NotificationsService } from '../notifications/notifications.service';
+import { OcrService } from './ocr/ocr.service';
 import { UploadBillDto } from './dto/upload-bill.dto';
 import { QueryBillsDto } from './dto/query-bills.dto';
 import { PaginatedResponseDto } from '../../common/dto/pagination.dto';
@@ -32,7 +34,10 @@ export class BillsService {
     private readonly offerRepository: Repository<Offer>,
     @InjectRepository(AdminSettings)
     private readonly adminSettingsRepository: Repository<AdminSettings>,
+    @InjectRepository(Supplier)
+    private readonly supplierRepository: Repository<Supplier>,
     private readonly notificationsService: NotificationsService,
+    private readonly ocrService: OcrService,
   ) {}
 
   // ─── Upload ───────────────────────────────────────────────
@@ -42,6 +47,26 @@ export class BillsService {
     fileUrl: string,
     dto: UploadBillDto,
   ): Promise<EnergyBill> {
+    // Match supplier name from on-device OCR against existing suppliers
+    let resolvedSupplierId = dto.supplierId;
+    if (!resolvedSupplierId && dto.supplierName) {
+      const matched = await this.supplierRepository
+        .createQueryBuilder('supplier')
+        .where('supplier.name ILIKE :name', {
+          name: `%${dto.supplierName}%`,
+        })
+        .getOne();
+
+      if (matched) {
+        resolvedSupplierId = matched.id;
+        this.logger.log(
+          `Matched supplier "${dto.supplierName}" → ${matched.name} (${matched.id})`,
+        );
+      } else {
+        this.logger.warn(`No supplier match found for "${dto.supplierName}"`);
+      }
+    }
+
     const bill = this.billRepository.create({
       userId,
       fileUrl,
@@ -54,10 +79,21 @@ export class BillsService {
       costPerUnit: dto.costPerUnit,
       fixedCharges: dto.fixedCharges,
       taxes: dto.taxes,
-      supplierId: dto.supplierId,
+      supplierId: resolvedSupplierId,
       billingPeriodStart: dto.billingPeriodStart ? new Date(dto.billingPeriodStart) : undefined,
       billingPeriodEnd: dto.billingPeriodEnd ? new Date(dto.billingPeriodEnd) : undefined,
+      supplyAddress: dto.supplyAddress,
+      codiceFiscale: dto.codiceFiscale,
+      partitaIva: dto.partitaIva,
+      contractNumber: dto.contractNumber,
+      meterNumber: dto.meterNumber,
+      customerName: dto.customerName,
       status: BillStatus.UPLOADED,
+      rawAnalysisData: dto.supplierName ? {
+        ocrSupplierName: dto.supplierName,
+        ocrTimestamp: new Date().toISOString(),
+        source: 'on-device-mlkit',
+      } : undefined,
     });
 
     const savedBill = await this.billRepository.save(bill);
@@ -184,8 +220,12 @@ export class BillsService {
     return this.runAnalysis(bill);
   }
 
-  async reanalyzeBill(billId: string): Promise<BillAnalysis> {
+  async reanalyzeBill(billId: string, reExtract = true): Promise<BillAnalysis> {
     const bill = await this.getBillByIdAdmin(billId);
+    // Cloud OCR commented out — on-device OCR now handled by mobile app before upload
+    // if (reExtract) {
+    //   await this.runOcrExtraction(bill);
+    // }
     return this.runAnalysis(bill);
   }
 
@@ -441,6 +481,11 @@ export class BillsService {
   // ─── Private: Auto-Analysis Trigger ───────────────────────
 
   private async triggerAutoAnalysis(bill: EnergyBill): Promise<void> {
+    // Cloud OCR commented out — on-device OCR now handled by mobile app before upload.
+    // Bill fields are pre-populated from the upload DTO (sent by mobile app with extracted data).
+    // await this.runOcrExtraction(bill);
+
+    // Run offer comparison analysis using data from DTO
     const analysis = await this.runAnalysis(bill);
 
     if (!analysis.recommendedOffers?.length) return;
@@ -463,6 +508,36 @@ export class BillsService {
     analysis.offersSentToUser = true;
     await this.analysisRepository.save(analysis);
   }
+
+  // Cloud OCR extraction commented out — on-device OCR (Google ML Kit) in mobile app
+  // now handles text extraction + regex parsing before upload. Data arrives pre-populated
+  // in UploadBillDto. To restore cloud OCR, uncomment this method and the calls in
+  // triggerAutoAnalysis() and reanalyzeBill().
+  //
+  // private async runOcrExtraction(bill: EnergyBill): Promise<void> {
+  //   try {
+  //     const ocrResult = await this.ocrService.extractBillData(bill.fileUrl, bill.billType);
+  //     bill.rawAnalysisData = { ...ocrResult, ocrTimestamp: new Date().toISOString() };
+  //     if (ocrResult.totalAmount != null && bill.totalAmount == null) bill.totalAmount = ocrResult.totalAmount;
+  //     if (ocrResult.consumptionKwh != null && bill.consumptionKwh == null) bill.consumptionKwh = ocrResult.consumptionKwh;
+  //     if (ocrResult.consumptionSmc != null && bill.consumptionSmc == null) bill.consumptionSmc = ocrResult.consumptionSmc;
+  //     if (ocrResult.costPerUnit != null && bill.costPerUnit == null) bill.costPerUnit = ocrResult.costPerUnit;
+  //     if (ocrResult.fixedCharges != null && bill.fixedCharges == null) bill.fixedCharges = ocrResult.fixedCharges;
+  //     if (ocrResult.taxes != null && bill.taxes == null) bill.taxes = ocrResult.taxes;
+  //     if (ocrResult.podNumber && !bill.podNumber) bill.podNumber = ocrResult.podNumber;
+  //     if (ocrResult.pdrNumber && !bill.pdrNumber) bill.pdrNumber = ocrResult.pdrNumber;
+  //     if (ocrResult.billingPeriodStart && !bill.billingPeriodStart) bill.billingPeriodStart = new Date(ocrResult.billingPeriodStart);
+  //     if (ocrResult.billingPeriodEnd && !bill.billingPeriodEnd) bill.billingPeriodEnd = new Date(ocrResult.billingPeriodEnd);
+  //     if (ocrResult.supplierName && !bill.supplierId) {
+  //       const matched = await this.supplierRepository.createQueryBuilder('s').where('s.name ILIKE :n', { n: `%${ocrResult.supplierName}%` }).getOne();
+  //       if (matched) { bill.supplierId = matched.id; }
+  //     }
+  //     await this.billRepository.save(bill);
+  //   } catch (error) {
+  //     bill.rawAnalysisData = { ocrError: error?.message || 'OCR extraction failed', ocrTimestamp: new Date().toISOString() };
+  //     await this.billRepository.save(bill);
+  //   }
+  // }
 
   private async getAdminSettings(): Promise<AdminSettings> {
     let settings = await this.adminSettingsRepository.findOne({ where: {} });

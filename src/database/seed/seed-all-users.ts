@@ -24,8 +24,8 @@ import { NotificationType } from '../../common/enums/notification.enum';
 import {
   TicketStatus,
   TicketPriority,
-  TicketCategory,
 } from '../../common/enums/support.enum';
+import { SupportTopic } from '../../modules/support/entities/support-topic.entity';
 
 // ── Italian data pools for realistic generation ──
 
@@ -370,6 +370,7 @@ async function seedSupportTicketForUser(
 ): Promise<void> {
   const repo = ds.getRepository(SupportTicket);
   const msgRepo = ds.getRepository(TicketMessage);
+  const topicRepo = ds.getRepository(SupportTopic);
 
   const existing = await repo.count({ where: { userId: user.id } });
   if (existing > 0) {
@@ -377,22 +378,30 @@ async function seedSupportTicketForUser(
     return;
   }
 
+  // Fetch available topics
+  const topics = await topicRepo.find({ where: { isActive: true } });
+  if (topics.length === 0) {
+    console.log(`    No support topics found, skipping ticket seed for: ${user.email}`);
+    return;
+  }
+
   const subjects = [
-    { subject: 'Problema con la bolletta', category: TicketCategory.BILLING_PAYMENTS },
-    { subject: 'Informazioni cambio fornitore', category: TicketCategory.SWITCHING },
-    { subject: 'Problema tecnico con l\'app', category: TicketCategory.TECHNICAL_SUPPORT },
-    { subject: 'Richiesta informazioni generali', category: TicketCategory.GENERAL },
+    'Problema con la bolletta',
+    'Informazioni cambio fornitore',
+    'Problema tecnico con l\'app',
+    'Richiesta informazioni generali',
   ];
 
-  const chosen = pick(subjects);
+  const chosenSubject = pick(subjects);
+  const chosenTopic = pick(topics);
   const status = pick([TicketStatus.OPEN, TicketStatus.IN_PROGRESS, TicketStatus.RESOLVED]);
 
   const ticket = await repo.save(
     repo.create({
       userId: user.id,
       assignedAgentId: admin?.id,
-      subject: chosen.subject,
-      category: chosen.category,
+      subject: chosenSubject,
+      topicId: chosenTopic.id,
       priority: pick([TicketPriority.LOW, TicketPriority.MEDIUM, TicketPriority.HIGH]),
       status,
       ...(status === TicketStatus.RESOLVED
@@ -406,11 +415,11 @@ async function seedSupportTicketForUser(
     msgRepo.create({
       ticketId: ticket.id,
       senderId: user.id,
-      message: `Buongiorno, avrei bisogno di assistenza riguardo: ${chosen.subject.toLowerCase()}.`,
+      message: `Buongiorno, avrei bisogno di assistenza riguardo: ${chosenSubject.toLowerCase()}.`,
     }),
   );
 
-  console.log(`    Created support ticket for: ${user.email} (${chosen.subject})`);
+  console.log(`    Created support ticket for: ${user.email} (${chosenSubject})`);
 }
 
 // ── Main runner ──

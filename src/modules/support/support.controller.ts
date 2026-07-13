@@ -29,19 +29,34 @@ import { UpdateTicketDto } from './dto/update-ticket.dto';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { CreateFaqDto } from './dto/create-faq.dto';
 import { UpdateFaqDto } from './dto/update-faq.dto';
+import { CreateTopicDto } from './dto/create-topic.dto';
+import { UpdateTopicDto } from './dto/update-topic.dto';
 import { QueryTicketsDto } from './dto/query-tickets.dto';
+import { QueryFaqsDto } from './dto/query-faqs.dto';
+import { QueryTopicsDto } from './dto/query-topics.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserRole } from '../../common/enums/role.enum';
 
+const TOPIC_EXAMPLE = {
+  id: 'tp1a2b3c-d5e6-7890-abcd-ef1234567890',
+  name: 'Billing & Payments',
+  description: 'Questions about invoices, payments, and billing issues',
+  isActive: true,
+  sortOrder: 0,
+  icon: 'receipt',
+  createdAt: '2026-06-01T10:00:00.000Z',
+  updatedAt: '2026-06-01T10:00:00.000Z',
+};
+
 const TICKET_EXAMPLE = {
   id: 'tk1a2b3c-d5e6-7890-abcd-ef1234567890',
   userId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
   assignedAgentId: null,
   subject: 'Unable to upload my electricity bill',
-  category: 'billing_payments',
+  topicId: 'tp1a2b3c-d5e6-7890-abcd-ef1234567890',
   priority: 'medium',
   status: 'open',
   resolvedAt: null,
@@ -50,6 +65,7 @@ const TICKET_EXAMPLE = {
   updatedAt: '2026-06-10T10:00:00.000Z',
   user: { id: 'a1b2c3d4...', email: 'mario.rossi@email.com', firstName: 'Mario', lastName: 'Rossi' },
   assignedAgent: null,
+  topic: TOPIC_EXAMPLE,
 };
 
 const MESSAGE_EXAMPLE = {
@@ -84,6 +100,190 @@ const ERROR_403 = { success: false, statusCode: 403, message: ['Forbidden resour
 export class SupportController {
   constructor(private readonly supportService: SupportService) {}
 
+  // ─── Topic Endpoints ────────────────────────────────────────
+
+  @Get('topics')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get active support topics',
+    description:
+      'Returns all active support topics sorted by display order. ' +
+      'Used by mobile app to populate topic selection when creating a ticket.',
+  })
+  @ApiOkResponse({
+    description: 'List of active topics',
+    content: {
+      'application/json': {
+        example: { success: true, data: [TOPIC_EXAMPLE] },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing or invalid JWT access token',
+    content: { 'application/json': { example: ERROR_401 } },
+  })
+  getActiveTopics() {
+    return this.supportService.getActiveTopics();
+  }
+
+  @Get('topics/admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get all support topics with pagination (admin)',
+    description:
+      'Returns all topics (active and inactive) with pagination, search, and filtering. ' +
+      'Includes ticket count for each topic.',
+  })
+  @ApiOkResponse({
+    description: 'Paginated list of all topics',
+    content: {
+      'application/json': {
+        example: {
+          success: true,
+          data: {
+            data: [{ ...TOPIC_EXAMPLE, ticketCount: 5 }],
+            meta: { total: 1, page: 1, limit: 20, totalPages: 1 },
+          },
+        },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing or invalid JWT access token',
+    content: { 'application/json': { example: ERROR_401 } },
+  })
+  @ApiForbiddenResponse({
+    description: 'User does not have admin role',
+    content: { 'application/json': { example: ERROR_403 } },
+  })
+  getAdminTopics(@Query() query: QueryTopicsDto) {
+    return this.supportService.getAdminTopics(query);
+  }
+
+  @Post('topics')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Create a support topic (admin)',
+    description: 'Creates a new support topic that users can select when creating tickets.',
+  })
+  @ApiBody({ type: CreateTopicDto })
+  @ApiCreatedResponse({
+    description: 'Topic created successfully',
+    content: { 'application/json': { example: { success: true, data: TOPIC_EXAMPLE } } },
+  })
+  @ApiBadRequestResponse({
+    description: 'Validation failed',
+    content: {
+      'application/json': {
+        example: {
+          success: false,
+          statusCode: 400,
+          message: ['name should not be empty'],
+          timestamp: '2026-06-10T12:00:00.000Z',
+        },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing or invalid JWT access token',
+    content: { 'application/json': { example: ERROR_401 } },
+  })
+  @ApiForbiddenResponse({
+    description: 'User does not have admin role',
+    content: { 'application/json': { example: ERROR_403 } },
+  })
+  createTopic(@Body() dto: CreateTopicDto) {
+    return this.supportService.createTopic(dto);
+  }
+
+  @Patch('topics/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Update a support topic (admin)',
+    description: 'Updates topic fields. All fields are optional. Use isActive to show/hide topics from users.',
+  })
+  @ApiBody({ type: UpdateTopicDto })
+  @ApiOkResponse({
+    description: 'Topic updated successfully',
+    content: {
+      'application/json': {
+        example: {
+          success: true,
+          data: { ...TOPIC_EXAMPLE, isActive: false, updatedAt: '2026-06-10T14:00:00.000Z' },
+        },
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'Topic not found',
+    content: { 'application/json': { example: { success: false, statusCode: 404, message: ['Topic not found'], timestamp: '2026-06-10T12:00:00.000Z' } } },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing or invalid JWT access token',
+    content: { 'application/json': { example: ERROR_401 } },
+  })
+  @ApiForbiddenResponse({
+    description: 'User does not have admin role',
+    content: { 'application/json': { example: ERROR_403 } },
+  })
+  updateTopic(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateTopicDto,
+  ) {
+    return this.supportService.updateTopic(id, dto);
+  }
+
+  @Delete('topics/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Delete a support topic (admin)',
+    description:
+      'Permanently deletes a topic. Fails if any support tickets exist for this topic — ' +
+      'deactivate it instead by setting isActive to false.',
+  })
+  @ApiOkResponse({
+    description: 'Topic deleted successfully',
+    content: { 'application/json': { example: { success: true, data: { message: 'Topic deleted successfully' } } } },
+  })
+  @ApiBadRequestResponse({
+    description: 'Topic has existing tickets',
+    content: {
+      'application/json': {
+        example: {
+          success: false,
+          statusCode: 400,
+          message: ['Cannot delete topic with existing support requests. Deactivate it instead.'],
+          timestamp: '2026-06-10T12:00:00.000Z',
+        },
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'Topic not found',
+    content: { 'application/json': { example: { success: false, statusCode: 404, message: ['Topic not found'], timestamp: '2026-06-10T12:00:00.000Z' } } },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing or invalid JWT access token',
+    content: { 'application/json': { example: ERROR_401 } },
+  })
+  @ApiForbiddenResponse({
+    description: 'User does not have admin role',
+    content: { 'application/json': { example: ERROR_403 } },
+  })
+  async deleteTopic(@Param('id', ParseUUIDPipe) id: string) {
+    await this.supportService.deleteTopic(id);
+    return { message: 'Topic deleted successfully' };
+  }
+
   // ─── Ticket Endpoints ─────────────────────────────────────
 
   @Post('tickets')
@@ -93,7 +293,7 @@ export class SupportController {
     summary: 'Create a new support ticket',
     description:
       'Creates a support ticket with an initial message. The ticket is assigned to the authenticated user ' +
-      'and starts in `open` status. Available to all authenticated users (personal, business, admin).',
+      'and starts in `open` status. The topicId must reference an active support topic.',
   })
   @ApiBody({ type: CreateTicketDto })
   @ApiCreatedResponse({
@@ -111,13 +311,13 @@ export class SupportController {
     },
   })
   @ApiBadRequestResponse({
-    description: 'Validation failed',
+    description: 'Validation failed or topic not found/inactive',
     content: {
       'application/json': {
         example: {
           success: false,
           statusCode: 400,
-          message: ['subject should not be empty', 'category must be a valid enum value'],
+          message: ['subject should not be empty', 'topicId must be a UUID'],
           timestamp: '2026-06-10T12:00:00.000Z',
         },
       },
@@ -141,7 +341,7 @@ export class SupportController {
     summary: 'List support tickets',
     description:
       'Returns a paginated list of support tickets. Regular users see only their own tickets; ' +
-      'admins see all tickets. Supports filtering by status, priority, category, and text search on subject.',
+      'admins see all tickets. Supports filtering by status, priority, topicId, and text search on subject.',
   })
   @ApiOkResponse({
     description: 'Paginated list of tickets',
@@ -384,6 +584,45 @@ export class SupportController {
   }
 
   // ─── FAQ Endpoints ────────────────────────────────────────
+
+  @Get('faqs/admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get all FAQs with pagination (admin)',
+    description:
+      'Returns all FAQs (active and inactive) with pagination, search, and filtering. ' +
+      'Supports filtering by category, active status, target audience, and locale.',
+  })
+  @ApiOkResponse({
+    description: 'Paginated list of all FAQs',
+    content: {
+      'application/json': {
+        example: {
+          success: true,
+          data: {
+            data: [
+              FAQ_EXAMPLE,
+              { ...FAQ_EXAMPLE, id: 'fq2b3c4d-e6f7-8901-bcde-f23456789012', isActive: false, question: 'Inactive FAQ example' },
+            ],
+            meta: { total: 2, page: 1, limit: 20, totalPages: 1 },
+          },
+        },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing or invalid JWT access token',
+    content: { 'application/json': { example: ERROR_401 } },
+  })
+  @ApiForbiddenResponse({
+    description: 'User does not have admin role',
+    content: { 'application/json': { example: ERROR_403 } },
+  })
+  getAdminFaqs(@Query() query: QueryFaqsDto) {
+    return this.supportService.getAdminFaqs(query);
+  }
 
   @Get('faqs')
   @ApiOperation({

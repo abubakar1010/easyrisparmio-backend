@@ -5,9 +5,12 @@ import { SupportController } from './support.controller';
 import { SupportTicket } from './entities/support-ticket.entity';
 import { TicketMessage } from './entities/ticket-message.entity';
 import { Faq } from './entities/faq.entity';
+import { SupportTopic } from './entities/support-topic.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([SupportTicket, TicketMessage, Faq])],
+  imports: [
+    TypeOrmModule.forFeature([SupportTicket, TicketMessage, Faq, SupportTopic]),
+  ],
   controllers: [SupportController],
   providers: [SupportService],
   exports: [SupportService],

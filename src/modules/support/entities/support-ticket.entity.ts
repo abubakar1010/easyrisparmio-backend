@@ -9,10 +9,10 @@ import { BaseEntity } from '../../../common/entities/base.entity';
 import {
   TicketStatus,
   TicketPriority,
-  TicketCategory,
 } from '../../../common/enums/support.enum';
 import { User } from '../../users/entities/user.entity';
 import { TicketMessage } from './ticket-message.entity';
+import { SupportTopic } from './support-topic.entity';
 
 @Entity('support_tickets')
 export class SupportTicket extends BaseEntity {
@@ -25,8 +25,8 @@ export class SupportTicket extends BaseEntity {
   @Column({ type: 'varchar', length: 255 })
   subject: string;
 
-  @Column({ type: 'enum', enum: TicketCategory, default: TicketCategory.GENERAL })
-  category: TicketCategory;
+  @Column({ name: 'topic_id', type: 'uuid' })
+  topicId: string;
 
   @Column({
     type: 'enum',
@@ -55,6 +55,10 @@ export class SupportTicket extends BaseEntity {
   @ManyToOne(() => User, { eager: false })
   @JoinColumn({ name: 'assigned_agent_id' })
   assignedAgent: User;
+
+  @ManyToOne(() => SupportTopic, (topic) => topic.tickets, { eager: false })
+  @JoinColumn({ name: 'topic_id' })
+  topic: SupportTopic;
 
   @OneToMany(() => TicketMessage, (message) => message.ticket, {
     cascade: true,

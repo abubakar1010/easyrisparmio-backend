@@ -99,6 +99,24 @@ export class EnergyBill extends BaseEntity {
   })
   taxes: number;
 
+  @Column({ name: 'supply_address', type: 'varchar', length: 500, nullable: true })
+  supplyAddress: string | null;
+
+  @Column({ name: 'codice_fiscale', type: 'varchar', length: 16, nullable: true })
+  codiceFiscale: string | null;
+
+  @Column({ name: 'partita_iva', type: 'varchar', length: 11, nullable: true })
+  partitaIva: string | null;
+
+  @Column({ name: 'contract_number', type: 'varchar', length: 50, nullable: true })
+  contractNumber: string | null;
+
+  @Column({ name: 'meter_number', type: 'varchar', length: 50, nullable: true })
+  meterNumber: string | null;
+
+  @Column({ name: 'customer_name', type: 'varchar', length: 200, nullable: true })
+  customerName: string | null;
+
   @Column({ name: 'raw_analysis_data', type: 'jsonb', nullable: true })
   rawAnalysisData: Record<string, any>;
 

@@ -1,6 +1,6 @@
-import { IsOptional, IsEnum, IsString } from 'class-validator';
+import { IsOptional, IsEnum, IsUUID } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { TicketStatus, TicketPriority, TicketCategory } from '../../../common/enums/support.enum';
+import { TicketStatus, TicketPriority } from '../../../common/enums/support.enum';
 import { PaginationDto } from '../../../common/dto/pagination.dto';
 
 export class QueryTicketsDto extends PaginationDto {
@@ -14,8 +14,8 @@ export class QueryTicketsDto extends PaginationDto {
   @IsEnum(TicketPriority)
   priority?: TicketPriority;
 
-  @ApiPropertyOptional({ enum: TicketCategory, description: 'Filter by ticket category' })
+  @ApiPropertyOptional({ description: 'Filter by support topic ID' })
   @IsOptional()
-  @IsEnum(TicketCategory)
-  category?: TicketCategory;
+  @IsUUID()
+  topicId?: string;
 }

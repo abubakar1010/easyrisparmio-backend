@@ -64,6 +64,12 @@ export class UploadBillDto {
   @Min(0)
   taxes?: number;
 
+  @ApiPropertyOptional({ description: 'Supplier name from OCR extraction (used for auto-matching)', example: 'Enel Energia', maxLength: 200 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  supplierName?: string;
+
   @ApiPropertyOptional({ description: 'Current supplier ID', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' })
   @IsOptional()
   @IsUUID()
@@ -78,4 +84,40 @@ export class UploadBillDto {
   @IsOptional()
   @IsDateString()
   billingPeriodEnd?: string;
+
+  @ApiPropertyOptional({ description: 'Supply/delivery address (indirizzo di fornitura)', example: 'Via Roma 42, 20121 Milano MI', maxLength: 500 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  supplyAddress?: string;
+
+  @ApiPropertyOptional({ description: 'Codice Fiscale (Italian tax code, 16 chars)', example: 'RSSMRA85M01H501Z', maxLength: 16 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(16)
+  codiceFiscale?: string;
+
+  @ApiPropertyOptional({ description: 'Partita IVA (VAT number, 11 digits, business bills only)', example: '12345678901', maxLength: 11 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(11)
+  partitaIva?: string;
+
+  @ApiPropertyOptional({ description: 'Contract number', example: 'C-2026-001234', maxLength: 50 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  contractNumber?: string;
+
+  @ApiPropertyOptional({ description: 'Meter serial number (matricola contatore)', example: '12345678', maxLength: 50 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  meterNumber?: string;
+
+  @ApiPropertyOptional({ description: 'Customer/account holder name (intestatario)', example: 'Mario Rossi', maxLength: 200 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  customerName?: string;
 }

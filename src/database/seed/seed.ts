@@ -7,7 +7,8 @@ import { createEmptyContext } from './seed-context';
 import { seedUsers } from './data/users.seed-data';
 import { seedSuppliers } from './data/suppliers.seed-data';
 import { seedMarketIndices } from './data/market-data.seed-data';
-import { seedFaqs } from './data/support.seed-data';
+import { seedFaqs, seedSupportTopics } from './data/support.seed-data';
+import { seedStaticPages } from './data/static-pages.seed-data';
 import { seedAdminSettings } from './data/admin.seed-data';
 
 // Data seeders - Level 1
@@ -75,6 +76,7 @@ const TABLES_IN_REVERSE_ORDER = [
   'user_addresses',
   'business_profiles',
   'admin_settings',
+  'static_pages',
   'faqs',
   'market_indices',
   'otp_codes',
@@ -133,11 +135,13 @@ async function run(): Promise<void> {
     }
 
     // ---- Level 0: No dependencies ----
-    console.log('--- Level 0: Users, Suppliers, MarketIndex, FAQ, AdminSettings ---\n');
+    console.log('--- Level 0: Users, Suppliers, MarketIndex, FAQ, StaticPages, AdminSettings ---\n');
     await seedUsers(ds, ctx);
     await seedSuppliers(ds, ctx);
     await seedMarketIndices(ds);
     await seedFaqs(ds);
+    await seedSupportTopics(ds);
+    await seedStaticPages(ds);
     await seedAdminSettings(ds);
 
     // ---- Level 1: Depend on Level 0 ----

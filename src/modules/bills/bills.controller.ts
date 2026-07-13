@@ -5,12 +5,20 @@ import {
   Param,
   Body,
   Query,
+  Res,
   UseGuards,
   UseInterceptors,
   UploadedFile,
   ParseUUIDPipe,
+  BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname, join } from 'path';
+import { v4 as uuidv4 } from 'uuid';
+import { existsSync } from 'fs';
+import type { Response } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -77,6 +85,25 @@ const ANALYSIS_EXAMPLE = {
 const ERROR_401 = { success: false, statusCode: 401, message: ['Unauthorized'], timestamp: '2026-06-10T12:00:00.000Z' };
 const ERROR_403 = { success: false, statusCode: 403, message: ['Forbidden resource'], timestamp: '2026-06-10T12:00:00.000Z' };
 
+const ALLOWED_MIME_TYPES = ['application/pdf', 'image/jpeg', 'image/png'];
+
+const billFileFilter = (
+  _req: any,
+  file: Express.Multer.File,
+  cb: (error: Error | null, acceptFile: boolean) => void,
+) => {
+  if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(
+      new BadRequestException(
+        `Invalid file type "${file.mimetype}". Allowed types: PDF, JPEG, PNG`,
+      ),
+      false,
+    );
+  }
+};
+
 @ApiTags('Bills')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -125,13 +152,30 @@ export class BillsController {
     description: 'Missing or invalid JWT access token',
     content: { 'application/json': { example: ERROR_401 } },
   })
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: join(process.cwd(), 'uploads', 'bills'),
+        filename: (_req, file, cb) => {
+          const filename = `${uuidv4()}${extname(file.originalname)}`;
+          cb(null, filename);
+        },
+      }),
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10 MB
+      },
+      fileFilter: billFileFilter,
+    }),
+  )
   async uploadBill(
     @CurrentUser('id') userId: string,
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: UploadBillDto,
   ) {
-    const fileUrl = file?.path || file?.filename || 'uploads/bills/' + Date.now();
+    if (!file) {
+      throw new BadRequestException('File is required');
+    }
+    const fileUrl = `uploads/bills/${file.filename}`;
     return this.billsService.uploadBill(userId, fileUrl, dto);
   }
 
@@ -321,5 +365,44 @@ export class BillsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.billsService.analyzeBill(id, userId);
+  }
+
+  // ─── File Download ────────────────────────────────────────
+
+  @Get(':id/file')
+  @ApiOperation({
+    summary: 'Download bill file',
+    description: 'Streams the uploaded bill file. User must own the bill, or be an admin.',
+  })
+  @ApiOkResponse({ description: 'File stream' })
+  @ApiNotFoundResponse({ description: 'Bill or file not found' })
+  @ApiForbiddenResponse({ description: 'User does not own this bill' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT', content: { 'application/json': { example: ERROR_401 } } })
+  async downloadBillFile(
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') userRole: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() res: Response,
+  ) {
+    const bill = userRole === UserRole.ADMIN
+      ? await this.billsService.getBillByIdAdmin(id)
+      : await this.billsService.getBillById(id, userId);
+
+    const filePath = join(process.cwd(), bill.fileUrl);
+    if (!existsSync(filePath)) {
+      throw new NotFoundException('Bill file not found on disk');
+    }
+
+    const ext = extname(filePath).toLowerCase();
+    const mimeMap: Record<string, string> = {
+      '.pdf': 'application/pdf',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+    };
+
+    res.setHeader('Content-Type', mimeMap[ext] || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `inline; filename="bill-${bill.id}${ext}"`);
+    res.sendFile(filePath);
   }
 }

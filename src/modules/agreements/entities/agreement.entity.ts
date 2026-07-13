@@ -23,6 +23,9 @@ export class Agreement extends BaseEntity {
   @Column({ name: 'terms_url', type: 'varchar', length: 500, nullable: true })
   termsUrl: string | null;
 
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  address: string | null;
+
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive: boolean;
 

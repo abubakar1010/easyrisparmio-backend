@@ -9,12 +9,17 @@ import { Repository } from 'typeorm';
 import { SupportTicket } from './entities/support-ticket.entity';
 import { TicketMessage } from './entities/ticket-message.entity';
 import { Faq } from './entities/faq.entity';
+import { SupportTopic } from './entities/support-topic.entity';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { UpdateTicketDto } from './dto/update-ticket.dto';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { CreateFaqDto } from './dto/create-faq.dto';
 import { UpdateFaqDto } from './dto/update-faq.dto';
+import { CreateTopicDto } from './dto/create-topic.dto';
+import { UpdateTopicDto } from './dto/update-topic.dto';
 import { QueryTicketsDto } from './dto/query-tickets.dto';
+import { QueryFaqsDto } from './dto/query-faqs.dto';
+import { QueryTopicsDto } from './dto/query-topics.dto';
 import { TicketStatus, TicketPriority } from '../../common/enums/support.enum';
 import { PaginatedResponseDto } from '../../common/dto/pagination.dto';
 import { UserRole } from '../../common/enums/role.enum';
@@ -28,16 +33,109 @@ export class SupportService {
     private readonly messageRepository: Repository<TicketMessage>,
     @InjectRepository(Faq)
     private readonly faqRepository: Repository<Faq>,
+    @InjectRepository(SupportTopic)
+    private readonly topicRepository: Repository<SupportTopic>,
   ) {}
+
+  // ─── Topic Methods ──────────────────────────────────────────
+
+  async createTopic(dto: CreateTopicDto): Promise<SupportTopic> {
+    const topic = this.topicRepository.create(dto);
+    return this.topicRepository.save(topic);
+  }
+
+  async getAdminTopics(
+    query: QueryTopicsDto,
+  ): Promise<PaginatedResponseDto<SupportTopic & { ticketCount: number }>> {
+    const qb = this.topicRepository
+      .createQueryBuilder('topic')
+      .loadRelationCountAndMap('topic.ticketCount', 'topic.tickets');
+
+    if (query.isActive !== undefined) {
+      qb.andWhere('topic.isActive = :isActive', { isActive: query.isActive });
+    }
+
+    if (query.search) {
+      qb.andWhere('topic.name ILIKE :search', {
+        search: `%${query.search}%`,
+      });
+    }
+
+    qb.orderBy('topic.sortOrder', 'ASC').addOrderBy('topic.createdAt', 'DESC');
+    qb.skip(query.skip).take(query.limit);
+
+    const [data, total] = await qb.getManyAndCount();
+    return new PaginatedResponseDto(
+      data as (SupportTopic & { ticketCount: number })[],
+      total,
+      query.page,
+      query.limit,
+    );
+  }
+
+  async getActiveTopics(): Promise<SupportTopic[]> {
+    return this.topicRepository.find({
+      where: { isActive: true },
+      order: { sortOrder: 'ASC' },
+    });
+  }
+
+  async updateTopic(
+    topicId: string,
+    dto: UpdateTopicDto,
+  ): Promise<SupportTopic> {
+    const topic = await this.topicRepository.findOne({
+      where: { id: topicId },
+    });
+
+    if (!topic) {
+      throw new NotFoundException('Topic not found');
+    }
+
+    Object.assign(topic, dto);
+    return this.topicRepository.save(topic);
+  }
+
+  async deleteTopic(topicId: string): Promise<void> {
+    const topic = await this.topicRepository.findOne({
+      where: { id: topicId },
+    });
+
+    if (!topic) {
+      throw new NotFoundException('Topic not found');
+    }
+
+    const ticketCount = await this.ticketRepository.count({
+      where: { topicId },
+    });
+
+    if (ticketCount > 0) {
+      throw new BadRequestException(
+        'Cannot delete topic with existing support requests. Deactivate it instead.',
+      );
+    }
+
+    await this.topicRepository.remove(topic);
+  }
+
+  // ─── Ticket Methods ─────────────────────────────────────────
 
   async createTicket(
     userId: string,
     dto: CreateTicketDto,
   ): Promise<SupportTicket> {
+    const topic = await this.topicRepository.findOne({
+      where: { id: dto.topicId, isActive: true },
+    });
+
+    if (!topic) {
+      throw new BadRequestException('Topic not found or inactive');
+    }
+
     const ticket = this.ticketRepository.create({
       userId,
+      topicId: dto.topicId,
       subject: dto.subject,
-      category: dto.category,
       priority: dto.priority || TicketPriority.MEDIUM,
       status: TicketStatus.OPEN,
     });
@@ -62,7 +160,8 @@ export class SupportService {
     const qb = this.ticketRepository
       .createQueryBuilder('ticket')
       .leftJoinAndSelect('ticket.user', 'user')
-      .leftJoinAndSelect('ticket.assignedAgent', 'agent');
+      .leftJoinAndSelect('ticket.assignedAgent', 'agent')
+      .leftJoinAndSelect('ticket.topic', 'topic');
 
     if (userRole !== UserRole.ADMIN) {
       qb.andWhere('ticket.userId = :userId', { userId });
@@ -76,8 +175,8 @@ export class SupportService {
       qb.andWhere('ticket.priority = :priority', { priority: query.priority });
     }
 
-    if (query.category) {
-      qb.andWhere('ticket.category = :category', { category: query.category });
+    if (query.topicId) {
+      qb.andWhere('ticket.topicId = :topicId', { topicId: query.topicId });
     }
 
     if (query.search) {
@@ -100,7 +199,7 @@ export class SupportService {
   ): Promise<SupportTicket> {
     const ticket = await this.ticketRepository.findOne({
       where: { id: ticketId },
-      relations: ['user', 'assignedAgent', 'messages', 'messages.sender'],
+      relations: ['user', 'assignedAgent', 'messages', 'messages.sender', 'topic'],
     });
 
     if (!ticket) {
@@ -200,6 +299,42 @@ export class SupportService {
     });
   }
 
+  // ─── FAQ Methods ─────────────────────────────────────────────
+
+  async getAdminFaqs(query: QueryFaqsDto): Promise<PaginatedResponseDto<Faq>> {
+    const qb = this.faqRepository.createQueryBuilder('faq');
+
+    if (query.category) {
+      qb.andWhere('faq.category = :category', { category: query.category });
+    }
+
+    if (query.isActive !== undefined) {
+      qb.andWhere('faq.isActive = :isActive', { isActive: query.isActive });
+    }
+
+    if (query.targetAudience) {
+      qb.andWhere('faq.targetAudience = :targetAudience', {
+        targetAudience: query.targetAudience,
+      });
+    }
+
+    if (query.locale) {
+      qb.andWhere('faq.locale = :locale', { locale: query.locale });
+    }
+
+    if (query.search) {
+      qb.andWhere('faq.question ILIKE :search', {
+        search: `%${query.search}%`,
+      });
+    }
+
+    qb.orderBy('faq.category', 'ASC').addOrderBy('faq.sortOrder', 'ASC');
+    qb.skip(query.skip).take(query.limit);
+
+    const [data, total] = await qb.getManyAndCount();
+    return new PaginatedResponseDto(data, total, query.page, query.limit);
+  }
+
   async getFaqs(category?: string, locale?: string): Promise<Faq[]> {
     const where: any = { isActive: true };
     if (category) {
@@ -207,10 +342,21 @@ export class SupportService {
     }
     where.locale = locale || 'it';
 
-    return this.faqRepository.find({
+    const results = await this.faqRepository.find({
       where,
       order: { category: 'ASC', sortOrder: 'ASC' },
     });
+
+    // Fall back to Italian if no FAQs found for the requested locale
+    if (results.length === 0 && where.locale !== 'it') {
+      where.locale = 'it';
+      return this.faqRepository.find({
+        where,
+        order: { category: 'ASC', sortOrder: 'ASC' },
+      });
+    }
+
+    return results;
   }
 
   async createFaq(dto: CreateFaqDto): Promise<Faq> {

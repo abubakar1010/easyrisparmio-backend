@@ -117,6 +117,7 @@ export class BillsService {
     const qb = this.billRepository
       .createQueryBuilder('bill')
       .leftJoinAndSelect('bill.supplier', 'supplier')
+      .leftJoinAndSelect('bill.analysis', 'analysis')
       .where('bill.userId = :userId', { userId });
 
     if (query.billType) {

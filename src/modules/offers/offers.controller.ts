@@ -208,6 +208,34 @@ export class OffersController {
     return this.offersService.resolveOffersLocale(offers, (req as any).locale);
   }
 
+  @Get('my-offers')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get my sent offers',
+    description:
+      'Returns all offers that have been sent to the authenticated user ' +
+      '(either auto-sent after bill analysis or manually sent by an admin). ' +
+      'Each record includes the full offer details (live data if available, ' +
+      'frozen snapshot as fallback) and the bill it was recommended for.',
+  })
+  @ApiOkResponse({
+    description: 'List of sent offers for the user',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing or invalid JWT access token',
+    content: { 'application/json': { example: ERROR_401 } },
+  })
+  async getMyOffers(@CurrentUser('id') userId: string, @Req() req: any) {
+    const sentOffers = await this.offersService.getUserSentOffers(userId);
+    for (const so of sentOffers) {
+      if (so.offer) {
+        this.offersService.resolveOfferLocale(so.offer, (req as any).locale);
+      }
+    }
+    return sentOffers;
+  }
+
   @Get('admin')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth()

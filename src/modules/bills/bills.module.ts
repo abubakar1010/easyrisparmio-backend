@@ -9,12 +9,13 @@ import { BillAnalysis } from './entities/bill-analysis.entity';
 import { Offer } from '../offers/entities/offer.entity';
 import { AdminSettings } from '../dashboard/entities/admin-settings.entity';
 import { Supplier } from '../suppliers/entities/supplier.entity';
+import { SentOffer } from '../offers/entities/sent-offer.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { OcrService } from './ocr/ocr.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([EnergyBill, BillAnalysis, Offer, AdminSettings, Supplier]),
+    TypeOrmModule.forFeature([EnergyBill, BillAnalysis, Offer, AdminSettings, Supplier, SentOffer]),
     NotificationsModule,
   ],
   controllers: [BillsController],

@@ -11,6 +11,7 @@ import { BillAnalysis } from './entities/bill-analysis.entity';
 import { Offer } from '../offers/entities/offer.entity';
 import { AdminSettings } from '../dashboard/entities/admin-settings.entity';
 import { Supplier } from '../suppliers/entities/supplier.entity';
+import { SentOffer } from '../offers/entities/sent-offer.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { OcrService } from './ocr/ocr.service';
 import { UploadBillDto } from './dto/upload-bill.dto';
@@ -36,6 +37,8 @@ export class BillsService {
     private readonly adminSettingsRepository: Repository<AdminSettings>,
     @InjectRepository(Supplier)
     private readonly supplierRepository: Repository<Supplier>,
+    @InjectRepository(SentOffer)
+    private readonly sentOfferRepository: Repository<SentOffer>,
     private readonly notificationsService: NotificationsService,
     private readonly ocrService: OcrService,
   ) {}
@@ -295,6 +298,8 @@ export class BillsService {
       },
     });
 
+    await this.createSentOfferRecords(bill, analysis, 'admin');
+
     analysis.offersSentToUser = true;
     await this.analysisRepository.save(analysis);
   }
@@ -506,6 +511,8 @@ export class BillsService {
       },
     });
 
+    await this.createSentOfferRecords(bill, analysis, 'auto');
+
     analysis.offersSentToUser = true;
     await this.analysisRepository.save(analysis);
   }
@@ -550,5 +557,36 @@ export class BillsService {
       await this.adminSettingsRepository.save(settings);
     }
     return settings;
+  }
+
+  private async createSentOfferRecords(
+    bill: EnergyBill,
+    analysis: BillAnalysis,
+    sentBy: 'auto' | 'admin',
+  ): Promise<void> {
+    if (!analysis.recommendedOffers?.length) return;
+
+    const existing = await this.sentOfferRepository.find({
+      where: { billId: bill.id },
+      select: ['offerId'],
+    });
+    const existingIds = new Set(existing.map((s) => s.offerId));
+
+    const newRecords = analysis.recommendedOffers
+      .filter((snap: any) => snap.id && !existingIds.has(snap.id))
+      .map((snap: any) =>
+        this.sentOfferRepository.create({
+          userId: bill.userId,
+          billId: bill.id,
+          offerId: snap.id,
+          estimatedSavings: snap.estimatedSavings ?? null,
+          sentBy,
+          offerSnapshot: snap,
+        }),
+      );
+
+    if (newRecords.length > 0) {
+      await this.sentOfferRepository.save(newRecords);
+    }
   }
 }

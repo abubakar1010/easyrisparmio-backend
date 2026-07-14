@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Offer } from './entities/offer.entity';
+import { SentOffer } from './entities/sent-offer.entity';
 import { CreateOfferDto } from './dto/create-offer.dto';
 import { UpdateOfferDto } from './dto/update-offer.dto';
 import { UpdateOfferStatusDto } from './dto/update-offer-status.dto';
@@ -24,6 +25,8 @@ export class OffersService {
     private readonly offerRepository: Repository<Offer>,
     @InjectRepository(EnergyBill)
     private readonly billRepository: Repository<EnergyBill>,
+    @InjectRepository(SentOffer)
+    private readonly sentOfferRepository: Repository<SentOffer>,
   ) {}
 
   resolveOfferLocale(offer: Offer, locale?: string): Offer {
@@ -248,6 +251,14 @@ export class OffersService {
     qb.take(10);
 
     return qb.getMany();
+  }
+
+  async getUserSentOffers(userId: string): Promise<SentOffer[]> {
+    return this.sentOfferRepository.find({
+      where: { userId },
+      relations: ['offer', 'offer.supplier'],
+      order: { createdAt: 'DESC' },
+    });
   }
 
   private validateStatusTransition(

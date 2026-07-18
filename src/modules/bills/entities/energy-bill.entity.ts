@@ -3,6 +3,7 @@ import {
   Column,
   ManyToOne,
   OneToOne,
+  OneToMany,
   JoinColumn,
   DeleteDateColumn,
   Index,
@@ -12,6 +13,7 @@ import { BillType, BillStatus } from '../../../common/enums/bill.enum';
 import { User } from '../../users/entities/user.entity';
 import { Supplier } from '../../suppliers/entities/supplier.entity';
 import { BillAnalysis } from './bill-analysis.entity';
+import { SwitchCase } from '../../cases/entities/switch-case.entity';
 
 @Entity('energy_bills')
 @Index(['status'])
@@ -145,4 +147,7 @@ export class EnergyBill extends BaseEntity {
 
   @OneToOne(() => BillAnalysis, (analysis) => analysis.bill)
   analysis: BillAnalysis;
+
+  @OneToMany(() => SwitchCase, (sc) => sc.bill)
+  switchCases: SwitchCase[];
 }

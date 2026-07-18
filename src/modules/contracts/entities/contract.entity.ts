@@ -8,7 +8,7 @@ import {
   DeleteDateColumn,
 } from 'typeorm';
 import { BaseEntity } from '../../../common/entities/base.entity';
-import { ContractStatus } from '../../../common/enums/contract.enum';
+import { ContractStatus, ContractDeliveryMethod } from '../../../common/enums/contract.enum';
 import { SwitchCase } from '../../cases/entities/switch-case.entity';
 import { User } from '../../users/entities/user.entity';
 import { Offer } from '../../offers/entities/offer.entity';
@@ -49,6 +49,17 @@ export class Contract extends BaseEntity {
 
   @Column({ name: 'signed_document_url', type: 'varchar', length: 500, nullable: true })
   signedDocumentUrl: string;
+
+  @Column({
+    name: 'delivery_method',
+    type: 'enum',
+    enum: ContractDeliveryMethod,
+    nullable: true,
+  })
+  deliveryMethod: ContractDeliveryMethod | null;
+
+  @Column({ name: 'document_url', type: 'varchar', length: 500, nullable: true })
+  documentUrl: string | null;
 
   @Column({
     name: 'monthly_estimate',

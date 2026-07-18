@@ -254,11 +254,21 @@ export class OffersService {
   }
 
   async getUserSentOffers(userId: string): Promise<SentOffer[]> {
-    return this.sentOfferRepository.find({
-      where: { userId },
-      relations: ['offer', 'offer.supplier'],
-      order: { createdAt: 'DESC' },
-    });
+    return this.sentOfferRepository
+      .createQueryBuilder('so')
+      .leftJoinAndSelect('so.offer', 'offer')
+      .leftJoinAndSelect('offer.supplier', 'supplier')
+      .where('so.userId = :userId', { userId })
+      .andWhere(
+        `so.billId NOT IN (
+          SELECT sc.bill_id FROM switch_cases sc
+          WHERE sc.user_id = :userId
+          AND sc.status NOT IN ('cancelled', 'rejected')
+          AND sc.deleted_at IS NULL
+        )`,
+      )
+      .orderBy('so.createdAt', 'DESC')
+      .getMany();
   }
 
   private validateStatusTransition(

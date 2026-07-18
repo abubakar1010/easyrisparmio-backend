@@ -6,7 +6,7 @@ import {
   IsNumber,
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { ContractStatus } from '../../../common/enums/contract.enum';
+import { ContractStatus, ContractDeliveryMethod } from '../../../common/enums/contract.enum';
 
 export class UpdateContractDto {
   @ApiPropertyOptional({ enum: ContractStatus, description: 'Contract status' })
@@ -33,4 +33,14 @@ export class UpdateContractDto {
   @IsOptional()
   @IsNumber()
   monthlyEstimate?: number;
+
+  @ApiPropertyOptional({ enum: ContractDeliveryMethod, description: 'How the contract is delivered to the user' })
+  @IsOptional()
+  @IsEnum(ContractDeliveryMethod)
+  deliveryMethod?: ContractDeliveryMethod;
+
+  @ApiPropertyOptional({ description: 'URL of the unsigned contract document' })
+  @IsOptional()
+  @IsString()
+  documentUrl?: string;
 }

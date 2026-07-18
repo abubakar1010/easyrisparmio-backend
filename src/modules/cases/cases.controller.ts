@@ -142,6 +142,29 @@ export class CasesController {
     return this.casesService.getCases(query, user);
   }
 
+  @Get('by-bill/:billId')
+  @ApiOperation({
+    summary: 'Get case by bill ID (user)',
+    description:
+      'Returns the case associated with a specific bill for the authenticated user. ' +
+      'Includes selected offer, contract, documents, and event timeline.',
+  })
+  @ApiOkResponse({
+    description: 'Case found for the given bill',
+    content: { 'application/json': { example: { success: true, data: CASE_WITH_RELATIONS } } },
+  })
+  @ApiNotFoundResponse({
+    description: 'No case found for this bill',
+    content: { 'application/json': { example: { success: false, statusCode: 404, message: ['No case found for this bill'], timestamp: '2026-06-10T12:00:00.000Z' } } },
+  })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT', content: { 'application/json': { example: ERROR_401 } } })
+  findByBill(
+    @Param('billId', ParseUUIDPipe) billId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.casesService.getCaseByBillId(billId, userId);
+  }
+
   @Get(':id')
   @ApiOperation({
     summary: 'Get case by ID',

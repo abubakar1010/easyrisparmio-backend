@@ -154,7 +154,8 @@ export class BillsService {
     const qb = this.billRepository
       .createQueryBuilder('bill')
       .leftJoinAndSelect('bill.supplier', 'supplier')
-      .leftJoinAndSelect('bill.user', 'user');
+      .leftJoinAndSelect('bill.user', 'user')
+      .leftJoinAndSelect('bill.switchCases', 'switchCase');
 
     if (query.billType) {
       qb.andWhere('bill.billType = :billType', { billType: query.billType });
@@ -190,7 +191,7 @@ export class BillsService {
   async getBillByIdAdmin(billId: string): Promise<EnergyBill> {
     const bill = await this.billRepository.findOne({
       where: { id: billId },
-      relations: ['supplier', 'analysis', 'user'],
+      relations: ['supplier', 'analysis', 'user', 'switchCases'],
     });
 
     if (!bill) {
@@ -302,6 +303,9 @@ export class BillsService {
 
     analysis.offersSentToUser = true;
     await this.analysisRepository.save(analysis);
+
+    bill.status = BillStatus.OFFER_SENT;
+    await this.billRepository.save(bill);
   }
 
   // ─── Private: Core Analysis Logic ─────────────────────────
@@ -515,6 +519,9 @@ export class BillsService {
 
     analysis.offersSentToUser = true;
     await this.analysisRepository.save(analysis);
+
+    bill.status = BillStatus.OFFER_SENT;
+    await this.billRepository.save(bill);
   }
 
   // Cloud OCR extraction commented out — on-device OCR (Google ML Kit) in mobile app

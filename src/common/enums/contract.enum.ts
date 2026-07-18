@@ -6,3 +6,10 @@ export enum ContractStatus {
   EXPIRED = 'expired',
   CANCELLED = 'cancelled',
 }
+
+export enum ContractDeliveryMethod {
+  APP = 'app',
+  EMAIL = 'email',
+  MAIL = 'mail',
+  PHONE = 'phone',
+}

@@ -30,6 +30,7 @@ import { PaginationDto } from '../../common/dto/pagination.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserRole } from '../../common/enums/role.enum';
 
 @ApiTags('Contracts')
@@ -38,6 +39,60 @@ import { UserRole } from '../../common/enums/role.enum';
 @Controller('contracts')
 export class ContractsController {
   constructor(private readonly contractsService: ContractsService) {}
+
+  // ─── User Endpoints (named routes first) ──────────────────
+
+  @Get('my-contracts')
+  @Roles(UserRole.PERSONAL, UserRole.BUSINESS)
+  @ApiOperation({
+    summary: 'List my contracts',
+    description: 'Returns all contracts for the authenticated user with offer and supplier details.',
+  })
+  @ApiOkResponse({ description: 'List of user contracts' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT' })
+  getMyContracts(@CurrentUser('id') userId: string) {
+    return this.contractsService.getUserContracts(userId);
+  }
+
+  @Get('my-contracts/:id')
+  @Roles(UserRole.PERSONAL, UserRole.BUSINESS)
+  @ApiOperation({
+    summary: 'Get my contract by ID',
+    description: 'Returns a single contract for the authenticated user. Access denied if user does not own the contract.',
+  })
+  @ApiOkResponse({ description: 'Contract found' })
+  @ApiNotFoundResponse({ description: 'Contract not found' })
+  @ApiForbiddenResponse({ description: 'User does not own this contract' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT' })
+  getMyContractById(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.contractsService.getUserContractById(id, userId);
+  }
+
+  @Patch('my-contracts/:id/upload-signed')
+  @Roles(UserRole.PERSONAL, UserRole.BUSINESS)
+  @ApiOperation({
+    summary: 'Upload signed contract document',
+    description:
+      'Allows the user to upload the signed contract. Sets contract status to SIGNED, ' +
+      'records the signing timestamp, and syncs the case status to CONTRACT_SIGNED.',
+  })
+  @ApiOkResponse({ description: 'Signed contract uploaded' })
+  @ApiNotFoundResponse({ description: 'Contract not found' })
+  @ApiForbiddenResponse({ description: 'User does not own this contract' })
+  @ApiBadRequestResponse({ description: 'Contract must be in SENT status' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT' })
+  uploadSignedContract(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('id') userId: string,
+    @Body() body: { signedDocumentUrl: string },
+  ) {
+    return this.contractsService.uploadSignedContract(id, userId, body.signedDocumentUrl);
+  }
+
+  // ─── Admin Endpoints ──────────────────────────────────────
 
   @Post()
   @Roles(UserRole.ADMIN)

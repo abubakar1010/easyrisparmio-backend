@@ -18,6 +18,9 @@ import { CaseStatus } from '../../common/enums/case.enum';
 import { CaseEventType } from '../../common/enums/case-event.enum';
 import { UserRole } from '../../common/enums/role.enum';
 import { DocumentType } from '../../common/enums/user.enum';
+import { BillStatus } from '../../common/enums/bill.enum';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '../../common/enums/notification.enum';
 
 @Injectable()
 export class CasesService {
@@ -32,6 +35,7 @@ export class CasesService {
     private readonly billRepository: Repository<EnergyBill>,
     @InjectRepository(Offer)
     private readonly offerRepository: Repository<Offer>,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async createCase(
@@ -65,6 +69,9 @@ export class CasesService {
     });
 
     const saved = await this.caseRepository.save(switchCase);
+
+    bill.status = BillStatus.CASE_CREATED;
+    await this.billRepository.save(bill);
 
     await this.logEvent(saved.id, CaseEventType.STATUS_CHANGE, 'Case created', {
       newStatus: CaseStatus.NEW,
@@ -134,9 +141,11 @@ export class CasesService {
         'user',
         'assignedAgent',
         'selectedOffer',
+        'selectedOffer.supplier',
         'bill',
         'documents',
         'contract',
+        'events',
       ],
     });
 
@@ -152,6 +161,23 @@ export class CasesService {
     }
 
     return switchCase;
+  }
+
+  async getCaseByBillId(
+    billId: string,
+    userId: string,
+  ): Promise<SwitchCase | null> {
+    return this.caseRepository.findOne({
+      where: { billId, userId },
+      relations: [
+        'selectedOffer',
+        'selectedOffer.supplier',
+        'contract',
+        'documents',
+        'events',
+      ],
+      order: { createdAt: 'DESC' },
+    });
   }
 
   async updateCase(
@@ -170,12 +196,20 @@ export class CasesService {
     Object.assign(switchCase, dto);
     const saved = await this.caseRepository.save(switchCase);
 
-    // Log status change event
+    // Log status change event and notify user
     if (dto.status && dto.status !== oldStatus) {
       await this.logEvent(id, CaseEventType.STATUS_CHANGE, `Status changed from ${oldStatus} to ${dto.status}`, {
         oldStatus,
         newStatus: dto.status,
         actorId,
+      });
+
+      await this.notificationsService.sendNotification({
+        userId: switchCase.userId,
+        title: 'Aggiornamento Pratica',
+        body: `La tua pratica ${switchCase.caseNumber} è stata aggiornata.`,
+        type: NotificationType.CASE_UPDATE,
+        data: { caseId: id, newStatus: dto.status },
       });
     }
 

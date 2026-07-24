@@ -15,11 +15,13 @@ import { SwitchCase } from '../cases/entities/switch-case.entity';
 import { CaseEvent } from '../cases/entities/case-event.entity';
 import { SentOffer } from '../offers/entities/sent-offer.entity';
 import { BillAnalysis } from '../bills/entities/bill-analysis.entity';
+import { EnergyBill } from '../bills/entities/energy-bill.entity';
 import { ContractStatus } from '../../common/enums/contract.enum';
 import { CaseStatus } from '../../common/enums/case.enum';
 import { CaseEventType } from '../../common/enums/case-event.enum';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../../common/enums/notification.enum';
+import { resolveBillStatusFromCases } from '../../common/utils/bill-status-sync';
 
 @Injectable()
 export class ContractsService {
@@ -34,6 +36,8 @@ export class ContractsService {
     private readonly sentOfferRepository: Repository<SentOffer>,
     @InjectRepository(BillAnalysis)
     private readonly analysisRepository: Repository<BillAnalysis>,
+    @InjectRepository(EnergyBill)
+    private readonly billRepository: Repository<EnergyBill>,
     private readonly notificationsService: NotificationsService,
   ) {}
 
@@ -127,6 +131,9 @@ export class ContractsService {
         },
       });
     }
+
+    // Sync bill status to reflect case progression
+    await this.syncBillStatusFromCase(switchCase.billId);
 
     return saved;
   }
@@ -249,6 +256,9 @@ export class ContractsService {
               newStatus: dto.status,
             },
           });
+
+          // Sync bill status to reflect case progression
+          await this.syncBillStatusFromCase(switchCase.billId);
         }
       }
     }
@@ -347,8 +357,26 @@ export class ContractsService {
           actorId: userId,
         }),
       );
+
+      // Sync bill status to reflect case progression
+      await this.syncBillStatusFromCase(switchCase.billId);
     }
 
     return saved;
+  }
+
+  private async syncBillStatusFromCase(billId: string): Promise<void> {
+    const allCases = await this.caseRepository.find({
+      where: { billId },
+      select: ['status'],
+    });
+    const resolvedStatus = resolveBillStatusFromCases(
+      allCases.map(c => c.status),
+    );
+    const bill = await this.billRepository.findOne({ where: { id: billId } });
+    if (bill && bill.status !== resolvedStatus) {
+      bill.status = resolvedStatus;
+      await this.billRepository.save(bill);
+    }
   }
 }

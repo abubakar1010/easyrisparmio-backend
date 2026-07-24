@@ -10,4 +10,8 @@ export enum BillStatus {
   ERROR = 'error',
   OFFER_SENT = 'offer_sent',
   CASE_CREATED = 'case_created',
+  CONTRACT_SENT = 'contract_sent',
+  CONTRACT_SIGNED = 'contract_signed',
+  ACTIVATED = 'activated',
+  CANCELLED = 'cancelled',
 }

@@ -21,6 +21,7 @@ import { DocumentType } from '../../common/enums/user.enum';
 import { BillStatus } from '../../common/enums/bill.enum';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../../common/enums/notification.enum';
+import { resolveBillStatusFromCases } from '../../common/utils/bill-status-sync';
 
 @Injectable()
 export class CasesService {
@@ -211,6 +212,9 @@ export class CasesService {
         type: NotificationType.CASE_UPDATE,
         data: { caseId: id, newStatus: dto.status },
       });
+
+      // Sync bill status to reflect case progression
+      await this.syncBillStatusFromCase(switchCase.billId);
     }
 
     // Log agent assignment event
@@ -318,6 +322,21 @@ export class CasesService {
     }
 
     return `${prefix}${String(seq).padStart(5, '0')}`;
+  }
+
+  private async syncBillStatusFromCase(billId: string): Promise<void> {
+    const allCases = await this.caseRepository.find({
+      where: { billId },
+      select: ['status'],
+    });
+    const resolvedStatus = resolveBillStatusFromCases(
+      allCases.map(c => c.status),
+    );
+    const bill = await this.billRepository.findOne({ where: { id: billId } });
+    if (bill && bill.status !== resolvedStatus) {
+      bill.status = resolvedStatus;
+      await this.billRepository.save(bill);
+    }
   }
 
   private async logEvent(

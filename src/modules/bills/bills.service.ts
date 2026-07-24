@@ -166,6 +166,10 @@ export class BillsService {
       qb.andWhere('bill.createdAt <= :dateTo', { dateTo: query.dateTo });
     }
 
+    if (query.caseStatus) {
+      qb.andWhere('switchCase.status = :caseStatus', { caseStatus: query.caseStatus });
+    }
+
     if (query.search) {
       qb.andWhere(
         '(user.email ILIKE :search OR user.firstName ILIKE :search OR user.lastName ILIKE :search OR bill.podNumber ILIKE :search OR bill.pdrNumber ILIKE :search)',
@@ -262,9 +266,20 @@ export class BillsService {
 
     const offers = await qb.getMany();
 
+    // Query sent offers for this bill to mark which are already sent
+    const sentOffers = await this.sentOfferRepository.find({
+      where: { billId: bill.id },
+      select: ['offerId', 'createdAt'],
+    });
+    const sentOfferMap = new Map(
+      sentOffers.map((so) => [so.offerId, so.createdAt]),
+    );
+
     return offers.map((offer) => ({
       ...offer,
       estimatedSavings: this.estimateOfferSavings(bill, offer),
+      isSent: sentOfferMap.has(offer.id),
+      sentAt: sentOfferMap.get(offer.id)?.toISOString() ?? null,
     }));
   }
 

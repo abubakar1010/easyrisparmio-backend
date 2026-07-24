@@ -166,12 +166,12 @@ export class OffersController {
   @ApiOperation({
     summary: 'Get recommended offers based on a bill',
     description:
-      'Returns up to 10 recommended offers based on the user\'s energy bill. ' +
+      'Returns all recommended offers based on the user\'s energy bill. ' +
       'Matches by energy type (electricity/gas) and excludes the current supplier. ' +
       'Results are sorted by price ascending (cheapest first).',
   })
   @ApiOkResponse({
-    description: 'List of recommended offers (max 10)',
+    description: 'List of all matching recommended offers',
     content: {
       'application/json': {
         example: {

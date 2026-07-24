@@ -5,15 +5,14 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { EnergyBill } from './entities/energy-bill.entity';
 import { BillAnalysis } from './entities/bill-analysis.entity';
 import { Offer } from '../offers/entities/offer.entity';
-import { AdminSettings } from '../dashboard/entities/admin-settings.entity';
 import { Supplier } from '../suppliers/entities/supplier.entity';
 import { SentOffer } from '../offers/entities/sent-offer.entity';
 import { NotificationsService } from '../notifications/notifications.service';
-import { OcrService } from './ocr/ocr.service';
+import { VisionOcrService } from './ocr/vision-ocr.service';
 import { UploadBillDto } from './dto/upload-bill.dto';
 import { QueryBillsDto } from './dto/query-bills.dto';
 import { PaginatedResponseDto } from '../../common/dto/pagination.dto';
@@ -33,14 +32,12 @@ export class BillsService {
     private readonly analysisRepository: Repository<BillAnalysis>,
     @InjectRepository(Offer)
     private readonly offerRepository: Repository<Offer>,
-    @InjectRepository(AdminSettings)
-    private readonly adminSettingsRepository: Repository<AdminSettings>,
     @InjectRepository(Supplier)
     private readonly supplierRepository: Repository<Supplier>,
     @InjectRepository(SentOffer)
     private readonly sentOfferRepository: Repository<SentOffer>,
     private readonly notificationsService: NotificationsService,
-    private readonly ocrService: OcrService,
+    private readonly visionOcrService: VisionOcrService,
   ) {}
 
   // ─── Upload ───────────────────────────────────────────────
@@ -50,7 +47,7 @@ export class BillsService {
     fileUrl: string,
     dto: UploadBillDto,
   ): Promise<EnergyBill> {
-    // Match supplier name from on-device OCR against existing suppliers
+    // Match supplier name from Vision API extraction against existing suppliers
     let resolvedSupplierId = dto.supplierId;
     if (!resolvedSupplierId && dto.supplierName) {
       const matched = await this.supplierRepository
@@ -91,22 +88,18 @@ export class BillsService {
       contractNumber: dto.contractNumber,
       meterNumber: dto.meterNumber,
       customerName: dto.customerName,
-      status: BillStatus.UPLOADED,
+      status: BillStatus.ANALYZING,
       rawAnalysisData: dto.supplierName ? {
         ocrSupplierName: dto.supplierName,
         ocrTimestamp: new Date().toISOString(),
-        source: 'on-device-mlkit',
-      } : undefined,
+        source: 'openai-vision',
+        model: 'gpt-4o',
+      } : {
+        source: 'manual-entry',
+      },
     });
 
     const savedBill = await this.billRepository.save(bill);
-
-    // Auto-trigger analysis in background
-    setImmediate(() => {
-      this.triggerAutoAnalysis(savedBill).catch((err) => {
-        this.logger.error(`Auto-analysis failed for bill ${savedBill.id}`, err.stack);
-      });
-    });
 
     return savedBill;
   }
@@ -220,38 +213,9 @@ export class BillsService {
 
   // ─── Analysis ─────────────────────────────────────────────
 
-  async analyzeBill(billId: string, userId: string): Promise<BillAnalysis> {
-    const bill = await this.getBillById(billId, userId);
-    return this.runAnalysis(bill);
-  }
-
-  async reanalyzeBill(billId: string, reExtract = true): Promise<BillAnalysis> {
+  async reanalyzeBill(billId: string): Promise<BillAnalysis> {
     const bill = await this.getBillByIdAdmin(billId);
-    // Cloud OCR commented out — on-device OCR now handled by mobile app before upload
-    // if (reExtract) {
-    //   await this.runOcrExtraction(bill);
-    // }
     return this.runAnalysis(bill);
-  }
-
-  async getBillAnalysis(
-    billId: string,
-    userId: string,
-  ): Promise<BillAnalysis> {
-    await this.getBillById(billId, userId);
-
-    const analysis = await this.analysisRepository.findOne({
-      where: { billId },
-      relations: ['bill'],
-    });
-
-    if (!analysis) {
-      throw new NotFoundException(
-        'Analysis not found. Please trigger analysis first.',
-      );
-    }
-
-    return analysis;
   }
 
   // ─── Admin: Recommended Offers ────────────────────────────
@@ -273,36 +237,119 @@ export class BillsService {
     };
   }
 
-  async sendOffersToUser(billId: string): Promise<void> {
+  async getAllOffersForBill(billId: string) {
     const bill = await this.getBillByIdAdmin(billId);
-    const analysis = await this.analysisRepository.findOne({
-      where: { billId },
+
+    const energyType = bill.billType === BillType.ELECTRICITY
+      ? EnergyType.ELECTRICITY
+      : EnergyType.GAS;
+
+    const qb = this.offerRepository
+      .createQueryBuilder('offer')
+      .leftJoinAndSelect('offer.supplier', 'supplier')
+      .where('offer.isActive = :isActive', { isActive: true })
+      .andWhere('offer.offerStatus = :offerStatus', { offerStatus: OfferStatus.ACTIVE })
+      .andWhere(
+        '(offer.energyType = :energyType OR offer.energyType = :dual)',
+        { energyType, dual: EnergyType.DUAL },
+      );
+
+    if (bill.billType === BillType.ELECTRICITY) {
+      qb.orderBy('offer.pricePerKwh', 'ASC', 'NULLS LAST');
+    } else {
+      qb.orderBy('offer.pricePerSmc', 'ASC', 'NULLS LAST');
+    }
+
+    const offers = await qb.getMany();
+
+    return offers.map((offer) => ({
+      ...offer,
+      estimatedSavings: this.estimateOfferSavings(bill, offer),
+    }));
+  }
+
+  async sendOffersToUser(
+    billId: string,
+    selectedOffers: Array<{ offerId: string; estimatedSavings?: number }>,
+  ): Promise<void> {
+    const bill = await this.getBillByIdAdmin(billId);
+
+    if (!selectedOffers?.length) {
+      throw new NotFoundException('No offers selected to send');
+    }
+
+    const offerIds = selectedOffers.map((o) => o.offerId);
+    const offers = await this.offerRepository.find({
+      where: { id: In(offerIds) },
+      relations: ['supplier'],
     });
 
-    if (!analysis) {
-      throw new NotFoundException('Analysis not found for this bill');
+    if (offers.length === 0) {
+      throw new NotFoundException('No valid offers found for the given IDs');
     }
 
-    if (!analysis.recommendedOffers?.length) {
-      throw new NotFoundException('No recommended offers to send');
+    // Build a lookup for admin-provided savings overrides
+    const savingsMap = new Map(
+      selectedOffers
+        .filter((o) => o.estimatedSavings != null)
+        .map((o) => [o.offerId, o.estimatedSavings!]),
+    );
+
+    // Build offer snapshots
+    const offerSnapshots = offers.map((offer) => ({
+      id: offer.id,
+      name: offer.name,
+      supplierName: offer.supplier?.name || null,
+      supplierId: offer.supplierId,
+      pricePerKwh: offer.pricePerKwh,
+      pricePerSmc: offer.pricePerSmc,
+      fixedMonthlyFee: offer.fixedMonthlyFee,
+      energyType: offer.energyType,
+      marketType: offer.marketType,
+      contractDurationMonths: offer.contractDurationMonths,
+      isGreenEnergy: offer.isGreenEnergy,
+      estimatedSavings: savingsMap.has(offer.id)
+        ? savingsMap.get(offer.id)!
+        : this.estimateOfferSavings(bill, offer),
+    }));
+
+    // Check for existing sent offers to avoid duplicates
+    const existing = await this.sentOfferRepository.find({
+      where: { billId: bill.id },
+      select: ['offerId'],
+    });
+    const existingIds = new Set(existing.map((s) => s.offerId));
+
+    const newRecords = offerSnapshots
+      .filter((snap) => !existingIds.has(snap.id))
+      .map((snap) =>
+        this.sentOfferRepository.create({
+          userId: bill.userId,
+          billId: bill.id,
+          offerId: snap.id,
+          estimatedSavings: snap.estimatedSavings ?? null,
+          sentBy: 'admin',
+          offerSnapshot: snap,
+        }),
+      );
+
+    if (newRecords.length > 0) {
+      await this.sentOfferRepository.save(newRecords);
     }
+
+    // Calculate best savings for notification message
+    const bestSavings = Math.max(...offerSnapshots.map((s) => s.estimatedSavings || 0));
 
     await this.notificationsService.sendNotification({
       userId: bill.userId,
       title: 'Nuove offerte consigliate per te',
-      body: `Abbiamo trovato ${analysis.recommendedOffers.length} offerte migliori per la tua bolletta. Risparmio stimato: EUR ${analysis.potentialSavings}`,
+      body: `Abbiamo trovato ${offerSnapshots.length} offerte migliori per la tua bolletta. Risparmio stimato: EUR ${bestSavings.toFixed(2)}`,
       type: NotificationType.OFFER_AVAILABLE,
       data: {
-        billId,
-        analysisId: analysis.id,
-        offers: analysis.recommendedOffers,
+        billId: bill.id,
+        offers: offerSnapshots,
       },
     });
-
-    await this.createSentOfferRecords(bill, analysis, 'admin');
-
-    analysis.offersSentToUser = true;
-    await this.analysisRepository.save(analysis);
 
     bill.status = BillStatus.OFFER_SENT;
     await this.billRepository.save(bill);
@@ -315,17 +362,36 @@ export class BillsService {
     await this.billRepository.save(bill);
 
     try {
-      const settings = await this.getAdminSettings();
-      const topOffers = await this.findTopOffers(bill, settings.maxRecommendedOffers);
+      const energyType = bill.billType === BillType.ELECTRICITY
+        ? EnergyType.ELECTRICITY
+        : EnergyType.GAS;
+
+      const qb = this.offerRepository
+        .createQueryBuilder('offer')
+        .leftJoinAndSelect('offer.supplier', 'supplier')
+        .where('offer.isActive = :isActive', { isActive: true })
+        .andWhere('offer.offerStatus = :offerStatus', { offerStatus: OfferStatus.ACTIVE })
+        .andWhere(
+          '(offer.energyType = :energyType OR offer.energyType = :dual)',
+          { energyType, dual: EnergyType.DUAL },
+        );
+
+      if (bill.billType === BillType.ELECTRICITY) {
+        qb.orderBy('offer.pricePerKwh', 'ASC', 'NULLS LAST');
+      } else {
+        qb.orderBy('offer.pricePerSmc', 'ASC', 'NULLS LAST');
+      }
+
+      const allOffers = await qb.getMany();
 
       const { potentialSavings, currentMonthlyAvg, confidenceScore } =
-        this.calculateSavings(bill, topOffers);
+        this.calculateSavings(bill, allOffers);
 
-      const recommendedMarketType = topOffers.length > 0
-        ? topOffers[0].marketType
+      const recommendedMarketType = allOffers.length > 0
+        ? allOffers[0].marketType
         : MarketType.FIXED;
 
-      const offerSnapshots = topOffers.map((offer) => ({
+      const offerSnapshots = allOffers.map((offer) => ({
         id: offer.id,
         name: offer.name,
         supplierName: offer.supplier?.name || null,
@@ -340,9 +406,9 @@ export class BillsService {
         estimatedSavings: this.estimateOfferSavings(bill, offer),
       }));
 
-      const analysisSummary = topOffers.length > 0
-        ? `Abbiamo trovato ${topOffers.length} offerte migliori per la tua bolletta ${bill.billType}. La migliore offerta è "${topOffers[0].name}" di ${topOffers[0].supplier?.name || 'fornitore'}, con un risparmio stimato di EUR ${potentialSavings} per periodo di fatturazione.`
-        : `Non abbiamo trovato offerte migliori per la tua bolletta ${bill.billType} al momento. Ti aggiorneremo quando saranno disponibili nuove offerte.`;
+      const analysisSummary = allOffers.length > 0
+        ? `Abbiamo trovato ${allOffers.length} offerte per la tua bolletta ${bill.billType}. La migliore offerta è "${allOffers[0].name}" di ${allOffers[0].supplier?.name || 'fornitore'}, con un risparmio stimato di EUR ${potentialSavings} per periodo di fatturazione.`
+        : `Non abbiamo trovato offerte per la tua bolletta ${bill.billType} al momento. Ti aggiorneremo quando saranno disponibili nuove offerte.`;
 
       let analysis = await this.analysisRepository.findOne({
         where: { billId: bill.id },
@@ -359,7 +425,7 @@ export class BillsService {
           consumption: bill.billType === BillType.ELECTRICITY
             ? bill.consumptionKwh
             : bill.consumptionSmc,
-          offersCompared: topOffers.length,
+          offersCompared: allOffers.length,
         },
         confidenceScore,
         recommendedOffers: offerSnapshots,
@@ -386,38 +452,6 @@ export class BillsService {
       await this.billRepository.save(bill);
       throw error;
     }
-  }
-
-  private async findTopOffers(bill: EnergyBill, limit: number): Promise<Offer[]> {
-    const energyType = bill.billType === BillType.ELECTRICITY
-      ? EnergyType.ELECTRICITY
-      : EnergyType.GAS;
-
-    const qb = this.offerRepository
-      .createQueryBuilder('offer')
-      .leftJoinAndSelect('offer.supplier', 'supplier')
-      .where('offer.isActive = :isActive', { isActive: true })
-      .andWhere('offer.offerStatus = :offerStatus', { offerStatus: OfferStatus.ACTIVE })
-      .andWhere(
-        '(offer.energyType = :energyType OR offer.energyType = :dual)',
-        { energyType, dual: EnergyType.DUAL },
-      );
-
-    if (bill.supplierId) {
-      qb.andWhere('offer.supplierId != :currentSupplier', {
-        currentSupplier: bill.supplierId,
-      });
-    }
-
-    if (bill.billType === BillType.ELECTRICITY) {
-      qb.orderBy('offer.pricePerKwh', 'ASC', 'NULLS LAST');
-    } else {
-      qb.orderBy('offer.pricePerSmc', 'ASC', 'NULLS LAST');
-    }
-
-    qb.take(limit);
-
-    return qb.getMany();
   }
 
   private calculateSavings(
@@ -488,112 +522,4 @@ export class BillsService {
     return 0;
   }
 
-  // ─── Private: Auto-Analysis Trigger ───────────────────────
-
-  private async triggerAutoAnalysis(bill: EnergyBill): Promise<void> {
-    // Cloud OCR commented out — on-device OCR now handled by mobile app before upload.
-    // Bill fields are pre-populated from the upload DTO (sent by mobile app with extracted data).
-    // await this.runOcrExtraction(bill);
-
-    // Run offer comparison analysis using data from DTO
-    const analysis = await this.runAnalysis(bill);
-
-    if (!analysis.recommendedOffers?.length) return;
-
-    const settings = await this.getAdminSettings();
-    if (!settings.autoSendOffers) return;
-
-    await this.notificationsService.sendNotification({
-      userId: bill.userId,
-      title: 'Nuove offerte consigliate per te',
-      body: `Abbiamo trovato ${analysis.recommendedOffers.length} offerte migliori per la tua bolletta. Risparmio stimato: EUR ${analysis.potentialSavings}`,
-      type: NotificationType.OFFER_AVAILABLE,
-      data: {
-        billId: bill.id,
-        analysisId: analysis.id,
-        offers: analysis.recommendedOffers,
-      },
-    });
-
-    await this.createSentOfferRecords(bill, analysis, 'auto');
-
-    analysis.offersSentToUser = true;
-    await this.analysisRepository.save(analysis);
-
-    bill.status = BillStatus.OFFER_SENT;
-    await this.billRepository.save(bill);
-  }
-
-  // Cloud OCR extraction commented out — on-device OCR (Google ML Kit) in mobile app
-  // now handles text extraction + regex parsing before upload. Data arrives pre-populated
-  // in UploadBillDto. To restore cloud OCR, uncomment this method and the calls in
-  // triggerAutoAnalysis() and reanalyzeBill().
-  //
-  // private async runOcrExtraction(bill: EnergyBill): Promise<void> {
-  //   try {
-  //     const ocrResult = await this.ocrService.extractBillData(bill.fileUrl, bill.billType);
-  //     bill.rawAnalysisData = { ...ocrResult, ocrTimestamp: new Date().toISOString() };
-  //     if (ocrResult.totalAmount != null && bill.totalAmount == null) bill.totalAmount = ocrResult.totalAmount;
-  //     if (ocrResult.consumptionKwh != null && bill.consumptionKwh == null) bill.consumptionKwh = ocrResult.consumptionKwh;
-  //     if (ocrResult.consumptionSmc != null && bill.consumptionSmc == null) bill.consumptionSmc = ocrResult.consumptionSmc;
-  //     if (ocrResult.costPerUnit != null && bill.costPerUnit == null) bill.costPerUnit = ocrResult.costPerUnit;
-  //     if (ocrResult.fixedCharges != null && bill.fixedCharges == null) bill.fixedCharges = ocrResult.fixedCharges;
-  //     if (ocrResult.taxes != null && bill.taxes == null) bill.taxes = ocrResult.taxes;
-  //     if (ocrResult.podNumber && !bill.podNumber) bill.podNumber = ocrResult.podNumber;
-  //     if (ocrResult.pdrNumber && !bill.pdrNumber) bill.pdrNumber = ocrResult.pdrNumber;
-  //     if (ocrResult.billingPeriodStart && !bill.billingPeriodStart) bill.billingPeriodStart = new Date(ocrResult.billingPeriodStart);
-  //     if (ocrResult.billingPeriodEnd && !bill.billingPeriodEnd) bill.billingPeriodEnd = new Date(ocrResult.billingPeriodEnd);
-  //     if (ocrResult.supplierName && !bill.supplierId) {
-  //       const matched = await this.supplierRepository.createQueryBuilder('s').where('s.name ILIKE :n', { n: `%${ocrResult.supplierName}%` }).getOne();
-  //       if (matched) { bill.supplierId = matched.id; }
-  //     }
-  //     await this.billRepository.save(bill);
-  //   } catch (error) {
-  //     bill.rawAnalysisData = { ocrError: error?.message || 'OCR extraction failed', ocrTimestamp: new Date().toISOString() };
-  //     await this.billRepository.save(bill);
-  //   }
-  // }
-
-  private async getAdminSettings(): Promise<AdminSettings> {
-    let settings = await this.adminSettingsRepository.findOne({ where: {} });
-    if (!settings) {
-      settings = this.adminSettingsRepository.create({
-        autoSendOffers: false,
-        maxRecommendedOffers: 3,
-      });
-      await this.adminSettingsRepository.save(settings);
-    }
-    return settings;
-  }
-
-  private async createSentOfferRecords(
-    bill: EnergyBill,
-    analysis: BillAnalysis,
-    sentBy: 'auto' | 'admin',
-  ): Promise<void> {
-    if (!analysis.recommendedOffers?.length) return;
-
-    const existing = await this.sentOfferRepository.find({
-      where: { billId: bill.id },
-      select: ['offerId'],
-    });
-    const existingIds = new Set(existing.map((s) => s.offerId));
-
-    const newRecords = analysis.recommendedOffers
-      .filter((snap: any) => snap.id && !existingIds.has(snap.id))
-      .map((snap: any) =>
-        this.sentOfferRepository.create({
-          userId: bill.userId,
-          billId: bill.id,
-          offerId: snap.id,
-          estimatedSavings: snap.estimatedSavings ?? null,
-          sentBy,
-          offerSnapshot: snap,
-        }),
-      );
-
-    if (newRecords.length > 0) {
-      await this.sentOfferRepository.save(newRecords);
-    }
-  }
 }

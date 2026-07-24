@@ -13,6 +13,8 @@ import { UpdateContractDto } from './dto/update-contract.dto';
 import { PaginationDto, PaginatedResponseDto } from '../../common/dto/pagination.dto';
 import { SwitchCase } from '../cases/entities/switch-case.entity';
 import { CaseEvent } from '../cases/entities/case-event.entity';
+import { SentOffer } from '../offers/entities/sent-offer.entity';
+import { BillAnalysis } from '../bills/entities/bill-analysis.entity';
 import { ContractStatus } from '../../common/enums/contract.enum';
 import { CaseStatus } from '../../common/enums/case.enum';
 import { CaseEventType } from '../../common/enums/case-event.enum';
@@ -28,6 +30,10 @@ export class ContractsService {
     private readonly caseRepository: Repository<SwitchCase>,
     @InjectRepository(CaseEvent)
     private readonly eventRepository: Repository<CaseEvent>,
+    @InjectRepository(SentOffer)
+    private readonly sentOfferRepository: Repository<SentOffer>,
+    @InjectRepository(BillAnalysis)
+    private readonly analysisRepository: Repository<BillAnalysis>,
     private readonly notificationsService: NotificationsService,
   ) {}
 
@@ -54,6 +60,22 @@ export class ContractsService {
       ? ContractStatus.SENT
       : ContractStatus.DRAFT;
 
+    // Resolve estimated savings: SentOffer (admin-approved) → BillAnalysis → null
+    let estimatedSavings: number | null = null;
+    const sentOffer = await this.sentOfferRepository.findOne({
+      where: { billId: switchCase.billId, offerId: switchCase.selectedOfferId },
+    });
+    if (sentOffer?.estimatedSavings) {
+      estimatedSavings = Number(sentOffer.estimatedSavings);
+    } else {
+      const analysis = await this.analysisRepository.findOne({
+        where: { billId: switchCase.billId },
+      });
+      if (analysis?.potentialSavings) {
+        estimatedSavings = Number(analysis.potentialSavings);
+      }
+    }
+
     const contract = this.contractRepository.create({
       caseId: dto.caseId,
       offerId: switchCase.selectedOfferId,
@@ -63,6 +85,7 @@ export class ContractsService {
       status: initialStatus,
       deliveryMethod: dto.deliveryMethod || null,
       documentUrl: dto.documentUrl || null,
+      estimatedSavings,
     });
 
     const saved = await this.contractRepository.save(contract);

@@ -248,8 +248,6 @@ export class OffersService {
       qb.orderBy('offer.pricePerSmc', 'ASC', 'NULLS LAST');
     }
 
-    qb.take(10);
-
     return qb.getMany();
   }
 

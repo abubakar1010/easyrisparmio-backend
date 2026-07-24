@@ -70,7 +70,7 @@ export class DashboardService {
   }
 
   async getUserDashboard(userId: string) {
-    const [totalCases, activeContracts, recentCases, potentialSavings, activeRequests] =
+    const [totalCases, activeContracts, recentCases, potentialSavings] =
       await Promise.all([
         this.caseRepository.count({ where: { userId } }),
         this.contractRepository.count({
@@ -83,14 +83,12 @@ export class DashboardService {
           relations: ['selectedOffer'],
         }),
         this.getUserPotentialSavings(userId),
-        this.getUserActiveRequests(userId),
       ]);
 
     return {
       totalCases,
       activeContracts,
       potentialSavings,
-      activeRequests,
       recentCases,
     };
   }
@@ -384,38 +382,25 @@ export class DashboardService {
   // ─── User Dashboard Helpers ─────────────────────────────
 
   private async getUserPotentialSavings(userId: string) {
-    const result = await this.analysisRepository
-      .createQueryBuilder('a')
-      .innerJoin('a.bill', 'bill')
-      .select('COALESCE(SUM(a.potentialSavings), 0)', 'totalSavings')
-      .addSelect('COUNT(*)::int', 'analyzedBills')
-      .where('bill.userId = :userId', { userId })
-      .andWhere('bill.status = :status', { status: 'analyzed' })
-      .getRawOne();
+    const result = await this.dataSource.query(
+      `SELECT
+        COALESCE(SUM(COALESCE(contract.estimated_savings, so.estimated_savings, ba.potential_savings, 0)), 0) AS "totalSavings",
+        COUNT(DISTINCT contract.id)::int AS "activeUtilities"
+      FROM contracts contract
+      INNER JOIN switch_cases sc ON sc.id = contract.case_id
+      LEFT JOIN bill_analyses ba ON ba.bill_id = sc.bill_id
+      LEFT JOIN sent_offers so ON so.bill_id = sc.bill_id AND so.offer_id = sc.selected_offer_id
+      WHERE contract.user_id = $1
+        AND sc.status = 'activated'
+        AND contract.status = 'active'
+        AND sc.deleted_at IS NULL`,
+      [userId],
+    );
 
+    const row = result[0] || {};
     return {
-      totalSavings: parseFloat(result.totalSavings),
-      analyzedBills: result.analyzedBills,
-    };
-  }
-
-  private async getUserActiveRequests(userId: string) {
-    const activeStatuses = [
-      CaseStatus.NEW,
-      CaseStatus.IN_PROGRESS,
-      CaseStatus.DOCUMENTS_PENDING,
-      CaseStatus.CONTRACT_SENT,
-    ];
-
-    const cases = await this.caseRepository.find({
-      where: activeStatuses.map((status) => ({ userId, status })),
-      order: { createdAt: 'DESC' },
-      relations: ['selectedOffer', 'fromSupplier', 'toSupplier'],
-    });
-
-    return {
-      count: cases.length,
-      requests: cases,
+      totalSavings: parseFloat(row.totalSavings) || 0,
+      activeUtilities: row.activeUtilities || 0,
     };
   }
 

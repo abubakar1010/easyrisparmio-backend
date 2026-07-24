@@ -12,13 +12,15 @@ import {
   ParseUUIDPipe,
   BadRequestException,
   NotFoundException,
+  BadGatewayException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
+import { diskStorage, memoryStorage } from 'multer';
 import { extname, join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { existsSync } from 'fs';
 import type { Response } from 'express';
+import { Throttle } from '@nestjs/throttler';
 import {
   ApiTags,
   ApiOperation,
@@ -33,13 +35,17 @@ import {
   ApiForbiddenResponse,
 } from '@nestjs/swagger';
 import { BillsService } from './bills.service';
+import { VisionOcrService } from './ocr/vision-ocr.service';
 import { UploadBillDto } from './dto/upload-bill.dto';
+import { ExtractBillDto } from './dto/extract-bill.dto';
 import { QueryBillsDto } from './dto/query-bills.dto';
+import { SendOffersDto } from './dto/send-offers.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserRole } from '../../common/enums/role.enum';
+import { BillType } from '../../common/enums/bill.enum';
 
 const BILL_EXAMPLE = {
   id: 'bl1a2b3c-d5e6-7890-abcd-ef1234567890',
@@ -109,7 +115,80 @@ const billFileFilter = (
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('bills')
 export class BillsController {
-  constructor(private readonly billsService: BillsService) {}
+  constructor(
+    private readonly billsService: BillsService,
+    private readonly visionOcrService: VisionOcrService,
+  ) {}
+
+  // ─── OCR Extraction ───────────────────────────────────────
+
+  @Post('extract')
+  @Throttle({ default: { limit: 20, ttl: 3600000 } })
+  @ApiOperation({
+    summary: 'Extract bill data from image/PDF using AI Vision',
+    description:
+      'Sends a bill image or PDF to OpenAI Vision API for field extraction. ' +
+      'Returns structured data without creating a bill record. Use this before uploading.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary', description: 'Bill PDF or image file' },
+        billType: { type: 'string', enum: ['electricity', 'gas'], description: 'Type of energy bill' },
+      },
+      required: ['file', 'billType'],
+    },
+  })
+  @ApiOkResponse({ description: 'Extraction completed successfully' })
+  @ApiBadRequestResponse({ description: 'Invalid file type or size' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT' })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 10 * 1024 * 1024 },
+      fileFilter: billFileFilter,
+    }),
+  )
+  async extractBillData(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() dto: ExtractBillDto,
+  ) {
+    if (!file) {
+      throw new BadRequestException('File is required');
+    }
+
+    try {
+      let imageBuffers: Buffer[];
+
+      if (file.mimetype === 'application/pdf') {
+        // Write PDF to temp file for pdf-to-img, then clean up
+        const { writeFileSync, unlinkSync } = await import('fs');
+        const tmpPath = join(process.cwd(), 'uploads', `tmp-${uuidv4()}.pdf`);
+        try {
+          writeFileSync(tmpPath, file.buffer);
+          imageBuffers = await this.visionOcrService.convertPdfToImages(tmpPath);
+        } finally {
+          try { unlinkSync(tmpPath); } catch (_) {}
+        }
+      } else {
+        imageBuffers = [file.buffer];
+      }
+
+      const billType = dto.billType as unknown as BillType;
+      const result = await this.visionOcrService.extractFromImages(imageBuffers, billType);
+      return result;
+    } catch (error: any) {
+      if (error.code === 'ETIMEDOUT' || error.message?.includes('timeout')) {
+        throw new BadGatewayException('OCR extraction timed out. Please try again.');
+      }
+      if (error.status === 429 || error.status >= 500) {
+        throw new BadGatewayException('OCR service temporarily unavailable. Please try again.');
+      }
+      throw new BadGatewayException(`OCR extraction failed: ${error.message || 'Unknown error'}`);
+    }
+  }
 
   // ─── User Endpoints ───────────────────────────────────────
 
@@ -117,8 +196,8 @@ export class BillsController {
   @ApiOperation({
     summary: 'Upload an energy bill',
     description:
-      'Uploads an electricity or gas bill document. The bill starts in `uploaded` status. ' +
-      'Use `POST /bills/:id/analyze` to trigger analysis after upload.',
+      'Uploads an electricity or gas bill document. The bill starts in `analyzing` status ' +
+      'and appears in the admin panel for review.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -240,11 +319,24 @@ export class BillsController {
     return this.billsService.getBillByIdAdmin(id);
   }
 
+  @Get('admin/:id/all-offers')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Get all active offers with savings for a bill (admin)',
+    description: 'Returns all active offers matching the bill energy type, with estimated savings calculated per offer.',
+  })
+  @ApiOkResponse({ description: 'All active offers with estimated savings' })
+  @ApiNotFoundResponse({ description: 'Bill not found' })
+  getAllOffersForBill(@Param('id', ParseUUIDPipe) id: string) {
+    return this.billsService.getAllOffersForBill(id);
+  }
+
   @Get('admin/:id/recommended-offers')
   @Roles(UserRole.ADMIN)
   @ApiOperation({
     summary: 'Get recommended offers for a bill (admin)',
     description: 'Returns the top recommended offers stored from the bill analysis.',
+    deprecated: true,
   })
   @ApiOkResponse({ description: 'Recommended offers for the bill' })
   @ApiNotFoundResponse({ description: 'Analysis not found', content: { 'application/json': { example: { success: false, statusCode: 404, message: ['Analysis not found for this bill'], timestamp: '2026-06-24T12:00:00.000Z' } } } })
@@ -255,13 +347,16 @@ export class BillsController {
   @Post('admin/:id/send-offers')
   @Roles(UserRole.ADMIN)
   @ApiOperation({
-    summary: 'Send recommended offers to user (admin)',
-    description: 'Manually sends the recommended offers to the bill owner as a notification.',
+    summary: 'Send selected offers to user (admin)',
+    description: 'Sends admin-selected offers to the bill owner. Admin can choose any number of offers and optionally override estimated savings.',
   })
   @ApiOkResponse({ description: 'Offers sent to user' })
-  @ApiNotFoundResponse({ description: 'Analysis or offers not found' })
-  async sendOffersToUser(@Param('id', ParseUUIDPipe) id: string) {
-    await this.billsService.sendOffersToUser(id);
+  @ApiNotFoundResponse({ description: 'Bill or offers not found' })
+  async sendOffersToUser(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SendOffersDto,
+  ) {
+    await this.billsService.sendOffersToUser(id, dto.offers);
     return { message: 'Offers sent to user successfully' };
   }
 
@@ -270,6 +365,7 @@ export class BillsController {
   @ApiOperation({
     summary: 'Re-analyze a bill (admin)',
     description: 'Re-triggers the analysis for a bill, comparing with current offers.',
+    deprecated: true,
   })
   @ApiOkResponse({ description: 'Bill re-analyzed successfully' })
   @ApiNotFoundResponse({ description: 'Bill not found' })
@@ -325,46 +421,6 @@ export class BillsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.billsService.getBillById(id, userId);
-  }
-
-  @Get(':id/analysis')
-  @ApiOperation({
-    summary: 'Get analysis results for a bill',
-    description: 'Returns the analysis for a specific bill. The bill must have been analyzed first via `POST /bills/:id/analyze`.',
-  })
-  @ApiOkResponse({
-    description: 'Bill analysis results',
-    content: { 'application/json': { example: { success: true, data: ANALYSIS_EXAMPLE } } },
-  })
-  @ApiNotFoundResponse({ description: 'Analysis not found', content: { 'application/json': { example: { success: false, statusCode: 404, message: ['Analysis not found. Please trigger analysis first.'], timestamp: '2026-06-10T12:00:00.000Z' } } } })
-  @ApiForbiddenResponse({ description: 'User does not own this bill', content: { 'application/json': { example: { success: false, statusCode: 403, message: ['You do not have access to this bill'], timestamp: '2026-06-10T12:00:00.000Z' } } } })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT', content: { 'application/json': { example: ERROR_401 } } })
-  getBillAnalysis(
-    @CurrentUser('id') userId: string,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
-    return this.billsService.getBillAnalysis(id, userId);
-  }
-
-  @Post(':id/analyze')
-  @ApiOperation({
-    summary: 'Trigger analysis for a bill',
-    description:
-      'Triggers AI analysis on an uploaded bill. Updates status to `analyzing` then `analyzed` on success, ' +
-      'or `error` on failure. Returns the analysis with potential savings and recommended actions.',
-  })
-  @ApiOkResponse({
-    description: 'Analysis completed',
-    content: { 'application/json': { example: { success: true, data: ANALYSIS_EXAMPLE } } },
-  })
-  @ApiNotFoundResponse({ description: 'Bill not found', content: { 'application/json': { example: { success: false, statusCode: 404, message: ['Bill not found'], timestamp: '2026-06-10T12:00:00.000Z' } } } })
-  @ApiForbiddenResponse({ description: 'User does not own this bill', content: { 'application/json': { example: { success: false, statusCode: 403, message: ['You do not have access to this bill'], timestamp: '2026-06-10T12:00:00.000Z' } } } })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT', content: { 'application/json': { example: ERROR_401 } } })
-  analyzeBill(
-    @CurrentUser('id') userId: string,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
-    return this.billsService.analyzeBill(id, userId);
   }
 
   // ─── File Download ────────────────────────────────────────

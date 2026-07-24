@@ -43,4 +43,9 @@ export class UpdateContractDto {
   @IsOptional()
   @IsString()
   documentUrl?: string;
+
+  @ApiPropertyOptional({ description: 'Estimated savings for this contract (EUR)' })
+  @IsOptional()
+  @IsNumber()
+  estimatedSavings?: number;
 }

@@ -70,6 +70,15 @@ export class Contract extends BaseEntity {
   })
   monthlyEstimate: number;
 
+  @Column({
+    name: 'estimated_savings',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
+  estimatedSavings: number | null;
+
   @Column({ name: 'renewal_date', type: 'date', nullable: true })
   renewalDate: Date | null;
 

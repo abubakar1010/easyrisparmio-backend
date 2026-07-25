@@ -9,7 +9,7 @@ import {
   Index,
 } from 'typeorm';
 import { BaseEntity } from '../../../common/entities/base.entity';
-import { BillType, BillStatus } from '../../../common/enums/bill.enum';
+import { BillType, BillStatus, BillSource } from '../../../common/enums/bill.enum';
 import { User } from '../../users/entities/user.entity';
 import { Supplier } from '../../suppliers/entities/supplier.entity';
 import { BillAnalysis } from './bill-analysis.entity';
@@ -19,8 +19,8 @@ import { SwitchCase } from '../../cases/entities/switch-case.entity';
 @Index(['status'])
 @Index(['userId', 'status'])
 export class EnergyBill extends BaseEntity {
-  @Column({ name: 'file_url', type: 'varchar', length: 500 })
-  fileUrl: string;
+  @Column({ name: 'file_url', type: 'varchar', length: 500, nullable: true })
+  fileUrl: string | null;
 
   @Column({
     name: 'bill_type',
@@ -35,6 +35,13 @@ export class EnergyBill extends BaseEntity {
     default: BillStatus.UPLOADED,
   })
   status: BillStatus;
+
+  @Column({
+    type: 'enum',
+    enum: BillSource,
+    default: BillSource.UPLOAD,
+  })
+  source: BillSource;
 
   @Column({ name: 'pod_number', type: 'varchar', length: 50, nullable: true })
   podNumber: string;

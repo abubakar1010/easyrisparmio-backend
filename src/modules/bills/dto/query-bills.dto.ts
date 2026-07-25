@@ -1,7 +1,7 @@
 import { IsEnum, IsOptional, IsDateString } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { PaginationDto } from '../../../common/dto/pagination.dto';
-import { BillType, BillStatus } from '../../../common/enums/bill.enum';
+import { BillType, BillStatus, BillSource } from '../../../common/enums/bill.enum';
 import { CaseStatus } from '../../../common/enums/case.enum';
 
 export class QueryBillsDto extends PaginationDto {
@@ -29,4 +29,9 @@ export class QueryBillsDto extends PaginationDto {
   @IsOptional()
   @IsDateString()
   dateTo?: string;
+
+  @ApiPropertyOptional({ enum: BillSource, description: 'Filter by bill source', example: 'email' })
+  @IsOptional()
+  @IsEnum(BillSource)
+  source?: BillSource;
 }

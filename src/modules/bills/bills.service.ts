@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -11,12 +12,14 @@ import { BillAnalysis } from './entities/bill-analysis.entity';
 import { Offer } from '../offers/entities/offer.entity';
 import { Supplier } from '../suppliers/entities/supplier.entity';
 import { SentOffer } from '../offers/entities/sent-offer.entity';
+import { User } from '../users/entities/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { VisionOcrService } from './ocr/vision-ocr.service';
 import { UploadBillDto } from './dto/upload-bill.dto';
+import { CreateEmailBillDto } from './dto/create-email-bill.dto';
 import { QueryBillsDto } from './dto/query-bills.dto';
 import { PaginatedResponseDto } from '../../common/dto/pagination.dto';
-import { BillStatus, BillType } from '../../common/enums/bill.enum';
+import { BillStatus, BillType, BillSource } from '../../common/enums/bill.enum';
 import { EnergyType, MarketType } from '../../common/enums/offer.enum';
 import { OfferStatus } from '../../common/enums/offer-status.enum';
 import { NotificationType } from '../../common/enums/notification.enum';
@@ -36,6 +39,8 @@ export class BillsService {
     private readonly supplierRepository: Repository<Supplier>,
     @InjectRepository(SentOffer)
     private readonly sentOfferRepository: Repository<SentOffer>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
     private readonly notificationsService: NotificationsService,
     private readonly visionOcrService: VisionOcrService,
   ) {}
@@ -88,6 +93,7 @@ export class BillsService {
       contractNumber: dto.contractNumber,
       meterNumber: dto.meterNumber,
       customerName: dto.customerName,
+      source: BillSource.UPLOAD,
       status: BillStatus.ANALYZING,
       rawAnalysisData: dto.supplierName ? {
         ocrSupplierName: dto.supplierName,
@@ -171,6 +177,10 @@ export class BillsService {
       qb.andWhere('switchCase.status = :caseStatus', { caseStatus: query.caseStatus });
     }
 
+    if (query.source) {
+      qb.andWhere('bill.source = :source', { source: query.source });
+    }
+
     if (query.search) {
       qb.andWhere(
         '(user.email ILIKE :search OR user.firstName ILIKE :search OR user.lastName ILIKE :search OR bill.podNumber ILIKE :search OR bill.pdrNumber ILIKE :search)',
@@ -214,6 +224,143 @@ export class BillsService {
     }
 
     return bill;
+  }
+
+  // ─── Email Bill ───────────────────────────────────────────
+
+  async createEmailBillPlaceholder(
+    userId: string,
+    dto: CreateEmailBillDto,
+  ): Promise<EnergyBill> {
+    const bill = this.billRepository.create({
+      userId,
+      fileUrl: null,
+      billType: dto.billType,
+      source: BillSource.EMAIL,
+      status: BillStatus.PENDING_EMAIL,
+      rawAnalysisData: {
+        source: 'email',
+        createdAt: new Date().toISOString(),
+      },
+    });
+
+    return this.billRepository.save(bill);
+  }
+
+  async adminUploadEmailBill(
+    fileUrl: string,
+    billType: BillType,
+    userId: string,
+  ): Promise<EnergyBill> {
+    // Verify user exists
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Check if user has a pending email bill of the same type
+    const pendingBill = await this.billRepository.findOne({
+      where: {
+        userId,
+        billType,
+        status: BillStatus.PENDING_EMAIL,
+        source: BillSource.EMAIL,
+      },
+      order: { createdAt: 'DESC' },
+    });
+
+    if (pendingBill) {
+      // Update existing pending bill with file and transition to ANALYZING
+      pendingBill.fileUrl = fileUrl;
+      pendingBill.status = BillStatus.ANALYZING;
+      pendingBill.rawAnalysisData = {
+        ...pendingBill.rawAnalysisData,
+        adminUploadedAt: new Date().toISOString(),
+        source: 'email',
+      };
+      return this.billRepository.save(pendingBill);
+    }
+
+    // No pending bill found - create a new email-sourced bill
+    const bill = this.billRepository.create({
+      userId,
+      fileUrl,
+      billType,
+      source: BillSource.EMAIL,
+      status: BillStatus.ANALYZING,
+      rawAnalysisData: {
+        source: 'email',
+        adminUploadedAt: new Date().toISOString(),
+      },
+    });
+
+    return this.billRepository.save(bill);
+  }
+
+  async adminAssociateBillWithUser(
+    billId: string,
+    userId: string,
+    pendingBillId?: string,
+  ): Promise<EnergyBill> {
+    const bill = await this.getBillByIdAdmin(billId);
+
+    // Verify user exists
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (pendingBillId) {
+      // Merge into existing pending bill
+      const pendingBill = await this.billRepository.findOne({
+        where: { id: pendingBillId, status: BillStatus.PENDING_EMAIL },
+      });
+
+      if (!pendingBill) {
+        throw new NotFoundException('Pending email bill not found');
+      }
+
+      if (pendingBill.userId !== userId) {
+        throw new BadRequestException('Pending bill does not belong to the specified user');
+      }
+
+      // Transfer file and data from uploaded bill to pending bill
+      pendingBill.fileUrl = bill.fileUrl;
+      pendingBill.status = bill.fileUrl ? BillStatus.ANALYZING : BillStatus.PENDING_EMAIL;
+      pendingBill.podNumber = bill.podNumber || pendingBill.podNumber;
+      pendingBill.pdrNumber = bill.pdrNumber || pendingBill.pdrNumber;
+      pendingBill.totalAmount = bill.totalAmount ?? pendingBill.totalAmount;
+      pendingBill.consumptionKwh = bill.consumptionKwh ?? pendingBill.consumptionKwh;
+      pendingBill.consumptionSmc = bill.consumptionSmc ?? pendingBill.consumptionSmc;
+      pendingBill.costPerUnit = bill.costPerUnit ?? pendingBill.costPerUnit;
+      pendingBill.fixedCharges = bill.fixedCharges ?? pendingBill.fixedCharges;
+      pendingBill.taxes = bill.taxes ?? pendingBill.taxes;
+      pendingBill.supplierId = bill.supplierId || pendingBill.supplierId;
+      pendingBill.billingPeriodStart = bill.billingPeriodStart || pendingBill.billingPeriodStart;
+      pendingBill.billingPeriodEnd = bill.billingPeriodEnd || pendingBill.billingPeriodEnd;
+      pendingBill.supplyAddress = bill.supplyAddress || pendingBill.supplyAddress;
+      pendingBill.codiceFiscale = bill.codiceFiscale || pendingBill.codiceFiscale;
+      pendingBill.partitaIva = bill.partitaIva || pendingBill.partitaIva;
+      pendingBill.contractNumber = bill.contractNumber || pendingBill.contractNumber;
+      pendingBill.meterNumber = bill.meterNumber || pendingBill.meterNumber;
+      pendingBill.customerName = bill.customerName || pendingBill.customerName;
+      pendingBill.rawAnalysisData = {
+        ...pendingBill.rawAnalysisData,
+        ...bill.rawAnalysisData,
+        mergedAt: new Date().toISOString(),
+      };
+
+      const savedPendingBill = await this.billRepository.save(pendingBill);
+
+      // Soft-delete the admin-uploaded bill since data was merged
+      await this.billRepository.softRemove(bill);
+
+      return savedPendingBill;
+    }
+
+    // Simple association - just set the userId
+    bill.userId = userId;
+    return this.billRepository.save(bill);
   }
 
   // ─── Analysis ─────────────────────────────────────────────

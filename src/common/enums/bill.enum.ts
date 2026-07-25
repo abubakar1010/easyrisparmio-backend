@@ -4,6 +4,7 @@ export enum BillType {
 }
 
 export enum BillStatus {
+  PENDING_EMAIL = 'pending_email',
   UPLOADED = 'uploaded',
   ANALYZING = 'analyzing',
   ANALYZED = 'analyzed',
@@ -14,4 +15,9 @@ export enum BillStatus {
   CONTRACT_SIGNED = 'contract_signed',
   ACTIVATED = 'activated',
   CANCELLED = 'cancelled',
+}
+
+export enum BillSource {
+  UPLOAD = 'upload',
+  EMAIL = 'email',
 }

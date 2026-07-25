@@ -38,6 +38,8 @@ import { BillsService } from './bills.service';
 import { VisionOcrService } from './ocr/vision-ocr.service';
 import { UploadBillDto } from './dto/upload-bill.dto';
 import { ExtractBillDto } from './dto/extract-bill.dto';
+import { CreateEmailBillDto } from './dto/create-email-bill.dto';
+import { AssociateBillUserDto } from './dto/associate-bill-user.dto';
 import { QueryBillsDto } from './dto/query-bills.dto';
 import { SendOffersDto } from './dto/send-offers.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -258,7 +260,108 @@ export class BillsController {
     return this.billsService.uploadBill(userId, fileUrl, dto);
   }
 
+  @Post('email-request')
+  @ApiOperation({
+    summary: 'Create a bill request via email',
+    description:
+      'Creates a placeholder bill request when the user indicates they will send their bill via email. ' +
+      'The bill starts in `pending_email` status with no file attached.',
+  })
+  @ApiBody({ type: CreateEmailBillDto })
+  @ApiCreatedResponse({ description: 'Email bill request created successfully' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT', content: { 'application/json': { example: ERROR_401 } } })
+  async createEmailBillRequest(
+    @CurrentUser('id') userId: string,
+    @Body() dto: CreateEmailBillDto,
+  ) {
+    return this.billsService.createEmailBillPlaceholder(userId, dto);
+  }
+
   // ─── Admin Endpoints (must be before :id routes) ──────────
+
+  @Post('admin/upload-email')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Upload an email-received bill and associate with user (admin)',
+    description:
+      'Admin uploads a bill document received via email. If the specified user has a pending email ' +
+      'bill of the same type, that bill is updated with the file. Otherwise a new bill is created.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary', description: 'Bill PDF or image file' },
+        billType: { type: 'string', enum: ['electricity', 'gas'], description: 'Type of energy bill' },
+        userId: { type: 'string', format: 'uuid', description: 'User ID to associate the bill with' },
+      },
+      required: ['file', 'billType', 'userId'],
+    },
+  })
+  @ApiCreatedResponse({ description: 'Email bill uploaded and associated successfully' })
+  @ApiNotFoundResponse({ description: 'User not found' })
+  @ApiBadRequestResponse({ description: 'Invalid file type or missing fields' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT', content: { 'application/json': { example: ERROR_401 } } })
+  @ApiForbiddenResponse({ description: 'User does not have admin role', content: { 'application/json': { example: ERROR_403 } } })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: join(process.cwd(), 'uploads', 'bills'),
+        filename: (_req, file, cb) => {
+          const filename = `${uuidv4()}${extname(file.originalname)}`;
+          cb(null, filename);
+        },
+      }),
+      limits: { fileSize: 10 * 1024 * 1024 },
+      fileFilter: billFileFilter,
+    }),
+  )
+  async adminUploadEmailBill(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('billType') billType: string,
+    @Body('userId') userId: string,
+  ) {
+    if (!file) {
+      throw new BadRequestException('File is required');
+    }
+    if (!billType || !['electricity', 'gas'].includes(billType)) {
+      throw new BadRequestException('billType must be electricity or gas');
+    }
+    if (!userId) {
+      throw new BadRequestException('userId is required');
+    }
+    const fileUrl = `uploads/bills/${file.filename}`;
+    return this.billsService.adminUploadEmailBill(
+      fileUrl,
+      billType as BillType,
+      userId,
+    );
+  }
+
+  @Post('admin/:id/associate-user')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Associate a bill with a user (admin)',
+    description:
+      'Associates an existing bill with a user. If pendingBillId is provided, merges the bill data ' +
+      'into the user\'s pending email bill and soft-deletes the original.',
+  })
+  @ApiOkResponse({ description: 'Bill associated with user' })
+  @ApiNotFoundResponse({ description: 'Bill or user not found' })
+  @ApiBadRequestResponse({ description: 'Pending bill does not belong to the specified user' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT', content: { 'application/json': { example: ERROR_401 } } })
+  @ApiForbiddenResponse({ description: 'User does not have admin role', content: { 'application/json': { example: ERROR_403 } } })
+  async associateBillWithUser(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AssociateBillUserDto,
+  ) {
+    return this.billsService.adminAssociateBillWithUser(
+      id,
+      dto.userId,
+      dto.pendingBillId,
+    );
+  }
 
   @Get('admin')
   @Roles(UserRole.ADMIN)
@@ -443,6 +546,10 @@ export class BillsController {
     const bill = userRole === UserRole.ADMIN
       ? await this.billsService.getBillByIdAdmin(id)
       : await this.billsService.getBillById(id, userId);
+
+    if (!bill.fileUrl) {
+      throw new NotFoundException('No document attached to this bill yet');
+    }
 
     const filePath = join(process.cwd(), bill.fileUrl);
     if (!existsSync(filePath)) {

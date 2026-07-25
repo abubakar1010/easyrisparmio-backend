@@ -10,13 +10,14 @@ import { Offer } from '../offers/entities/offer.entity';
 import { Supplier } from '../suppliers/entities/supplier.entity';
 import { SentOffer } from '../offers/entities/sent-offer.entity';
 import { SwitchCase } from '../cases/entities/switch-case.entity';
+import { User } from '../users/entities/user.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ConfigModule } from '@nestjs/config';
 import { VisionOcrService } from './ocr/vision-ocr.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([EnergyBill, BillAnalysis, Offer, Supplier, SentOffer, SwitchCase]),
+    TypeOrmModule.forFeature([EnergyBill, BillAnalysis, Offer, Supplier, SentOffer, SwitchCase, User]),
     NotificationsModule,
     ConfigModule,
   ],

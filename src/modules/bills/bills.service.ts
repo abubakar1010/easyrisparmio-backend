@@ -114,6 +114,7 @@ export class BillsService {
       .createQueryBuilder('bill')
       .leftJoinAndSelect('bill.supplier', 'supplier')
       .leftJoinAndSelect('bill.analysis', 'analysis')
+      .leftJoinAndSelect('bill.switchCases', 'switchCase')
       .where('bill.userId = :userId', { userId });
 
     if (query.billType) {
@@ -201,7 +202,7 @@ export class BillsService {
   async getBillById(billId: string, userId: string): Promise<EnergyBill> {
     const bill = await this.billRepository.findOne({
       where: { id: billId },
-      relations: ['supplier', 'analysis'],
+      relations: ['supplier', 'analysis', 'switchCases'],
     });
 
     if (!bill) {

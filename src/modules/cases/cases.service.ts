@@ -67,6 +67,10 @@ export class CasesService {
       caseNumber,
       fromSupplierId: bill.supplierId || null,
       toSupplierId: offer.supplierId,
+      residentialStreet: dto.residentialStreet || null,
+      residentialCity: dto.residentialCity || null,
+      residentialZip: dto.residentialZip || null,
+      residentialProvince: dto.residentialProvince || null,
     });
 
     const saved = await this.caseRepository.save(switchCase);

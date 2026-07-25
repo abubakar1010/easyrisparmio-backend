@@ -79,6 +79,18 @@ export class SwitchCase extends BaseEntity {
   @Column({ name: 'meter_id', type: 'uuid', nullable: true })
   meterId: string | null;
 
+  @Column({ name: 'residential_street', type: 'varchar', length: 255, nullable: true })
+  residentialStreet: string | null;
+
+  @Column({ name: 'residential_city', type: 'varchar', length: 100, nullable: true })
+  residentialCity: string | null;
+
+  @Column({ name: 'residential_zip', type: 'varchar', length: 10, nullable: true })
+  residentialZip: string | null;
+
+  @Column({ name: 'residential_province', type: 'varchar', length: 100, nullable: true })
+  residentialProvince: string | null;
+
   @DeleteDateColumn({ name: 'deleted_at' })
   deletedAt: Date | null;
 

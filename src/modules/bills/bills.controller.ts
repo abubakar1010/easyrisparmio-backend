@@ -295,6 +295,7 @@ export class BillsController {
         file: { type: 'string', format: 'binary', description: 'Bill PDF or image file' },
         billType: { type: 'string', enum: ['electricity', 'gas'], description: 'Type of energy bill' },
         userId: { type: 'string', format: 'uuid', description: 'User ID to associate the bill with' },
+        extractedData: { type: 'string', description: 'JSON string with OCR-extracted bill fields from POST /bills/extract' },
       },
       required: ['file', 'billType', 'userId'],
     },
@@ -321,6 +322,7 @@ export class BillsController {
     @UploadedFile() file: Express.Multer.File,
     @Body('billType') billType: string,
     @Body('userId') userId: string,
+    @Body('extractedData') extractedDataJson?: string,
   ) {
     if (!file) {
       throw new BadRequestException('File is required');
@@ -331,11 +333,22 @@ export class BillsController {
     if (!userId) {
       throw new BadRequestException('userId is required');
     }
+
+    let parsedExtractedData: Record<string, any> | undefined;
+    if (extractedDataJson) {
+      try {
+        parsedExtractedData = JSON.parse(extractedDataJson);
+      } catch {
+        throw new BadRequestException('extractedData must be valid JSON');
+      }
+    }
+
     const fileUrl = `uploads/bills/${file.filename}`;
     return this.billsService.adminUploadEmailBill(
       fileUrl,
       billType as BillType,
       userId,
+      parsedExtractedData,
     );
   }
 

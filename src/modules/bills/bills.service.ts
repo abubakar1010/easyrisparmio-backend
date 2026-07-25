@@ -267,6 +267,7 @@ export class BillsService {
     fileUrl: string,
     billType: BillType,
     userId: string,
+    extractedData?: Record<string, any>,
   ): Promise<EnergyBill> {
     // Verify user exists
     const user = await this.userRepository.findOne({ where: { id: userId } });
@@ -285,6 +286,8 @@ export class BillsService {
       order: { createdAt: 'DESC' },
     });
 
+    let savedBill: EnergyBill;
+
     if (pendingBill) {
       // Update existing pending bill with file and transition to ANALYZING
       pendingBill.fileUrl = fileUrl;
@@ -294,23 +297,85 @@ export class BillsService {
         adminUploadedAt: new Date().toISOString(),
         source: 'email',
       };
-      return this.billRepository.save(pendingBill);
+      savedBill = await this.billRepository.save(pendingBill);
+    } else {
+      // No pending bill found - create a new email-sourced bill
+      const bill = this.billRepository.create({
+        userId,
+        fileUrl,
+        billType,
+        source: BillSource.EMAIL,
+        status: BillStatus.ANALYZING,
+        rawAnalysisData: {
+          source: 'email',
+          adminUploadedAt: new Date().toISOString(),
+        },
+      });
+      savedBill = await this.billRepository.save(bill);
     }
 
-    // No pending bill found - create a new email-sourced bill
-    const bill = this.billRepository.create({
-      userId,
-      fileUrl,
-      billType,
-      source: BillSource.EMAIL,
-      status: BillStatus.ANALYZING,
-      rawAnalysisData: {
-        source: 'email',
-        adminUploadedAt: new Date().toISOString(),
-      },
-    });
+    // Populate bill with OCR-extracted data if provided
+    if (extractedData) {
+      savedBill.podNumber = extractedData.podNumber || savedBill.podNumber;
+      savedBill.pdrNumber = extractedData.pdrNumber || savedBill.pdrNumber;
+      savedBill.totalAmount = extractedData.totalAmount ?? savedBill.totalAmount;
+      savedBill.consumptionKwh = extractedData.consumptionKwh ?? savedBill.consumptionKwh;
+      savedBill.consumptionSmc = extractedData.consumptionSmc ?? savedBill.consumptionSmc;
+      savedBill.costPerUnit = extractedData.costPerUnit ?? savedBill.costPerUnit;
+      savedBill.fixedCharges = extractedData.fixedCharges ?? savedBill.fixedCharges;
+      savedBill.taxes = extractedData.taxes ?? savedBill.taxes;
+      savedBill.billingPeriodStart = extractedData.billingPeriodStart
+        ? new Date(extractedData.billingPeriodStart) : savedBill.billingPeriodStart;
+      savedBill.billingPeriodEnd = extractedData.billingPeriodEnd
+        ? new Date(extractedData.billingPeriodEnd) : savedBill.billingPeriodEnd;
+      savedBill.supplyAddress = extractedData.supplyAddress || savedBill.supplyAddress;
+      savedBill.codiceFiscale = extractedData.codiceFiscale || savedBill.codiceFiscale;
+      savedBill.partitaIva = extractedData.partitaIva || savedBill.partitaIva;
+      savedBill.contractNumber = extractedData.contractNumber || savedBill.contractNumber;
+      savedBill.meterNumber = extractedData.meterNumber || savedBill.meterNumber;
+      savedBill.customerName = extractedData.customerName || savedBill.customerName;
 
-    return this.billRepository.save(bill);
+      // Resolve supplier from OCR-extracted name
+      if (extractedData.supplierName) {
+        const matched = await this.supplierRepository
+          .createQueryBuilder('supplier')
+          .where('supplier.name ILIKE :name', {
+            name: `%${extractedData.supplierName}%`,
+          })
+          .getOne();
+
+        if (matched) {
+          savedBill.supplierId = matched.id;
+          this.logger.log(
+            `Matched supplier "${extractedData.supplierName}" → ${matched.name} (${matched.id})`,
+          );
+        }
+      }
+
+      // Store OCR metadata
+      savedBill.rawAnalysisData = {
+        ...savedBill.rawAnalysisData,
+        ocrSupplierName: extractedData.supplierName,
+        ocrConfidence: extractedData.confidence,
+        ocrOverallConfidence: extractedData.overallConfidence,
+        ocrTimestamp: new Date().toISOString(),
+        source: 'openai-vision',
+        model: 'gpt-4o',
+      };
+
+      await this.billRepository.save(savedBill);
+
+      // Run analysis to generate savings data and recommended offers
+      try {
+        await this.runAnalysis(savedBill);
+      } catch (error) {
+        this.logger.error(
+          `Analysis failed for bill ${savedBill.id}: ${error.message}`,
+        );
+      }
+    }
+
+    return this.getBillByIdAdmin(savedBill.id);
   }
 
   async adminAssociateBillWithUser(

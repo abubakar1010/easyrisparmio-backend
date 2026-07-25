@@ -13,12 +13,7 @@ export async function seedAdminSettings(ds: DataSource): Promise<void> {
 
   const count = await repo.count();
   if (count === 0) {
-    await repo.save(
-      repo.create({
-        autoSendOffers: false,
-        maxRecommendedOffers: 3,
-      }),
-    );
+    await repo.save(repo.create({}));
     console.log('  Created admin settings');
   } else {
     console.log('  Admin settings already exist');

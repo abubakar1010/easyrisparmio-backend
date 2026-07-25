@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -6,14 +6,11 @@ import {
   ApiOkResponse,
   ApiUnauthorizedResponse,
   ApiForbiddenResponse,
-  ApiBody,
 } from '@nestjs/swagger';
 import { DashboardService } from './dashboard.service';
-import { UpdateAdminSettingsDto } from './dto/update-admin-settings.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserRole } from '../../common/enums/role.enum';
 
 @ApiTags('Dashboard')
@@ -201,29 +198,4 @@ export class DashboardController {
 
   // ─── Admin Settings ──────────────────────────────────────
 
-  @Get('admin/settings')
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({
-    summary: 'Get admin settings',
-    description: 'Returns admin-wide settings including auto-send offers toggle.',
-  })
-  @ApiOkResponse({ description: 'Admin settings returned' })
-  getAdminSettings() {
-    return this.dashboardService.getAdminSettings();
-  }
-
-  @Patch('admin/settings')
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({
-    summary: 'Update admin settings',
-    description: 'Updates admin-wide settings such as the auto-send offers toggle.',
-  })
-  @ApiBody({ type: UpdateAdminSettingsDto })
-  @ApiOkResponse({ description: 'Admin settings updated' })
-  updateAdminSettings(
-    @CurrentUser('id') adminId: string,
-    @Body() dto: UpdateAdminSettingsDto,
-  ) {
-    return this.dashboardService.updateAdminSettings(dto, adminId);
-  }
 }

@@ -416,10 +416,7 @@ export class DashboardService {
   async getAdminSettings(): Promise<AdminSettings> {
     let settings = await this.adminSettingsRepository.findOne({ where: {} });
     if (!settings) {
-      settings = this.adminSettingsRepository.create({
-        autoSendOffers: false,
-        maxRecommendedOffers: 3,
-      });
+      settings = this.adminSettingsRepository.create({});
       await this.adminSettingsRepository.save(settings);
     }
     return settings;

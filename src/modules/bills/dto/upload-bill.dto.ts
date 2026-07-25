@@ -120,4 +120,9 @@ export class UploadBillDto {
   @IsString()
   @MaxLength(200)
   customerName?: string;
+
+  @ApiPropertyOptional({ description: 'File URL from a prior extraction (skips re-upload)', example: 'uploads/bills/abc123.pdf' })
+  @IsOptional()
+  @IsString()
+  fileUrl?: string;
 }

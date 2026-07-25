@@ -162,25 +162,24 @@ export class BillsController {
     }
 
     try {
+      // Save file to disk so it can be reused during upload (avoids double upload)
+      const { writeFileSync } = await import('fs');
+      const filename = `${uuidv4()}${extname(file.originalname)}`;
+      const savedPath = join(process.cwd(), 'uploads', 'bills', filename);
+      writeFileSync(savedPath, file.buffer);
+      const fileUrl = `uploads/bills/${filename}`;
+
       let imageBuffers: Buffer[];
 
       if (file.mimetype === 'application/pdf') {
-        // Write PDF to temp file for pdf-to-img, then clean up
-        const { writeFileSync, unlinkSync } = await import('fs');
-        const tmpPath = join(process.cwd(), 'uploads', `tmp-${uuidv4()}.pdf`);
-        try {
-          writeFileSync(tmpPath, file.buffer);
-          imageBuffers = await this.visionOcrService.convertPdfToImages(tmpPath);
-        } finally {
-          try { unlinkSync(tmpPath); } catch (_) {}
-        }
+        imageBuffers = await this.visionOcrService.convertPdfToImages(savedPath);
       } else {
         imageBuffers = [file.buffer];
       }
 
       const billType = dto.billType as unknown as BillType;
       const result = await this.visionOcrService.extractFromImages(imageBuffers, billType);
-      return result;
+      return { ...result, fileUrl };
     } catch (error: any) {
       if (error.code === 'ETIMEDOUT' || error.message?.includes('timeout')) {
         throw new BadGatewayException('OCR extraction timed out. Please try again.');
@@ -253,10 +252,23 @@ export class BillsController {
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: UploadBillDto,
   ) {
-    if (!file) {
+    let fileUrl: string;
+
+    if (file) {
+      // File uploaded directly
+      fileUrl = `uploads/bills/${file.filename}`;
+    } else if (dto.fileUrl) {
+      // File already saved during extraction — validate it exists
+      const fullPath = join(process.cwd(), dto.fileUrl);
+      const billsDir = join(process.cwd(), 'uploads', 'bills');
+      if (!fullPath.startsWith(billsDir) || !existsSync(fullPath)) {
+        throw new BadRequestException('Invalid or missing file reference. Please re-upload the file.');
+      }
+      fileUrl = dto.fileUrl;
+    } else {
       throw new BadRequestException('File is required');
     }
-    const fileUrl = `uploads/bills/${file.filename}`;
+
     return this.billsService.uploadBill(userId, fileUrl, dto);
   }
 

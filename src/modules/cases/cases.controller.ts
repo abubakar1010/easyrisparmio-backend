@@ -6,9 +6,14 @@ import {
   Param,
   Body,
   Query,
+  Res,
   UseGuards,
   ParseUUIDPipe,
+  NotFoundException,
 } from '@nestjs/common';
+import { existsSync } from 'fs';
+import { join, extname } from 'path';
+import type { Response } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -265,6 +270,51 @@ export class CasesController {
   @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT', content: { 'application/json': { example: ERROR_401 } } })
   getDocuments(@Param('id', ParseUUIDPipe) caseId: string) {
     return this.casesService.getDocuments(caseId);
+  }
+
+  @Get(':id/documents/:docId/file')
+  @ApiOperation({
+    summary: 'Download a case document file',
+    description:
+      'Streams the uploaded document file. Users can access documents on their own cases; admins can access any.',
+  })
+  @ApiOkResponse({ description: 'File stream' })
+  @ApiNotFoundResponse({ description: 'Document or file not found' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT', content: { 'application/json': { example: ERROR_401 } } })
+  async downloadDocumentFile(
+    @Param('id', ParseUUIDPipe) caseId: string,
+    @Param('docId', ParseUUIDPipe) docId: string,
+    @CurrentUser() user: { id: string; role: UserRole },
+    @Res() res: Response,
+  ) {
+    // Verify access: getCaseById checks ownership for non-admins
+    await this.casesService.getCaseById(caseId, user);
+
+    const documents = await this.casesService.getDocuments(caseId);
+    const doc = documents.find((d) => d.id === docId);
+    if (!doc) {
+      throw new NotFoundException('Document not found');
+    }
+
+    const filePath = doc.fileUrl.startsWith('/')
+      ? join(process.cwd(), doc.fileUrl.slice(1))
+      : join(process.cwd(), doc.fileUrl);
+
+    if (!existsSync(filePath)) {
+      throw new NotFoundException('Document file not found on disk');
+    }
+
+    const ext = extname(filePath).toLowerCase();
+    const mimeMap: Record<string, string> = {
+      '.pdf': 'application/pdf',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+    };
+
+    res.setHeader('Content-Type', doc.mimeType || mimeMap[ext] || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `inline; filename="${doc.fileName}"`);
+    res.sendFile(filePath);
   }
 
   @Patch(':id/documents/:docId/verify')

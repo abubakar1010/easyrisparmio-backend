@@ -97,6 +97,8 @@ export class BillsService {
       status: BillStatus.ANALYZING,
       rawAnalysisData: dto.supplierName ? {
         ocrSupplierName: dto.supplierName,
+        ocrConfidence: (dto as any).confidence ?? null,
+        ocrOverallConfidence: (dto as any).overallConfidence ?? null,
         ocrTimestamp: new Date().toISOString(),
         source: 'openai-vision',
         model: 'gpt-4o',

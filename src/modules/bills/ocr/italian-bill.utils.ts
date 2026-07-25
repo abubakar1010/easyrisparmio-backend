@@ -45,22 +45,26 @@ export function parseItalianNumber(val: any): number | null {
       str = str.replace(/,/g, '');
     }
   } else if (lastComma >= 0 && lastDot < 0) {
-    // Only comma present — treat as decimal separator
-    // But check: if comma has exactly 3 digits after it AND no other separators,
-    // it might be a thousands separator (e.g., "1,000"). Use context:
-    // - If digits after comma are exactly 3, ambiguous — treat as decimal for small numbers
+    // Only comma present
     const afterComma = str.substring(lastComma + 1);
-    if (afterComma.length <= 2 || afterComma.length > 3) {
-      // Clearly a decimal separator
-      str = str.replace(',', '.');
+    const beforeComma = str.substring(0, lastComma).replace(/^-/, '');
+    if (afterComma.length === 3 && beforeComma.length > 0 && beforeComma !== '0') {
+      // Thousands separator in Italian context: "1,000" → "1000"
+      str = str.replace(',', '');
     } else {
-      // 3 digits after comma — could be thousands (1,000) or decimal (1,000 → 1.000)
-      // In Italian energy bill context, amounts with 3 decimal places are rare
-      // except for costPerUnit. Treat as decimal separator to be safe.
+      // Decimal separator: "123,45" → "123.45", "0,085" → "0.085"
       str = str.replace(',', '.');
     }
+  } else if (lastDot >= 0 && lastComma < 0) {
+    // Only period present
+    const afterDot = str.substring(lastDot + 1);
+    const beforeDot = str.substring(0, lastDot).replace(/^-/, '');
+    if (afterDot.length === 3 && beforeDot.length > 0 && beforeDot !== '0') {
+      // Italian thousands separator: "1.000" → "1000"
+      str = str.replace('.', '');
+    }
+    // Otherwise standard decimal format: "123.45" → leave as-is
   }
-  // If only '.' present, it's already standard format
 
   // Remove any remaining non-numeric chars except . and -
   str = str.replace(/[^0-9.\-]/g, '');
@@ -78,10 +82,17 @@ export function sanitizeString(val: any): string | null {
   if (val == null) return null;
   let str = String(val)
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // control chars (keep \n, \r, \t)
+    .replace(/[\u200B-\u200D\uFEFF\u200E\u200F]/g, '') // zero-width chars, BOM, direction marks
     .replace(/[\u00A0\u202F]/g, ' ') // non-breaking spaces → regular space
     .replace(/\s+/g, ' ')
     .trim();
-  return str.length > 0 ? str : null;
+  if (
+    !str ||
+    /^(null|n\/a|none|na|not\s*found|not\s*available|non\s*disponibile|non\s*trovato|-|—|–)$/i.test(str)
+  ) {
+    return null;
+  }
+  return str;
 }
 
 // ─── Format Validators ─────────────────────────────────────
@@ -92,8 +103,11 @@ export function sanitizeString(val: any): string | null {
  */
 export function validatePod(pod: string | null): string | null {
   if (!pod) return null;
+  // Strip common label prefixes before cleaning
+  let cleaned = pod.trim();
+  cleaned = cleaned.replace(/^(codice\s*pod|pod|punto\s*di\s*prelievo)\s*[:\-]?\s*/i, '');
   // Strip spaces, dashes, dots
-  const cleaned = pod.replace(/[\s\-\.]/g, '').toUpperCase();
+  cleaned = cleaned.replace(/[\s\-\.]/g, '').toUpperCase();
   // Standard POD format
   if (/^IT\d{3}E\d{8,10}$/.test(cleaned)) {
     return cleaned;
@@ -111,7 +125,9 @@ export function validatePod(pod: string | null): string | null {
  */
 export function validatePdr(pdr: string | null): string | null {
   if (!pdr) return null;
-  const cleaned = pdr.replace(/[\s\-\.]/g, '');
+  let cleaned = pdr.trim();
+  cleaned = cleaned.replace(/^(codice\s*pdr|pdr|punto\s*di\s*riconsegna|matricola\s*pdr)\s*[:\-]?\s*/i, '');
+  cleaned = cleaned.replace(/[\s\-\.]/g, '');
   return /^\d{14}$/.test(cleaned) ? cleaned : null;
 }
 
@@ -121,7 +137,9 @@ export function validatePdr(pdr: string | null): string | null {
  */
 export function validateCodiceFiscale(cf: string | null): string | null {
   if (!cf) return null;
-  const cleaned = cf.replace(/[\s\-\.]/g, '').toUpperCase();
+  let cleaned = cf.trim();
+  cleaned = cleaned.replace(/^(codice\s*fiscale|cod\.?\s*fisc\.?|c\.?\s*f\.?)\s*[:\-]?\s*/i, '');
+  cleaned = cleaned.replace(/[\s\-\.]/g, '').toUpperCase();
   return /^[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]$/.test(cleaned) ? cleaned : null;
 }
 
@@ -131,7 +149,9 @@ export function validateCodiceFiscale(cf: string | null): string | null {
  */
 export function validatePartitaIva(piva: string | null): string | null {
   if (!piva) return null;
-  let cleaned = piva.replace(/[\s\-\.]/g, '').toUpperCase();
+  let cleaned = piva.trim();
+  cleaned = cleaned.replace(/^(partita\s*iva|p\.?\s*iva|p\.?\s*i\.?)\s*[:\-]?\s*/i, '');
+  cleaned = cleaned.replace(/[\s\-\.]/g, '').toUpperCase();
   // Strip IT prefix
   if (cleaned.startsWith('IT')) {
     cleaned = cleaned.substring(2);
@@ -147,7 +167,9 @@ export function validatePartitaIva(piva: string | null): string | null {
  */
 export function validateAndNormalizeDate(dateStr: string | null): string | null {
   if (!dateStr) return null;
-  const str = dateStr.trim();
+  // Strip common Italian date prefixes
+  let str = dateStr.trim();
+  str = str.replace(/^(dal|al|del|from|to|data|in\s*data)\s+/i, '').trim();
 
   let year: number, month: number, day: number;
 

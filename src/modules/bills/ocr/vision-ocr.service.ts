@@ -197,6 +197,89 @@ const FIELD_GUIDANCE: Record<string, string> = {
     'Partita IVA: 11 digits (strip any "IT" prefix). Look in "Dati cliente", "Dati fatturazione" near labels "Partita IVA", "P.IVA", "P.I.".',
 };
 
+// ─── Enforced Response Schema (Structured Output) ─────────
+
+const CONFIDENCE_FIELD = {
+  type: ['string', 'null'] as const,
+};
+
+const EXTRACTION_RESPONSE_SCHEMA = {
+  type: 'json_schema' as const,
+  json_schema: {
+    name: 'bill_extraction',
+    strict: true,
+    schema: {
+      type: 'object',
+      properties: {
+        supplierName: { type: ['string', 'null'] },
+        podNumber: { type: ['string', 'null'] },
+        pdrNumber: { type: ['string', 'null'] },
+        totalAmount: { type: ['number', 'null'] },
+        consumptionKwh: { type: ['number', 'null'] },
+        consumptionSmc: { type: ['number', 'null'] },
+        costPerUnit: { type: ['number', 'null'] },
+        fixedCharges: { type: ['number', 'null'] },
+        taxes: { type: ['number', 'null'] },
+        billingPeriodStart: { type: ['string', 'null'] },
+        billingPeriodEnd: { type: ['string', 'null'] },
+        supplyAddress: { type: ['string', 'null'] },
+        codiceFiscale: { type: ['string', 'null'] },
+        partitaIva: { type: ['string', 'null'] },
+        contractNumber: { type: ['string', 'null'] },
+        meterNumber: { type: ['string', 'null'] },
+        customerName: { type: ['string', 'null'] },
+        confidence: {
+          type: 'object',
+          properties: {
+            supplierName: CONFIDENCE_FIELD,
+            podNumber: CONFIDENCE_FIELD,
+            pdrNumber: CONFIDENCE_FIELD,
+            totalAmount: CONFIDENCE_FIELD,
+            consumptionKwh: CONFIDENCE_FIELD,
+            consumptionSmc: CONFIDENCE_FIELD,
+            costPerUnit: CONFIDENCE_FIELD,
+            fixedCharges: CONFIDENCE_FIELD,
+            taxes: CONFIDENCE_FIELD,
+            billingPeriodStart: CONFIDENCE_FIELD,
+            billingPeriodEnd: CONFIDENCE_FIELD,
+            supplyAddress: CONFIDENCE_FIELD,
+            codiceFiscale: CONFIDENCE_FIELD,
+            partitaIva: CONFIDENCE_FIELD,
+            contractNumber: CONFIDENCE_FIELD,
+            meterNumber: CONFIDENCE_FIELD,
+            customerName: CONFIDENCE_FIELD,
+          },
+          required: [
+            'supplierName', 'podNumber', 'pdrNumber', 'totalAmount',
+            'consumptionKwh', 'consumptionSmc', 'costPerUnit', 'fixedCharges',
+            'taxes', 'billingPeriodStart', 'billingPeriodEnd', 'supplyAddress',
+            'codiceFiscale', 'partitaIva', 'contractNumber', 'meterNumber',
+            'customerName',
+          ],
+          additionalProperties: false,
+        },
+      },
+      required: [
+        'supplierName', 'podNumber', 'pdrNumber', 'totalAmount',
+        'consumptionKwh', 'consumptionSmc', 'costPerUnit', 'fixedCharges',
+        'taxes', 'billingPeriodStart', 'billingPeriodEnd', 'supplyAddress',
+        'codiceFiscale', 'partitaIva', 'contractNumber', 'meterNumber',
+        'customerName', 'confidence',
+      ],
+      additionalProperties: false,
+    },
+  },
+};
+
+// Known field names for response normalization
+const KNOWN_FIELDS = new Set([
+  'supplierName', 'podNumber', 'pdrNumber', 'totalAmount',
+  'consumptionKwh', 'consumptionSmc', 'costPerUnit', 'fixedCharges',
+  'taxes', 'billingPeriodStart', 'billingPeriodEnd', 'supplyAddress',
+  'codiceFiscale', 'partitaIva', 'contractNumber', 'meterNumber',
+  'customerName', 'confidence',
+]);
+
 // ─── Service ───────────────────────────────────────────────
 
 @Injectable()
@@ -368,7 +451,7 @@ export class VisionOcrService {
             ],
           },
         ],
-        response_format: { type: 'json_object' },
+        response_format: EXTRACTION_RESPONSE_SCHEMA as any,
         max_tokens:
           this.configService.get<number>('ai.ocrMaxTokens') || 4096,
         temperature: 0,
@@ -381,7 +464,8 @@ export class VisionOcrService {
       throw new Error('Empty response from Vision API');
     }
 
-    return JSON.parse(content);
+    const parsed = JSON.parse(content);
+    return this.normalizeResponse(parsed);
   }
 
   // ─── Private: Second Pass Extraction ─────────────────────
@@ -459,7 +543,8 @@ Return ONLY the JSON object, no other text.`;
       throw new Error('Empty response from Vision API on second pass');
     }
 
-    return JSON.parse(content);
+    const parsed = JSON.parse(content);
+    return this.normalizeResponse(parsed);
   }
 
   // ─── Private: Post-Processing Pipeline ───────────────────
@@ -487,28 +572,52 @@ Return ONLY the JSON object, no other text.`;
     const meterNumber = sanitizeString(parsed.meterNumber);
     const customerName = sanitizeString(parsed.customerName);
 
-    // 2. Format validation — invalid formats become null
+    // 2. Format validation — invalid formats become null (with debug logging)
+    const rawPod = podNumber;
     podNumber = validatePod(podNumber);
+    if (rawPod && !podNumber) this.logger.debug(`POD dropped by validation: "${rawPod}"`);
+
+    const rawPdr = pdrNumber;
     pdrNumber = validatePdr(pdrNumber);
+    if (rawPdr && !pdrNumber) this.logger.debug(`PDR dropped by validation: "${rawPdr}"`);
+
+    const rawCf = codiceFiscale;
     codiceFiscale = validateCodiceFiscale(codiceFiscale);
+    if (rawCf && !codiceFiscale) this.logger.debug(`Codice Fiscale dropped by validation: "${rawCf}"`);
+
+    const rawPiva = partitaIva;
     partitaIva = validatePartitaIva(partitaIva);
+    if (rawPiva && !partitaIva) this.logger.debug(`Partita IVA dropped by validation: "${rawPiva}"`);
 
     // 3. Date validation and normalization
+    const rawStart = billingPeriodStart;
     billingPeriodStart = validateAndNormalizeDate(billingPeriodStart);
+    if (rawStart && !billingPeriodStart) this.logger.debug(`Billing period start dropped by validation: "${rawStart}"`);
+
+    const rawEnd = billingPeriodEnd;
     billingPeriodEnd = validateAndNormalizeDate(billingPeriodEnd);
+    if (rawEnd && !billingPeriodEnd) this.logger.debug(`Billing period end dropped by validation: "${rawEnd}"`);
 
     // Swap dates if start > end
     if (billingPeriodStart && billingPeriodEnd && billingPeriodStart > billingPeriodEnd) {
       [billingPeriodStart, billingPeriodEnd] = [billingPeriodEnd, billingPeriodStart];
     }
 
-    // 4. Numeric range validation
+    // 4. Numeric range validation (with debug logging)
+    const numericFields = { totalAmount, consumptionKwh, consumptionSmc, costPerUnit, fixedCharges, taxes };
     totalAmount = validateNumericRange(totalAmount, 'totalAmount');
     consumptionKwh = validateNumericRange(consumptionKwh, 'consumptionKwh');
     consumptionSmc = validateNumericRange(consumptionSmc, 'consumptionSmc');
     costPerUnit = validateNumericRange(costPerUnit, 'costPerUnit');
     fixedCharges = validateNumericRange(fixedCharges, 'fixedCharges');
     taxes = validateNumericRange(taxes, 'taxes');
+
+    for (const [field, raw] of Object.entries(numericFields)) {
+      const validated = { totalAmount, consumptionKwh, consumptionSmc, costPerUnit, fixedCharges, taxes }[field];
+      if (raw != null && validated == null) {
+        this.logger.debug(`${field} dropped by range validation: ${raw}`);
+      }
+    }
 
     // 5. Build confidence map
     const rawConfidence = parsed.confidence || {};
@@ -658,6 +767,48 @@ Return ONLY the JSON object, no other text.`;
         result.billingPeriodStart,
       ];
     }
+  }
+
+  // ─── Private: Response Normalization ─────────────────────
+
+  /**
+   * Normalize AI response: unwrap nested objects and convert snake_case to camelCase.
+   * Ensures consistent field names regardless of AI output variations.
+   */
+  private normalizeResponse(parsed: Record<string, any>): Record<string, any> {
+    // Unwrap nested response: if the AI wrapped fields in a sub-object like { "data": {...} }
+    const keys = Object.keys(parsed);
+    if (keys.length === 1 && typeof parsed[keys[0]] === 'object' && parsed[keys[0]] !== null) {
+      const inner = parsed[keys[0]];
+      const innerKeys = Object.keys(inner);
+      const hasKnownField = innerKeys.some((k) => KNOWN_FIELDS.has(k) || KNOWN_FIELDS.has(this.snakeToCamel(k)));
+      if (hasKnownField) {
+        this.logger.debug(`Unwrapped nested AI response from key "${keys[0]}"`);
+        parsed = inner;
+      }
+    }
+
+    // Convert snake_case keys to camelCase
+    const normalized: Record<string, any> = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      const camelKey = this.snakeToCamel(key);
+      normalized[camelKey] = value;
+    }
+
+    // Normalize nested confidence object keys too
+    if (normalized.confidence && typeof normalized.confidence === 'object') {
+      const normalizedConf: Record<string, any> = {};
+      for (const [key, value] of Object.entries(normalized.confidence)) {
+        normalizedConf[this.snakeToCamel(key)] = value;
+      }
+      normalized.confidence = normalizedConf;
+    }
+
+    return normalized;
+  }
+
+  private snakeToCamel(str: string): string {
+    return str.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
   }
 
   // ─── Private: Confidence Computation ─────────────────────

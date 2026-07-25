@@ -408,6 +408,12 @@ export class BillsService {
   async getAllOffersForBill(billId: string) {
     const bill = await this.getBillByIdAdmin(billId);
 
+    if (bill.status === BillStatus.PENDING_EMAIL) {
+      throw new BadRequestException(
+        'Cannot retrieve offers for a pending email bill. Upload the document first.',
+      );
+    }
+
     const energyType = bill.billType === BillType.ELECTRICITY
       ? EnergyType.ELECTRICITY
       : EnergyType.GAS;
@@ -452,6 +458,12 @@ export class BillsService {
     selectedOffers: Array<{ offerId: string; estimatedSavings?: number }>,
   ): Promise<void> {
     const bill = await this.getBillByIdAdmin(billId);
+
+    if (bill.status === BillStatus.PENDING_EMAIL) {
+      throw new BadRequestException(
+        'Cannot send offers for a pending email bill. Upload the document first.',
+      );
+    }
 
     if (!selectedOffers?.length) {
       throw new NotFoundException('No offers selected to send');

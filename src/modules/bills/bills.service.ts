@@ -232,6 +232,22 @@ export class BillsService {
     userId: string,
     dto: CreateEmailBillDto,
   ): Promise<EnergyBill> {
+    // Prevent duplicate pending email requests for the same bill type
+    const existing = await this.billRepository.findOne({
+      where: {
+        userId,
+        billType: dto.billType,
+        status: BillStatus.PENDING_EMAIL,
+        source: BillSource.EMAIL,
+      },
+    });
+
+    if (existing) {
+      throw new BadRequestException(
+        `You already have a pending email request for ${dto.billType}. Please wait for it to be processed.`,
+      );
+    }
+
     const bill = this.billRepository.create({
       userId,
       fileUrl: null,

@@ -665,7 +665,7 @@ export class BillsService {
       }));
 
       const analysisSummary = allOffers.length > 0
-        ? `Abbiamo trovato ${allOffers.length} offerte per la tua bolletta ${bill.billType}. La migliore offerta è "${allOffers[0].name}" di ${allOffers[0].supplier?.name || 'fornitore'}, con un risparmio stimato di EUR ${potentialSavings} per periodo di fatturazione.`
+        ? `Abbiamo trovato ${allOffers.length} offerte per la tua bolletta ${bill.billType}. La migliore offerta è "${allOffers[0].name}" di ${allOffers[0].supplier?.name || 'fornitore'}, con un risparmio stimato di EUR ${potentialSavings} all'anno.`
         : `Non abbiamo trovato offerte per la tua bolletta ${bill.billType} al momento. Ti aggiorneremo quando saranno disponibili nuove offerte.`;
 
       let analysis = await this.analysisRepository.findOne({
@@ -733,7 +733,8 @@ export class BillsService {
 
       const currentCost = (consumption * costPerUnit) + fixedCharges;
       const bestOfferCost = (consumption * bestOfferPrice) + bestOfferFee;
-      const savings = Math.max(0, +(currentCost - bestOfferCost).toFixed(2));
+      const periodsPerYear = this.getBillingPeriodsPerYear(bill);
+      const savings = Math.max(0, +((currentCost - bestOfferCost) * periodsPerYear).toFixed(2));
 
       return {
         potentialSavings: savings,
@@ -742,10 +743,11 @@ export class BillsService {
       };
     }
 
-    // Fallback: estimate from totalAmount
+    // Fallback: estimate from totalAmount (annualized)
     if (totalAmount > 0 && offers.length > 0) {
+      const periodsPerYear = this.getBillingPeriodsPerYear(bill);
       return {
-        potentialSavings: +(totalAmount * 0.10).toFixed(2),
+        potentialSavings: +(totalAmount * 0.10 * periodsPerYear).toFixed(2),
         currentMonthlyAvg: +totalAmount.toFixed(2),
         confidenceScore: 0.4,
       };
@@ -757,6 +759,21 @@ export class BillsService {
       currentMonthlyAvg: totalAmount,
       confidenceScore: 0,
     };
+  }
+
+  private getBillingPeriodsPerYear(bill: EnergyBill): number {
+    const start = bill.billingPeriodStart ? new Date(bill.billingPeriodStart) : null;
+    const end = bill.billingPeriodEnd ? new Date(bill.billingPeriodEnd) : null;
+
+    if (start && end && end.getTime() > start.getTime()) {
+      const periodDays = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+      if (periodDays > 0) {
+        return 365 / periodDays;
+      }
+    }
+
+    // Default: assume bimonthly billing (common in Italy)
+    return 6;
   }
 
   private estimateOfferSavings(bill: EnergyBill, offer: Offer): number {
@@ -774,7 +791,8 @@ export class BillsService {
 
       const currentCost = (consumption * costPerUnit) + fixedCharges;
       const offerCost = (consumption * offerPrice) + offerFee;
-      return Math.max(0, +(currentCost - offerCost).toFixed(2));
+      const periodsPerYear = this.getBillingPeriodsPerYear(bill);
+      return Math.max(0, +((currentCost - offerCost) * periodsPerYear).toFixed(2));
     }
 
     return 0;

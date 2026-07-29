@@ -88,6 +88,9 @@ export class Offer extends BaseEntity {
   @Column({ name: 'terms_url', type: 'varchar', length: 500, nullable: true })
   termsUrl: string;
 
+  @Column({ name: 'economic_conditions_url', type: 'varchar', length: 500, nullable: true })
+  economicConditionsUrl: string | null;
+
   @Column({
     type: 'enum',
     enum: UserTarget,

@@ -82,6 +82,12 @@ export class CreateOfferDto {
   @MaxLength(500)
   termsUrl?: string;
 
+  @ApiPropertyOptional({ description: 'URL to economic conditions document (uploaded via /upload endpoint)', example: '/uploads/3f8a9b2c-d4e5-6f78-90ab-cdef12345678.pdf', maxLength: 500 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  economicConditionsUrl?: string;
+
   @ApiPropertyOptional({ enum: UserTarget, description: 'Target user type', example: UserTarget.PERSONAL, default: UserTarget.BOTH })
   @IsOptional()
   @IsEnum(UserTarget)

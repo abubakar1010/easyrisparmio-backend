@@ -54,6 +54,7 @@ const OFFER_EXAMPLE = {
   validFrom: '2026-01-01',
   validUntil: '2026-12-31',
   termsUrl: 'https://www.enelenergia.it/terms/casa-luce-fix',
+  economicConditionsUrl: '/uploads/3f8a9b2c-d4e5-6f78-90ab-cdef12345678.pdf',
   target: 'personal',
   highlights: ['Fixed price for 12 months', 'No activation fee', '100% green energy'],
   offerCode: 'CLF-12-2026',

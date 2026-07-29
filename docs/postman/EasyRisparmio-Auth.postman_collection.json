@@ -5139,7 +5139,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"an1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"billId\": \"bl1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"potentialSavings\": \"18.08\",\n    \"currentMonthlyAvg\": \"114.48\",\n    \"recommendedMarketType\": \"fixed\",\n    \"analysisSummary\": \"Based on your electricity bill analysis, you could save approximately EUR 18.08 per billing period.\",\n    \"analysisDetails\": {\n      \"recommendedActions\": [\"Consider switching to a fixed-rate contract\", \"Review your consumption during peak hours\"]\n    }\n  }\n}"
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"an1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"billId\": \"bl1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"potentialSavings\": \"18.08\",\n    \"currentMonthlyAvg\": \"114.48\",\n    \"recommendedMarketType\": \"fixed\",\n    \"analysisSummary\": \"Based on your electricity bill analysis, you could save approximately EUR 18.08.\",\n    \"analysisDetails\": {\n      \"recommendedActions\": [\"Consider switching to a fixed-rate contract\", \"Review your consumption during peak hours\"]\n    }\n  }\n}"
                 }
               ]
             },
@@ -5179,7 +5179,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"an1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"potentialSavings\": \"18.08\",\n    \"currentMonthlyAvg\": \"114.48\",\n    \"recommendedMarketType\": \"fixed\",\n    \"analysisSummary\": \"Based on your electricity bill analysis, you could save approximately EUR 18.08 per billing period.\"\n  }\n}"
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"an1a2b3c-d5e6-7890-abcd-ef1234567890\",\n    \"potentialSavings\": \"18.08\",\n    \"currentMonthlyAvg\": \"114.48\",\n    \"recommendedMarketType\": \"fixed\",\n    \"analysisSummary\": \"Based on your electricity bill analysis, you could save approximately EUR 18.08.\"\n  }\n}"
                 },
                 {
                   "name": "404 - Not Analyzed Yet",

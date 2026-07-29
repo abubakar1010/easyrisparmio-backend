@@ -3,6 +3,7 @@ export enum NotificationType {
   OFFER_AVAILABLE = 'offer_available',
   CASE_UPDATE = 'case_update',
   CONTRACT_STATUS = 'contract_status',
+  REFERRAL_STATUS = 'referral_status',
   GENERAL = 'general',
 }
 

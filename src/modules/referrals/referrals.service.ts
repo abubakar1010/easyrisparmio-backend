@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
@@ -14,14 +15,20 @@ import { UpdateReferralStatusDto } from './dto/update-referral-status.dto';
 import { PaginatedResponseDto } from '../../common/dto/pagination.dto';
 import { ReferralStatus } from '../../common/enums/referral.enum';
 import { UsersService } from '../users/users.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '../../common/enums/notification.enum';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class ReferralsService {
+  private readonly logger = new Logger(ReferralsService.name);
+
   constructor(
     @InjectRepository(Referral)
     private readonly referralRepository: Repository<Referral>,
     private readonly usersService: UsersService,
     private readonly configService: ConfigService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   // ─── User Methods ─────────────────────────────────────────
@@ -235,7 +242,33 @@ export class ReferralsService {
 
     referral.status = dto.status;
 
-    return this.referralRepository.save(referral);
+    const saved = await this.referralRepository.save(referral);
+
+    // Notify the referrer about the status change
+    try {
+      const statusMessages: Partial<Record<ReferralStatus, string>> = {
+        [ReferralStatus.REGISTERED]: 'Your referral has registered!',
+        [ReferralStatus.QUALIFIED]: 'Your referral has been qualified!',
+        [ReferralStatus.REWARDED]: `Your referral reward of €${dto.rewardAmount} has been credited!`,
+        [ReferralStatus.EXPIRED]: 'A referral has expired.',
+      };
+      const body = statusMessages[dto.status];
+      if (body) {
+        await this.notificationsService.sendNotification({
+          userId: referral.referrerId,
+          title: 'Referral Update',
+          body,
+          type: NotificationType.REFERRAL_STATUS,
+          data: { referralId: referral.id, status: dto.status },
+        });
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Failed to send referral notification: ${error?.message || error}`,
+      );
+    }
+
+    return saved;
   }
 
   // ─── Registration Hook ────────────────────────────────────
@@ -245,24 +278,26 @@ export class ReferralsService {
     referredUserId: string,
     referredEmail: string,
   ): Promise<void> {
+    const now = new Date();
+
     // First, try to find a targeted pending invite matching code + email
-    let referral = await this.referralRepository.findOne({
-      where: {
-        referralCode,
-        referredEmail,
-        status: ReferralStatus.PENDING,
-      },
-    });
+    let referral = await this.referralRepository
+      .createQueryBuilder('r')
+      .where('r.referralCode = :code', { code: referralCode })
+      .andWhere('r.referredEmail = :email', { email: referredEmail })
+      .andWhere('r.status = :status', { status: ReferralStatus.PENDING })
+      .andWhere('(r.expiresAt IS NULL OR r.expiresAt > :now)', { now })
+      .getOne();
 
     // If no targeted invite, find any generic pending invite with this code
     if (!referral) {
-      referral = await this.referralRepository.findOne({
-        where: {
-          referralCode,
-          status: ReferralStatus.PENDING,
-          referredEmail: undefined, // generic invite (no specific email)
-        },
-      });
+      referral = await this.referralRepository
+        .createQueryBuilder('r')
+        .where('r.referralCode = :code', { code: referralCode })
+        .andWhere('r.referredEmail IS NULL')
+        .andWhere('r.status = :status', { status: ReferralStatus.PENDING })
+        .andWhere('(r.expiresAt IS NULL OR r.expiresAt > :now)', { now })
+        .getOne();
     }
 
     if (referral) {
@@ -289,6 +324,24 @@ export class ReferralsService {
       status: ReferralStatus.REGISTERED,
     });
     await this.referralRepository.save(newReferral);
+  }
+
+  // ─── Scheduled Tasks ───────────────────────────────────────
+
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async expireStaleReferrals(): Promise<void> {
+    const result = await this.referralRepository
+      .createQueryBuilder()
+      .update(Referral)
+      .set({ status: ReferralStatus.EXPIRED })
+      .where('status = :status', { status: ReferralStatus.PENDING })
+      .andWhere('expiresAt IS NOT NULL')
+      .andWhere('expiresAt <= :now', { now: new Date() })
+      .execute();
+
+    if (result.affected && result.affected > 0) {
+      this.logger.log(`Expired ${result.affected} stale referral(s)`);
+    }
   }
 
   // ─── Helpers ──────────────────────────────────────────────

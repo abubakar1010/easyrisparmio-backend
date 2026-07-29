@@ -2,6 +2,7 @@ import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { LocaleMiddleware } from './common/middleware/locale.middleware';
 
 import appConfig from './config/app.config';
@@ -82,6 +83,9 @@ import { EmailModule } from './modules/email/email.module';
         limit: 100,
       },
     ]),
+
+    // Scheduling
+    ScheduleModule.forRoot(),
 
     // Global modules
     EmailModule,

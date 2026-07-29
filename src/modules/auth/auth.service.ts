@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -31,6 +32,8 @@ const MAX_OTP_ATTEMPTS = 5;
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectRepository(RefreshToken)
     private readonly refreshTokenRepository: Repository<RefreshToken>,
@@ -83,6 +86,7 @@ export class AuthService {
     }
 
     // Process referral code if provided
+    let referralWarning: string | undefined;
     if (dto.referralCode) {
       try {
         await this.referralsService.processReferralCode(
@@ -90,8 +94,11 @@ export class AuthService {
           user.id,
           dto.email,
         );
-      } catch {
-        // Don't fail registration for an invalid referral code
+      } catch (error) {
+        this.logger.warn(
+          `Referral code processing failed for user ${dto.email}: ${error?.message || error}`,
+        );
+        referralWarning = 'Referral code could not be applied';
       }
     }
 
@@ -103,6 +110,7 @@ export class AuthService {
       message: 'Registration successful. Please verify your email.',
       user: result,
       verificationToken,
+      ...(referralWarning && { referralWarning }),
     };
   }
 

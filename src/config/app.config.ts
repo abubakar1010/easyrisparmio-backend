@@ -8,4 +8,10 @@ export default registerAs('app', () => ({
   uploadDest: process.env.UPLOAD_DEST || './uploads',
   maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '10485760', 10),
   otpExpiryMinutes: parseInt(process.env.OTP_EXPIRY_MINUTES || '10', 10),
+  // Deep Linking
+  backendDomain: process.env.BACKEND_DOMAIN || 'http://localhost:3000',
+  androidSha256Fingerprint: process.env.ANDROID_SHA256_FINGERPRINT || '',
+  appleTeamId: process.env.APPLE_TEAM_ID || '',
+  playStoreUrl: process.env.PLAY_STORE_URL || '',
+  appStoreUrl: process.env.APP_STORE_URL || '',
 }));

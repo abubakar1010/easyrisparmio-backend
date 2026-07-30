@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { RequestMethod, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -16,8 +16,14 @@ async function bootstrap() {
   // Security headers
   app.use(helmet());
 
-  // Global prefix
-  app.setGlobalPrefix('api/v1');
+  // Global prefix (exclude deep link routes served at root)
+  app.setGlobalPrefix('api/v1', {
+    exclude: [
+      { path: '.well-known/assetlinks.json', method: RequestMethod.GET },
+      { path: '.well-known/apple-app-site-association', method: RequestMethod.GET },
+      { path: 'r/:code', method: RequestMethod.GET },
+    ],
+  });
 
   // CORS
   const corsOrigins = configService.get<string>('CORS_ORIGINS');

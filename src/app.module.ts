@@ -34,6 +34,7 @@ import { ReferralsModule } from './modules/referrals/referrals.module';
 import { AgreementsModule } from './modules/agreements/agreements.module';
 import { StaticPagesModule } from './modules/static-pages/static-pages.module';
 import { EmailModule } from './modules/email/email.module';
+import { DeepLinkModule } from './modules/deep-link/deep-link.module';
 
 @Module({
   imports: [
@@ -111,6 +112,7 @@ import { EmailModule } from './modules/email/email.module';
     ReferralsModule,
     AgreementsModule,
     StaticPagesModule,
+    DeepLinkModule,
   ],
 })
 export class AppModule implements NestModule {

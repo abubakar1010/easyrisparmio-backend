@@ -46,8 +46,8 @@ export class ReferralsService {
       await this.usersService.update(userId, { referralCode });
     }
 
-    const frontendUrl = this.configService.get<string>('app.frontendUrl') || 'http://localhost:3001';
-    const shareLink = `${frontendUrl}/register?ref=${referralCode}`;
+    const backendDomain = this.configService.get<string>('app.backendDomain') || 'http://localhost:3000';
+    const shareLink = `${backendDomain}/r/${referralCode}`;
 
     const stats = await this.referralRepository
       .createQueryBuilder('r')

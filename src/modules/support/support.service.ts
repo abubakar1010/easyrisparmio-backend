@@ -225,6 +225,10 @@ export class SupportService {
       throw new NotFoundException('Ticket not found');
     }
 
+    if (dto.priority) {
+      ticket.priority = dto.priority;
+    }
+
     if (dto.assignedAgentId) {
       ticket.assignedAgentId = dto.assignedAgentId;
       if (ticket.status === TicketStatus.OPEN) {

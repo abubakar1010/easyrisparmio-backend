@@ -388,10 +388,11 @@ export class OffersController {
       'Updates an offer\'s lifecycle status. Controls visibility and availability.\n\n' +
       'Valid transitions:\n' +
       '- DRAFT → ACTIVE or ARCHIVED\n' +
-      '- ACTIVE → EXPIRING or ARCHIVED\n' +
+      '- ACTIVE → DRAFT (only if no user has accepted the offer), EXPIRING, or ARCHIVED\n' +
       '- EXPIRING → EXPIRED or ARCHIVED\n' +
       '- EXPIRED → ARCHIVED\n' +
-      '- ARCHIVED is a terminal state (no further transitions)',
+      '- ARCHIVED is a terminal state (no further transitions)\n\n' +
+      'Once an offer is accepted by a user (SwitchCase created), it cannot revert to DRAFT.',
   })
   @ApiBody({ type: UpdateOfferStatusDto })
   @ApiOkResponse({
@@ -465,7 +466,12 @@ export class OffersController {
   @ApiOperation({
     summary: 'Update offer fields (admin)',
     description:
-      'Updates offer fields. All fields are optional. Use `PATCH :id/status` for status moderation.',
+      'Updates offer fields. All fields are optional. Use `PATCH :id/status` for status moderation.\n\n' +
+      'Immutability rules:\n' +
+      '- DRAFT offers: all fields are editable.\n' +
+      '- Non-DRAFT offers with accepted cases (SwitchCase exists): fields are locked, returns 400.\n' +
+      '- Non-DRAFT offers without accepted cases: fields are editable.\n' +
+      '- offerStatus is always stripped from this endpoint; use the dedicated status endpoint instead.',
   })
   @ApiBody({ type: UpdateOfferDto })
   @ApiOkResponse({

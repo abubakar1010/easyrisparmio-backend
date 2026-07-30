@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Offer } from './entities/offer.entity';
 import { SentOffer } from './entities/sent-offer.entity';
+import { SwitchCase } from '../cases/entities/switch-case.entity';
 import { CreateOfferDto } from './dto/create-offer.dto';
 import { UpdateOfferDto } from './dto/update-offer.dto';
 import { UpdateOfferStatusDto } from './dto/update-offer-status.dto';
@@ -27,6 +28,8 @@ export class OffersService {
     private readonly billRepository: Repository<EnergyBill>,
     @InjectRepository(SentOffer)
     private readonly sentOfferRepository: Repository<SentOffer>,
+    @InjectRepository(SwitchCase)
+    private readonly switchCaseRepository: Repository<SwitchCase>,
   ) {}
 
   resolveOfferLocale(offer: Offer, locale?: string): Offer {
@@ -143,6 +146,21 @@ export class OffersService {
       .take(query.limit);
 
     const [data, total] = await qb.getManyAndCount();
+
+    // Batch-check which offers have been accepted (have SwitchCase records)
+    if (data.length > 0) {
+      const offerIds = data.map((o) => o.id);
+      const acceptedRows = await this.switchCaseRepository
+        .createQueryBuilder('sc')
+        .select('DISTINCT sc.selected_offer_id', 'offerId')
+        .where('sc.selected_offer_id IN (:...ids)', { ids: offerIds })
+        .getRawMany();
+      const acceptedSet = new Set(acceptedRows.map((r) => r.offerId));
+      data.forEach((offer) => {
+        (offer as any).hasAcceptedCases = acceptedSet.has(offer.id);
+      });
+    }
+
     return new PaginatedResponseDto(data, total, query.page, query.limit);
   }
 
@@ -165,7 +183,21 @@ export class OffersService {
     adminId: string,
   ): Promise<Offer> {
     const offer = await this.findById(id);
-    Object.assign(offer, dto);
+
+    // Strip offerStatus from update DTO — status changes must go through PATCH /offers/:id/status
+    const { offerStatus, ...updateData } = dto as any;
+
+    // If offer is not in DRAFT and has accepted cases, block all field updates
+    if (offer.offerStatus !== OfferStatus.DRAFT) {
+      const hasAccepted = await this.checkOfferHasAcceptedCases(id);
+      if (hasAccepted) {
+        throw new BadRequestException(
+          'This offer has been accepted by users and cannot be modified. Only status changes are allowed via the status endpoint.',
+        );
+      }
+    }
+
+    Object.assign(offer, updateData);
     offer.updatedBy = adminId;
     try {
       return await this.offerRepository.save(offer);
@@ -190,7 +222,8 @@ export class OffersService {
     adminId: string,
   ): Promise<Offer> {
     const offer = await this.findById(id);
-    this.validateStatusTransition(offer.offerStatus, dto.offerStatus);
+    const hasAccepted = await this.checkOfferHasAcceptedCases(id);
+    this.validateStatusTransition(offer.offerStatus, dto.offerStatus, hasAccepted);
     offer.offerStatus = dto.offerStatus;
     offer.updatedBy = adminId;
     return this.offerRepository.save(offer);
@@ -269,19 +302,37 @@ export class OffersService {
       .getMany();
   }
 
+  private async checkOfferHasAcceptedCases(offerId: string): Promise<boolean> {
+    const count = await this.switchCaseRepository.count({
+      where: { selectedOfferId: offerId },
+    });
+    return count > 0;
+  }
+
   private validateStatusTransition(
     current: OfferStatus,
     next: OfferStatus,
+    hasAcceptedCases: boolean = false,
   ): void {
     const validTransitions: Record<OfferStatus, OfferStatus[]> = {
       [OfferStatus.DRAFT]: [OfferStatus.ACTIVE, OfferStatus.ARCHIVED],
-      [OfferStatus.ACTIVE]: [OfferStatus.EXPIRING, OfferStatus.ARCHIVED],
+      [OfferStatus.ACTIVE]: [
+        OfferStatus.EXPIRING,
+        OfferStatus.ARCHIVED,
+        // Allow reverting to DRAFT only when no user has accepted the offer
+        ...(hasAcceptedCases ? [] : [OfferStatus.DRAFT]),
+      ],
       [OfferStatus.EXPIRING]: [OfferStatus.EXPIRED, OfferStatus.ARCHIVED],
       [OfferStatus.EXPIRED]: [OfferStatus.ARCHIVED],
       [OfferStatus.ARCHIVED]: [],
     };
 
     if (!validTransitions[current]?.includes(next)) {
+      if (current === OfferStatus.ACTIVE && next === OfferStatus.DRAFT && hasAcceptedCases) {
+        throw new BadRequestException(
+          'Cannot revert to draft: this offer has been accepted by users',
+        );
+      }
       throw new BadRequestException(
         `Cannot transition from ${current} to ${next}`,
       );

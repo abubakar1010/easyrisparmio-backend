@@ -6,7 +6,6 @@ import {
   IsBoolean,
   IsDateString,
   IsUUID,
-  IsUrl,
   IsArray,
   IsInt,
   MaxLength,
@@ -76,9 +75,9 @@ export class CreateOfferDto {
   @IsDateString()
   validUntil?: string;
 
-  @ApiPropertyOptional({ description: 'URL to terms and conditions', example: 'https://www.enelenergia.it/terms/casa-luce-fix', maxLength: 500 })
+  @ApiPropertyOptional({ description: 'URL or path to terms and conditions document (uploaded via /upload endpoint)', example: '/uploads/3f8a9b2c-d4e5-6f78-90ab-cdef12345678.pdf', maxLength: 500 })
   @IsOptional()
-  @IsUrl()
+  @IsString()
   @MaxLength(500)
   termsUrl?: string;
 

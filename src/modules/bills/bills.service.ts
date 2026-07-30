@@ -564,7 +564,7 @@ export class BillsService {
       fixedMonthlyFee: offer.fixedMonthlyFee,
       energyType: offer.energyType,
       marketType: offer.marketType,
-      contractDurationMonths: offer.contractDurationMonths,
+      contractDurationDays: offer.contractDurationDays,
       isGreenEnergy: offer.isGreenEnergy,
       estimatedSavings: savingsMap.has(offer.id)
         ? savingsMap.get(offer.id)!
@@ -659,7 +659,7 @@ export class BillsService {
         fixedMonthlyFee: offer.fixedMonthlyFee,
         energyType: offer.energyType,
         marketType: offer.marketType,
-        contractDurationMonths: offer.contractDurationMonths,
+        contractDurationDays: offer.contractDurationDays,
         isGreenEnergy: offer.isGreenEnergy,
         estimatedSavings: this.estimateOfferSavings(bill, offer),
       }));

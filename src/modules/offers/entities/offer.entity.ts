@@ -70,8 +70,8 @@ export class Offer extends BaseEntity {
   })
   activationCost: number;
 
-  @Column({ name: 'contract_duration_months', type: 'int' })
-  contractDurationMonths: number;
+  @Column({ name: 'contract_duration_days', type: 'int' })
+  contractDurationDays: number;
 
   @Column({ name: 'is_green_energy', type: 'boolean', default: false })
   isGreenEnergy: boolean;

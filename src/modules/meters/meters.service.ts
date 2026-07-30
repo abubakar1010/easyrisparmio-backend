@@ -145,7 +145,7 @@ export class MetersService {
       pricePerKwh: contract.offer?.pricePerKwh || null,
       pricePerSmc: contract.offer?.pricePerSmc || null,
       fixedMonthlyFee: contract.offer?.fixedMonthlyFee || null,
-      contractDurationMonths: contract.offer?.contractDurationMonths || null,
+      contractDurationDays: contract.offer?.contractDurationDays || null,
       isGreenEnergy: contract.offer?.isGreenEnergy || false,
     }));
   }

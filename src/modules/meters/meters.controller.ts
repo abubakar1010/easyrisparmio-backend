@@ -72,7 +72,7 @@ export class MetersController {
               pricePerKwh: '0.085000',
               pricePerSmc: null,
               fixedMonthlyFee: '10.00',
-              contractDurationMonths: 12,
+              contractDurationDays: 365,
               isGreenEnergy: true,
             },
           ],

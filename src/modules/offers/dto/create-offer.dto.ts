@@ -57,10 +57,10 @@ export class CreateOfferDto {
   @Min(0)
   activationCost: number;
 
-  @ApiProperty({ description: 'Contract duration in months', example: 12 })
+  @ApiProperty({ description: 'Contract duration in days', example: 365 })
   @IsInt()
   @Min(1)
-  contractDurationMonths: number;
+  contractDurationDays: number;
 
   @ApiPropertyOptional({ description: 'Whether the energy is from green sources', example: true, default: false })
   @IsOptional()

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Post,
   UseGuards,
@@ -21,6 +22,30 @@ import {
 } from '@nestjs/swagger';
 import { FileUploadService } from './file-upload.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+
+const ALLOWED_MIME_TYPES = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+];
+
+const uploadFileFilter = (
+  _req: any,
+  file: Express.Multer.File,
+  cb: (error: Error | null, acceptFile: boolean) => void,
+) => {
+  if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(
+      new BadRequestException(
+        `Invalid file type "${file.mimetype}". Allowed types: PDF, JPEG, PNG, WebP`,
+      ),
+      false,
+    );
+  }
+};
 
 @ApiTags('File Upload')
 @Controller('upload')
@@ -121,6 +146,7 @@ export class FileUploadController {
       limits: {
         fileSize: 10 * 1024 * 1024, // 10 MB
       },
+      fileFilter: uploadFileFilter,
     }),
   )
   uploadFile(@UploadedFile() file: Express.Multer.File) {

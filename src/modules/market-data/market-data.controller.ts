@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   Post,
@@ -21,6 +22,7 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { MarketDataService } from './market-data.service';
+import { CreateMarketIndexDto } from './dto/create-market-index.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -149,6 +151,13 @@ export class MarketDataController {
     @Query('from') from?: string,
     @Query('to') to?: string,
   ) {
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (from && !dateRegex.test(from)) {
+      throw new BadRequestException('Invalid "from" date format. Expected YYYY-MM-DD');
+    }
+    if (to && !dateRegex.test(to)) {
+      throw new BadRequestException('Invalid "to" date format. Expected YYYY-MM-DD');
+    }
     return this.marketDataService.getIndexHistory(name, from, to);
   }
 
@@ -220,15 +229,7 @@ export class MarketDataController {
       },
     },
   })
-  createIndex(
-    @Body()
-    body: {
-      indexName: string;
-      value: number;
-      unit: string;
-      date: string;
-    },
-  ) {
-    return this.marketDataService.createIndex(body);
+  createIndex(@Body() dto: CreateMarketIndexDto) {
+    return this.marketDataService.createIndex(dto);
   }
 }

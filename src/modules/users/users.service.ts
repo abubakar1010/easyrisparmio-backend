@@ -303,6 +303,7 @@ export class UsersService {
     if (dto.lastName !== undefined) allowedFields.lastName = dto.lastName;
     if (dto.phone !== undefined) allowedFields.phone = dto.phone;
     if (dto.codiceFiscale !== undefined) allowedFields.codiceFiscale = dto.codiceFiscale;
+    if (dto.avatar !== undefined) allowedFields.avatar = dto.avatar;
 
     Object.assign(user, allowedFields);
     await this.userRepository.save(user);

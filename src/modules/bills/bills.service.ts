@@ -23,6 +23,8 @@ import { BillStatus, BillType, BillSource } from '../../common/enums/bill.enum';
 import { EnergyType, MarketType } from '../../common/enums/offer.enum';
 import { OfferStatus } from '../../common/enums/offer-status.enum';
 import { NotificationType } from '../../common/enums/notification.enum';
+import { readFileSync } from 'fs';
+import { join, extname } from 'path';
 
 @Injectable()
 export class BillsService {
@@ -109,7 +111,117 @@ export class BillsService {
 
     const savedBill = await this.billRepository.save(bill);
 
+    // If no OCR data was provided (mobile upload without extraction),
+    // trigger background OCR extraction + analysis
+    if (!dto.totalAmount && !dto.podNumber && !dto.pdrNumber && !dto.supplierName) {
+      this.processOcrInBackground(savedBill).catch((err) =>
+        this.logger.error(
+          `Background OCR failed for bill ${savedBill.id}: ${err.message}`,
+        ),
+      );
+    }
+
     return savedBill;
+  }
+
+  /**
+   * Runs OCR extraction and analysis in the background (fire-and-forget).
+   * Called when a bill is uploaded without pre-extracted OCR data.
+   */
+  private async processOcrInBackground(bill: EnergyBill): Promise<void> {
+    try {
+      if (!bill.fileUrl) {
+        this.logger.warn(`No file URL for bill ${bill.id}, skipping background OCR`);
+        return;
+      }
+
+      bill.status = BillStatus.ANALYZING;
+      await this.billRepository.save(bill);
+
+      const fullPath = join(process.cwd(), bill.fileUrl);
+      const ext = extname(bill.fileUrl).toLowerCase();
+
+      let imageBuffers: Buffer[];
+      if (ext === '.pdf') {
+        imageBuffers = await this.visionOcrService.convertPdfToImages(fullPath);
+      } else {
+        imageBuffers = [readFileSync(fullPath)];
+      }
+
+      const result = await this.visionOcrService.extractFromImages(
+        imageBuffers,
+        bill.billType,
+      );
+
+      // Populate bill fields from extraction result
+      if (result.podNumber) bill.podNumber = result.podNumber;
+      if (result.pdrNumber) bill.pdrNumber = result.pdrNumber;
+      if (result.totalAmount != null) bill.totalAmount = result.totalAmount;
+      if (result.consumptionKwh != null) bill.consumptionKwh = result.consumptionKwh;
+      if (result.consumptionSmc != null) bill.consumptionSmc = result.consumptionSmc;
+      if (result.costPerUnit != null) bill.costPerUnit = result.costPerUnit;
+      if (result.fixedCharges != null) bill.fixedCharges = result.fixedCharges;
+      if (result.taxes != null) bill.taxes = result.taxes;
+      if (result.billingPeriodStart) {
+        bill.billingPeriodStart = new Date(result.billingPeriodStart);
+      }
+      if (result.billingPeriodEnd) {
+        bill.billingPeriodEnd = new Date(result.billingPeriodEnd);
+      }
+      if (result.supplyAddress) bill.supplyAddress = result.supplyAddress;
+      if (result.codiceFiscale) bill.codiceFiscale = result.codiceFiscale;
+      if (result.partitaIva) bill.partitaIva = result.partitaIva;
+      if (result.contractNumber) bill.contractNumber = result.contractNumber;
+      if (result.meterNumber) bill.meterNumber = result.meterNumber;
+      if (result.customerName) bill.customerName = result.customerName;
+
+      // Resolve supplier from OCR-extracted name
+      if (result.supplierName) {
+        const matched = await this.supplierRepository
+          .createQueryBuilder('supplier')
+          .where('supplier.name ILIKE :name', {
+            name: `%${result.supplierName}%`,
+          })
+          .getOne();
+
+        if (matched) {
+          bill.supplierId = matched.id;
+          this.logger.log(
+            `Background OCR: matched supplier "${result.supplierName}" → ${matched.name} (${matched.id})`,
+          );
+        }
+      }
+
+      // Store OCR metadata
+      bill.rawAnalysisData = {
+        ...bill.rawAnalysisData,
+        ocrSupplierName: result.supplierName,
+        ocrConfidence: result.confidence,
+        ocrOverallConfidence: result.overallConfidence,
+        ocrTimestamp: new Date().toISOString(),
+        source: 'openai-vision',
+        model: 'gpt-4o',
+        backgroundProcessed: true,
+      };
+
+      await this.billRepository.save(bill);
+
+      // Run analysis to generate savings data and recommended offers
+      await this.runAnalysis(bill);
+
+      this.logger.log(`Background OCR + analysis completed for bill ${bill.id}`);
+    } catch (error) {
+      this.logger.error(
+        `Background OCR processing failed for bill ${bill.id}: ${error.message}`,
+      );
+      bill.status = BillStatus.ERROR;
+      bill.rawAnalysisData = {
+        ...bill.rawAnalysisData,
+        ocrError: error.message,
+        ocrFailedAt: new Date().toISOString(),
+      };
+      await this.billRepository.save(bill);
+    }
   }
 
   // ─── User Queries ─────────────────────────────────────────

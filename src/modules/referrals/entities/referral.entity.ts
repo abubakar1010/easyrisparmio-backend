@@ -1,14 +1,17 @@
-import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { BaseEntity } from '../../../common/entities/base.entity';
 import { ReferralStatus } from '../../../common/enums/referral.enum';
 import { User } from '../../users/entities/user.entity';
 
 @Entity('referrals')
+@Index(['referrerId', 'status'])
 export class Referral extends BaseEntity {
+  @Index()
   @Column({ name: 'referrer_id', type: 'uuid' })
   referrerId: string;
 
-  @Column({ name: 'referral_code', type: 'varchar', length: 20, unique: true })
+  @Index()
+  @Column({ name: 'referral_code', type: 'varchar', length: 20 })
   referralCode: string;
 
   @Column({ name: 'referred_email', type: 'varchar', length: 255, nullable: true })
@@ -17,6 +20,7 @@ export class Referral extends BaseEntity {
   @Column({ name: 'referred_phone', type: 'varchar', length: 20, nullable: true })
   referredPhone: string | null;
 
+  @Index()
   @Column({ name: 'referred_user_id', type: 'uuid', nullable: true })
   referredUserId: string | null;
 

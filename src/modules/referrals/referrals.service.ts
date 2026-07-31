@@ -6,7 +6,8 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource, In } from 'typeorm';
+import { randomInt } from 'crypto';
 import { Referral } from './entities/referral.entity';
 import { CreateReferralDto } from './dto/create-referral.dto';
 import { QueryReferralsDto } from './dto/query-referrals.dto';
@@ -26,6 +27,7 @@ export class ReferralsService {
   constructor(
     @InjectRepository(Referral)
     private readonly referralRepository: Repository<Referral>,
+    private readonly dataSource: DataSource,
     private readonly usersService: UsersService,
     private readonly configService: ConfigService,
     private readonly notificationsService: NotificationsService,
@@ -115,6 +117,20 @@ export class ReferralsService {
     if (!referralCode) {
       referralCode = await this.generateUniqueCode();
       await this.usersService.update(userId, { referralCode });
+    }
+
+    // Return existing pending invite for the same email instead of creating a duplicate
+    if (dto.referredEmail) {
+      const existingInvite = await this.referralRepository.findOne({
+        where: {
+          referrerId: userId,
+          referredEmail: dto.referredEmail,
+          status: ReferralStatus.PENDING,
+        },
+      });
+      if (existingInvite) {
+        return existingInvite;
+      }
     }
 
     const expiresAt = new Date();
@@ -278,69 +294,113 @@ export class ReferralsService {
     referredUserId: string,
     referredEmail: string,
   ): Promise<void> {
-    const now = new Date();
-
-    // First, try to find a targeted pending invite matching code + email
-    let referral = await this.referralRepository
-      .createQueryBuilder('r')
-      .where('r.referralCode = :code', { code: referralCode })
-      .andWhere('r.referredEmail = :email', { email: referredEmail })
-      .andWhere('r.status = :status', { status: ReferralStatus.PENDING })
-      .andWhere('(r.expiresAt IS NULL OR r.expiresAt > :now)', { now })
-      .getOne();
-
-    // If no targeted invite, find any generic pending invite with this code
-    if (!referral) {
-      referral = await this.referralRepository
-        .createQueryBuilder('r')
-        .where('r.referralCode = :code', { code: referralCode })
-        .andWhere('r.referredEmail IS NULL')
-        .andWhere('r.status = :status', { status: ReferralStatus.PENDING })
-        .andWhere('(r.expiresAt IS NULL OR r.expiresAt > :now)', { now })
-        .getOne();
-    }
-
-    if (referral) {
-      // Update existing referral
-      referral.referredUserId = referredUserId;
-      referral.referredEmail = referredEmail;
-      referral.status = ReferralStatus.REGISTERED;
-      await this.referralRepository.save(referral);
+    // Guard: prevent duplicate referrals for the same user
+    const existingReferral = await this.referralRepository.findOne({
+      where: {
+        referredUserId,
+        status: In([
+          ReferralStatus.REGISTERED,
+          ReferralStatus.QUALIFIED,
+          ReferralStatus.REWARDED,
+        ]),
+      },
+    });
+    if (existingReferral) {
+      this.logger.warn(
+        `User ${referredUserId} already has an active referral (${existingReferral.id}), skipping`,
+      );
       return;
     }
 
-    // No existing referral found — check if the code belongs to a user
+    // Look up the referrer to validate the code and check self-referral
     const referrer = await this.usersService.findByReferralCode(referralCode);
     if (!referrer) {
       throw new BadRequestException('Invalid referral code');
     }
 
-    // Create a new referral record
-    const newReferral = this.referralRepository.create({
-      referrerId: referrer.id,
-      referralCode,
-      referredEmail,
-      referredUserId,
-      status: ReferralStatus.REGISTERED,
-    });
-    await this.referralRepository.save(newReferral);
+    if (referrer.id === referredUserId) {
+      throw new BadRequestException('Cannot use your own referral code');
+    }
+
+    // Use a transaction with pessimistic locking to prevent race conditions
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const now = new Date();
+
+      // Try to find a targeted pending invite matching code + email
+      let referral = await queryRunner.manager
+        .createQueryBuilder(Referral, 'r')
+        .setLock('pessimistic_write')
+        .where('r.referralCode = :code', { code: referralCode })
+        .andWhere('r.referredEmail = :email', { email: referredEmail })
+        .andWhere('r.status = :status', { status: ReferralStatus.PENDING })
+        .andWhere('(r.expiresAt IS NULL OR r.expiresAt > :now)', { now })
+        .getOne();
+
+      // If no targeted invite, find any generic pending invite with this code
+      if (!referral) {
+        referral = await queryRunner.manager
+          .createQueryBuilder(Referral, 'r')
+          .setLock('pessimistic_write')
+          .where('r.referralCode = :code', { code: referralCode })
+          .andWhere('r.referredEmail IS NULL')
+          .andWhere('r.status = :status', { status: ReferralStatus.PENDING })
+          .andWhere('(r.expiresAt IS NULL OR r.expiresAt > :now)', { now })
+          .getOne();
+      }
+
+      if (referral && !referral.referredUserId) {
+        // Claim existing unclaimed invite
+        referral.referredUserId = referredUserId;
+        referral.referredEmail = referredEmail;
+        referral.status = ReferralStatus.REGISTERED;
+        await queryRunner.manager.save(Referral, referral);
+      } else {
+        // No claimable invite — create a new referral record
+        const newReferral = queryRunner.manager.create(Referral, {
+          referrerId: referrer.id,
+          referralCode,
+          referredEmail,
+          referredUserId,
+          status: ReferralStatus.REGISTERED,
+        });
+        await queryRunner.manager.save(Referral, newReferral);
+      }
+
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   // ─── Scheduled Tasks ───────────────────────────────────────
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async expireStaleReferrals(): Promise<void> {
-    const result = await this.referralRepository
-      .createQueryBuilder()
-      .update(Referral)
-      .set({ status: ReferralStatus.EXPIRED })
-      .where('status = :status', { status: ReferralStatus.PENDING })
-      .andWhere('expiresAt IS NOT NULL')
-      .andWhere('expiresAt <= :now', { now: new Date() })
-      .execute();
+    try {
+      const result = await this.referralRepository
+        .createQueryBuilder()
+        .update(Referral)
+        .set({ status: ReferralStatus.EXPIRED })
+        .where('status = :status', { status: ReferralStatus.PENDING })
+        .andWhere('expiresAt IS NOT NULL')
+        .andWhere('expiresAt <= :now', { now: new Date() })
+        .execute();
 
-    if (result.affected && result.affected > 0) {
-      this.logger.log(`Expired ${result.affected} stale referral(s)`);
+      if (result.affected && result.affected > 0) {
+        this.logger.log(`Expired ${result.affected} stale referral(s)`);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to expire stale referrals: ${error?.message || error}`,
+        error?.stack,
+      );
     }
   }
 
@@ -353,13 +413,12 @@ export class ReferralsService {
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       let code = '';
       for (let i = 0; i < 8; i++) {
-        code += chars.charAt(Math.floor(Math.random() * chars.length));
+        code += chars.charAt(randomInt(chars.length));
       }
 
-      const existing = await this.referralRepository.findOne({
-        where: { referralCode: code },
-      });
-      if (!existing) {
+      // Check against the users table where the unique constraint lives
+      const existingUser = await this.usersService.findByReferralCode(code);
+      if (!existingUser) {
         return code;
       }
     }

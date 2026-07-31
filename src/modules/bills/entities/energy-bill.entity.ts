@@ -127,6 +127,9 @@ export class EnergyBill extends BaseEntity {
   @Column({ name: 'customer_name', type: 'varchar', length: 200, nullable: true })
   customerName: string | null;
 
+  @Column({ name: 'supplier_name', type: 'varchar', length: 200, nullable: true })
+  supplierName: string | null;
+
   @Column({ name: 'raw_analysis_data', type: 'jsonb', nullable: true })
   rawAnalysisData: Record<string, any>;
 

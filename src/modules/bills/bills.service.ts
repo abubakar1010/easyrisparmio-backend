@@ -58,26 +58,6 @@ export class BillsService {
     dto: UploadBillDto,
     fileMeta?: { originalName?: string; mimeType?: string; fileSize?: number },
   ): Promise<EnergyBill> {
-    // Match supplier name from Vision API extraction against existing suppliers
-    let resolvedSupplierId = dto.supplierId;
-    if (!resolvedSupplierId && dto.supplierName) {
-      const matched = await this.supplierRepository
-        .createQueryBuilder('supplier')
-        .where('supplier.name ILIKE :name', {
-          name: `%${dto.supplierName}%`,
-        })
-        .getOne();
-
-      if (matched) {
-        resolvedSupplierId = matched.id;
-        this.logger.log(
-          `Matched supplier "${dto.supplierName}" → ${matched.name} (${matched.id})`,
-        );
-      } else {
-        this.logger.warn(`No supplier match found for "${dto.supplierName}"`);
-      }
-    }
-
     const bill = this.billRepository.create({
       userId,
       fileUrl,
@@ -90,7 +70,8 @@ export class BillsService {
       costPerUnit: dto.costPerUnit,
       fixedCharges: dto.fixedCharges,
       taxes: dto.taxes,
-      supplierId: resolvedSupplierId,
+      supplierId: dto.supplierId,
+      supplierName: dto.supplierName || null,
       billingPeriodStart: dto.billingPeriodStart ? new Date(dto.billingPeriodStart) : undefined,
       billingPeriodEnd: dto.billingPeriodEnd ? new Date(dto.billingPeriodEnd) : undefined,
       supplyAddress: dto.supplyAddress,
@@ -135,34 +116,70 @@ export class BillsService {
 
   /**
    * Runs OCR extraction and analysis in the background (fire-and-forget).
-   * Called when a bill is uploaded without pre-extracted OCR data.
+   * Collects images from ALL bill files and extracts data across them.
+   * Saves whatever data was found — never sets ERROR for partial extraction.
    */
   private async processOcrInBackground(bill: EnergyBill): Promise<void> {
     try {
-      if (!bill.fileUrl) {
-        this.logger.warn(`No file URL for bill ${bill.id}, skipping background OCR`);
-        return;
-      }
-
       bill.status = BillStatus.ANALYZING;
       await this.billRepository.save(bill);
 
-      const fullPath = join(process.cwd(), bill.fileUrl);
-      const ext = extname(bill.fileUrl).toLowerCase();
+      // Collect images from ALL bill files (not just the primary fileUrl)
+      const billFiles = await this.billFileRepository.find({
+        where: { billId: bill.id },
+        order: { createdAt: 'ASC' },
+      });
 
-      let imageBuffers: Buffer[];
-      if (ext === '.pdf') {
-        imageBuffers = await this.visionOcrService.convertPdfToImages(fullPath);
-      } else {
-        imageBuffers = [readFileSync(fullPath)];
+      // Fall back to primary fileUrl if no BillFile records exist yet
+      const fileUrls = billFiles.length > 0
+        ? billFiles.map((f) => f.fileUrl)
+        : bill.fileUrl ? [bill.fileUrl] : [];
+
+      if (fileUrls.length === 0) {
+        this.logger.warn(`No files for bill ${bill.id}, skipping background OCR`);
+        return;
       }
 
+      const allImageBuffers: Buffer[] = [];
+      for (const fileUrl of fileUrls) {
+        try {
+          const fullPath = join(process.cwd(), fileUrl);
+          const ext = extname(fileUrl).toLowerCase();
+          if (ext === '.pdf') {
+            const pdfImages = await this.visionOcrService.convertPdfToImages(fullPath);
+            allImageBuffers.push(...pdfImages);
+          } else {
+            allImageBuffers.push(readFileSync(fullPath));
+          }
+        } catch (fileErr) {
+          this.logger.warn(
+            `Failed to read file ${fileUrl} for bill ${bill.id}: ${fileErr.message}`,
+          );
+        }
+      }
+
+      if (allImageBuffers.length === 0) {
+        this.logger.warn(`No readable images for bill ${bill.id}`);
+        bill.rawAnalysisData = {
+          ...bill.rawAnalysisData,
+          ocrWarning: 'No readable images found in uploaded files',
+          ocrTimestamp: new Date().toISOString(),
+        };
+        await this.billRepository.save(bill);
+        await this.runAnalysis(bill);
+        return;
+      }
+
+      this.logger.log(
+        `Processing ${allImageBuffers.length} images from ${fileUrls.length} files for bill ${bill.id}`,
+      );
+
       const result = await this.visionOcrService.extractFromImages(
-        imageBuffers,
+        allImageBuffers,
         bill.billType,
       );
 
-      // Populate bill fields from extraction result
+      // Populate bill fields from extraction — save whatever was found
       if (result.podNumber) bill.podNumber = result.podNumber;
       if (result.pdrNumber) bill.pdrNumber = result.pdrNumber;
       if (result.totalAmount != null) bill.totalAmount = result.totalAmount;
@@ -183,23 +200,7 @@ export class BillsService {
       if (result.contractNumber) bill.contractNumber = result.contractNumber;
       if (result.meterNumber) bill.meterNumber = result.meterNumber;
       if (result.customerName) bill.customerName = result.customerName;
-
-      // Resolve supplier from OCR-extracted name
-      if (result.supplierName) {
-        const matched = await this.supplierRepository
-          .createQueryBuilder('supplier')
-          .where('supplier.name ILIKE :name', {
-            name: `%${result.supplierName}%`,
-          })
-          .getOne();
-
-        if (matched) {
-          bill.supplierId = matched.id;
-          this.logger.log(
-            `Background OCR: matched supplier "${result.supplierName}" → ${matched.name} (${matched.id})`,
-          );
-        }
-      }
+      if (result.supplierName) bill.supplierName = result.supplierName;
 
       // Store OCR metadata
       bill.rawAnalysisData = {
@@ -211,11 +212,13 @@ export class BillsService {
         source: 'openai-vision',
         model: 'gpt-4o',
         backgroundProcessed: true,
+        filesProcessed: fileUrls.length,
+        imagesProcessed: allImageBuffers.length,
       };
 
       await this.billRepository.save(bill);
 
-      // Run analysis to generate savings data and recommended offers
+      // Run analysis — works with whatever data was collected
       await this.runAnalysis(bill);
 
       this.logger.log(`Background OCR + analysis completed for bill ${bill.id}`);
@@ -223,13 +226,21 @@ export class BillsService {
       this.logger.error(
         `Background OCR processing failed for bill ${bill.id}: ${error.message}`,
       );
-      bill.status = BillStatus.ERROR;
+      // Save whatever was collected so far, don't lose data
       bill.rawAnalysisData = {
         ...bill.rawAnalysisData,
-        ocrError: error.message,
+        ocrWarning: error.message,
         ocrFailedAt: new Date().toISOString(),
       };
       await this.billRepository.save(bill);
+      // Still try to run analysis with whatever data exists
+      try {
+        await this.runAnalysis(bill);
+      } catch (analysisErr) {
+        this.logger.error(`Analysis also failed for bill ${bill.id}: ${analysisErr.message}`);
+        bill.status = BillStatus.ANALYZED;
+        await this.billRepository.save(bill);
+      }
     }
   }
 
@@ -462,23 +473,7 @@ export class BillsService {
       savedBill.contractNumber = extractedData.contractNumber || savedBill.contractNumber;
       savedBill.meterNumber = extractedData.meterNumber || savedBill.meterNumber;
       savedBill.customerName = extractedData.customerName || savedBill.customerName;
-
-      // Resolve supplier from OCR-extracted name
-      if (extractedData.supplierName) {
-        const matched = await this.supplierRepository
-          .createQueryBuilder('supplier')
-          .where('supplier.name ILIKE :name', {
-            name: `%${extractedData.supplierName}%`,
-          })
-          .getOne();
-
-        if (matched) {
-          savedBill.supplierId = matched.id;
-          this.logger.log(
-            `Matched supplier "${extractedData.supplierName}" → ${matched.name} (${matched.id})`,
-          );
-        }
-      }
+      savedBill.supplierName = extractedData.supplierName || savedBill.supplierName;
 
       // Store OCR metadata
       savedBill.rawAnalysisData = {

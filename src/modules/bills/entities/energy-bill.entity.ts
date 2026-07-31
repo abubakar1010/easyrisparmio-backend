@@ -13,6 +13,7 @@ import { BillType, BillStatus, BillSource } from '../../../common/enums/bill.enu
 import { User } from '../../users/entities/user.entity';
 import { Supplier } from '../../suppliers/entities/supplier.entity';
 import { BillAnalysis } from './bill-analysis.entity';
+import { BillFile } from './bill-file.entity';
 import { SwitchCase } from '../../cases/entities/switch-case.entity';
 
 @Entity('energy_bills')
@@ -154,6 +155,9 @@ export class EnergyBill extends BaseEntity {
 
   @OneToOne(() => BillAnalysis, (analysis) => analysis.bill)
   analysis: BillAnalysis;
+
+  @OneToMany(() => BillFile, (f) => f.bill, { cascade: true })
+  files: BillFile[];
 
   @OneToMany(() => SwitchCase, (sc) => sc.bill)
   switchCases: SwitchCase[];

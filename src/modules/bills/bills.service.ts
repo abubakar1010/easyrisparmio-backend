@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { EnergyBill } from './entities/energy-bill.entity';
 import { BillAnalysis } from './entities/bill-analysis.entity';
+import { BillFile } from './entities/bill-file.entity';
 import { Offer } from '../offers/entities/offer.entity';
 import { Supplier } from '../suppliers/entities/supplier.entity';
 import { SentOffer } from '../offers/entities/sent-offer.entity';
@@ -35,6 +36,8 @@ export class BillsService {
     private readonly billRepository: Repository<EnergyBill>,
     @InjectRepository(BillAnalysis)
     private readonly analysisRepository: Repository<BillAnalysis>,
+    @InjectRepository(BillFile)
+    private readonly billFileRepository: Repository<BillFile>,
     @InjectRepository(Offer)
     private readonly offerRepository: Repository<Offer>,
     @InjectRepository(Supplier)
@@ -53,6 +56,7 @@ export class BillsService {
     userId: string,
     fileUrl: string,
     dto: UploadBillDto,
+    fileMeta?: { originalName?: string; mimeType?: string; fileSize?: number },
   ): Promise<EnergyBill> {
     // Match supplier name from Vision API extraction against existing suppliers
     let resolvedSupplierId = dto.supplierId;
@@ -111,6 +115,11 @@ export class BillsService {
 
     const savedBill = await this.billRepository.save(bill);
 
+    // Create BillFile record for the uploaded file
+    if (fileUrl) {
+      await this.createBillFileRecord(savedBill.id, fileUrl, fileMeta);
+    }
+
     // If no OCR data was provided (mobile upload without extraction),
     // trigger background OCR extraction + analysis
     if (!dto.totalAmount && !dto.podNumber && !dto.pdrNumber && !dto.supplierName) {
@@ -121,7 +130,7 @@ export class BillsService {
       );
     }
 
-    return savedBill;
+    return this.getBillByIdAdmin(savedBill.id);
   }
 
   /**
@@ -235,6 +244,7 @@ export class BillsService {
       .leftJoinAndSelect('bill.supplier', 'supplier')
       .leftJoinAndSelect('bill.analysis', 'analysis')
       .leftJoinAndSelect('bill.switchCases', 'switchCase')
+      .leftJoinAndSelect('bill.files', 'billFile')
       .where('bill.userId = :userId', { userId });
 
     if (query.billType) {
@@ -269,7 +279,8 @@ export class BillsService {
       .createQueryBuilder('bill')
       .leftJoinAndSelect('bill.supplier', 'supplier')
       .leftJoinAndSelect('bill.user', 'user')
-      .leftJoinAndSelect('bill.switchCases', 'switchCase');
+      .leftJoinAndSelect('bill.switchCases', 'switchCase')
+      .leftJoinAndSelect('bill.files', 'billFile');
 
     if (query.billType) {
       qb.andWhere('bill.billType = :billType', { billType: query.billType });
@@ -313,7 +324,7 @@ export class BillsService {
   async getBillByIdAdmin(billId: string): Promise<EnergyBill> {
     const bill = await this.billRepository.findOne({
       where: { id: billId },
-      relations: ['supplier', 'analysis', 'user', 'switchCases'],
+      relations: ['supplier', 'analysis', 'user', 'switchCases', 'files'],
     });
 
     if (!bill) {
@@ -326,7 +337,7 @@ export class BillsService {
   async getBillById(billId: string, userId: string): Promise<EnergyBill> {
     const bill = await this.billRepository.findOne({
       where: { id: billId },
-      relations: ['supplier', 'analysis', 'switchCases'],
+      relations: ['supplier', 'analysis', 'switchCases', 'files'],
     });
 
     if (!bill) {
@@ -427,6 +438,9 @@ export class BillsService {
       });
       savedBill = await this.billRepository.save(bill);
     }
+
+    // Create BillFile record
+    await this.createBillFileRecord(savedBill.id, fileUrl);
 
     // Populate bill with OCR-extracted data if provided
     if (extractedData) {
@@ -886,6 +900,68 @@ export class BillsService {
 
     // Default: assume bimonthly billing (common in Italy)
     return 6;
+  }
+
+  // ─── Bill Files ──────────────────────────────────────────
+
+  private async createBillFileRecord(
+    billId: string,
+    fileUrl: string,
+    meta?: { originalName?: string; mimeType?: string; fileSize?: number },
+  ): Promise<BillFile> {
+    const billFile = this.billFileRepository.create({
+      billId,
+      fileUrl,
+      originalName: meta?.originalName || fileUrl.split('/').pop() || null,
+      mimeType: meta?.mimeType || null,
+      fileSize: meta?.fileSize || null,
+    });
+    return this.billFileRepository.save(billFile);
+  }
+
+  async addFileToBill(
+    billId: string,
+    fileUrl: string,
+    userId: string,
+    meta?: { originalName?: string; mimeType?: string; fileSize?: number },
+  ): Promise<BillFile> {
+    const bill = await this.billRepository.findOne({ where: { id: billId } });
+    if (!bill) {
+      throw new NotFoundException('Bill not found');
+    }
+    if (bill.userId !== userId) {
+      throw new ForbiddenException('You do not have access to this bill');
+    }
+    return this.createBillFileRecord(billId, fileUrl, meta);
+  }
+
+  async adminAddFileToBill(
+    billId: string,
+    fileUrl: string,
+    meta?: { originalName?: string; mimeType?: string; fileSize?: number },
+  ): Promise<BillFile> {
+    const bill = await this.billRepository.findOne({ where: { id: billId } });
+    if (!bill) {
+      throw new NotFoundException('Bill not found');
+    }
+    return this.createBillFileRecord(billId, fileUrl, meta);
+  }
+
+  async getBillFiles(billId: string): Promise<BillFile[]> {
+    return this.billFileRepository.find({
+      where: { billId },
+      order: { createdAt: 'ASC' },
+    });
+  }
+
+  async getBillFileById(billId: string, fileId: string): Promise<BillFile> {
+    const file = await this.billFileRepository.findOne({
+      where: { id: fileId, billId },
+    });
+    if (!file) {
+      throw new NotFoundException('File not found');
+    }
+    return file;
   }
 
   private estimateOfferSavings(bill: EnergyBill, offer: Offer): number {

@@ -15,6 +15,7 @@ import {
   BadGatewayException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { statSync } from 'fs';
 import { diskStorage, memoryStorage } from 'multer';
 import { extname, join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
@@ -269,7 +270,11 @@ export class BillsController {
       throw new BadRequestException('File is required');
     }
 
-    return this.billsService.uploadBill(userId, fileUrl, dto);
+    const fileMeta = file
+      ? { originalName: file.originalname, mimeType: file.mimetype, fileSize: file.size }
+      : undefined;
+
+    return this.billsService.uploadBill(userId, fileUrl, dto, fileMeta);
   }
 
   @Post('email-request')
@@ -591,6 +596,130 @@ export class BillsController {
 
     res.setHeader('Content-Type', mimeMap[ext] || 'application/octet-stream');
     res.setHeader('Content-Disposition', `inline; filename="bill-${bill.id}${ext}"`);
+    res.sendFile(filePath);
+  }
+
+  // ─── Bill Files (multi-file support) ─────────────────────
+
+  @Get(':id/files')
+  @ApiOperation({
+    summary: 'List all files for a bill',
+    description: 'Returns all uploaded files associated with a bill.',
+  })
+  @ApiOkResponse({ description: 'List of bill files' })
+  @ApiNotFoundResponse({ description: 'Bill not found' })
+  async getBillFiles(
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') userRole: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    // Verify access
+    if (userRole === UserRole.ADMIN) {
+      await this.billsService.getBillByIdAdmin(id);
+    } else {
+      await this.billsService.getBillById(id, userId);
+    }
+    return this.billsService.getBillFiles(id);
+  }
+
+  @Post(':id/files')
+  @ApiOperation({
+    summary: 'Add a file to an existing bill',
+    description: 'Uploads an additional file and attaches it to an existing bill.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary', description: 'Bill PDF or image file' },
+      },
+      required: ['file'],
+    },
+  })
+  @ApiCreatedResponse({ description: 'File added to bill' })
+  @ApiNotFoundResponse({ description: 'Bill not found' })
+  @ApiForbiddenResponse({ description: 'User does not own this bill' })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: join(process.cwd(), 'uploads', 'bills'),
+        filename: (_req, file, cb) => {
+          const filename = `${uuidv4()}${extname(file.originalname)}`;
+          cb(null, filename);
+        },
+      }),
+      limits: { fileSize: 10 * 1024 * 1024 },
+      fileFilter: billFileFilter,
+    }),
+  )
+  async addFileToBill(
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') userRole: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException('File is required');
+    }
+
+    const fileUrl = `uploads/bills/${file.filename}`;
+    const filePath = join(process.cwd(), fileUrl);
+    const stats = statSync(filePath);
+
+    const meta = {
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      fileSize: stats.size,
+    };
+
+    if (userRole === UserRole.ADMIN) {
+      return this.billsService.adminAddFileToBill(id, fileUrl, meta);
+    }
+    return this.billsService.addFileToBill(id, fileUrl, userId, meta);
+  }
+
+  @Get(':id/files/:fileId')
+  @ApiOperation({
+    summary: 'Download a specific bill file',
+    description: 'Streams a specific file attached to a bill.',
+  })
+  @ApiOkResponse({ description: 'File stream' })
+  @ApiNotFoundResponse({ description: 'File not found' })
+  async downloadBillFileById(
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') userRole: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('fileId', ParseUUIDPipe) fileId: string,
+    @Res() res: Response,
+  ) {
+    // Verify access
+    if (userRole === UserRole.ADMIN) {
+      await this.billsService.getBillByIdAdmin(id);
+    } else {
+      await this.billsService.getBillById(id, userId);
+    }
+
+    const billFile = await this.billsService.getBillFileById(id, fileId);
+    const filePath = join(process.cwd(), billFile.fileUrl);
+
+    if (!existsSync(filePath)) {
+      throw new NotFoundException('File not found on disk');
+    }
+
+    const ext = extname(filePath).toLowerCase();
+    const mimeMap: Record<string, string> = {
+      '.pdf': 'application/pdf',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+    };
+
+    res.setHeader('Content-Type', mimeMap[ext] || 'application/octet-stream');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${billFile.originalName || `file-${fileId}${ext}`}"`,
+    );
     res.sendFile(filePath);
   }
 }

@@ -43,6 +43,7 @@ import { CreateEmailBillDto } from './dto/create-email-bill.dto';
 import { AssociateBillUserDto } from './dto/associate-bill-user.dto';
 import { QueryBillsDto } from './dto/query-bills.dto';
 import { SendOffersDto } from './dto/send-offers.dto';
+import { RequestVerificationDto, SubmitVerificationDto } from './dto/request-verification.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -504,6 +505,63 @@ export class BillsController {
   @ApiNotFoundResponse({ description: 'Bill not found' })
   reanalyzeBill(@Param('id', ParseUUIDPipe) id: string) {
     return this.billsService.reanalyzeBill(id);
+  }
+
+  // ─── Verification ──────────────────────────────────────────
+
+  @Post('admin/:id/request-verification')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Send bill back to user for verification (admin)',
+    description:
+      'Marks a bill as requiring verification. Admin can specify missing fields, ' +
+      'request document re-upload, and include a message. User receives a notification.',
+  })
+  @ApiBody({ type: RequestVerificationDto })
+  @ApiCreatedResponse({ description: 'Verification request sent' })
+  @ApiNotFoundResponse({ description: 'Bill not found' })
+  requestVerification(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RequestVerificationDto,
+  ) {
+    return this.billsService.requestVerification(id, dto);
+  }
+
+  @Get(':id/verification')
+  @ApiOperation({
+    summary: 'Get active verification request for a bill',
+    description: 'Returns the pending verification request if one exists.',
+  })
+  @ApiOkResponse({ description: 'Active verification or null' })
+  async getVerification(
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') userRole: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    if (userRole === UserRole.ADMIN) {
+      await this.billsService.getBillByIdAdmin(id);
+    } else {
+      await this.billsService.getBillById(id, userId);
+    }
+    return this.billsService.getActiveVerification(id);
+  }
+
+  @Post(':id/verification/submit')
+  @ApiOperation({
+    summary: 'Submit verification response (user)',
+    description:
+      'User submits corrected field values and/or an optional message. ' +
+      'The bill is re-analyzed with the updated data.',
+  })
+  @ApiBody({ type: SubmitVerificationDto })
+  @ApiOkResponse({ description: 'Verification submitted, bill re-analyzing' })
+  @ApiNotFoundResponse({ description: 'Bill or verification not found' })
+  submitVerification(
+    @CurrentUser('id') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SubmitVerificationDto,
+  ) {
+    return this.billsService.submitVerification(id, userId, dto);
   }
 
   // ─── User List & Detail ───────────────────────────────────

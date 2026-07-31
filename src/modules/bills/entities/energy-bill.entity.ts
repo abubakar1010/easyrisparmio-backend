@@ -14,6 +14,7 @@ import { User } from '../../users/entities/user.entity';
 import { Supplier } from '../../suppliers/entities/supplier.entity';
 import { BillAnalysis } from './bill-analysis.entity';
 import { BillFile } from './bill-file.entity';
+import { BillVerification } from './bill-verification.entity';
 import { SwitchCase } from '../../cases/entities/switch-case.entity';
 
 @Entity('energy_bills')
@@ -161,6 +162,9 @@ export class EnergyBill extends BaseEntity {
 
   @OneToMany(() => BillFile, (f) => f.bill, { cascade: true })
   files: BillFile[];
+
+  @OneToMany(() => BillVerification, (v) => v.bill)
+  verifications: BillVerification[];
 
   @OneToMany(() => SwitchCase, (sc) => sc.bill)
   switchCases: SwitchCase[];

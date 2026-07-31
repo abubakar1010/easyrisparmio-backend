@@ -10,6 +10,8 @@ import { In, Repository } from 'typeorm';
 import { EnergyBill } from './entities/energy-bill.entity';
 import { BillAnalysis } from './entities/bill-analysis.entity';
 import { BillFile } from './entities/bill-file.entity';
+import { BillVerification, VerificationStatus } from './entities/bill-verification.entity';
+import { RequestVerificationDto, SubmitVerificationDto } from './dto/request-verification.dto';
 import { Offer } from '../offers/entities/offer.entity';
 import { Supplier } from '../suppliers/entities/supplier.entity';
 import { SentOffer } from '../offers/entities/sent-offer.entity';
@@ -38,6 +40,8 @@ export class BillsService {
     private readonly analysisRepository: Repository<BillAnalysis>,
     @InjectRepository(BillFile)
     private readonly billFileRepository: Repository<BillFile>,
+    @InjectRepository(BillVerification)
+    private readonly verificationRepository: Repository<BillVerification>,
     @InjectRepository(Offer)
     private readonly offerRepository: Repository<Offer>,
     @InjectRepository(Supplier)
@@ -335,7 +339,7 @@ export class BillsService {
   async getBillByIdAdmin(billId: string): Promise<EnergyBill> {
     const bill = await this.billRepository.findOne({
       where: { id: billId },
-      relations: ['supplier', 'analysis', 'user', 'switchCases', 'files'],
+      relations: ['supplier', 'analysis', 'user', 'switchCases', 'files', 'verifications'],
     });
 
     if (!bill) {
@@ -348,7 +352,7 @@ export class BillsService {
   async getBillById(billId: string, userId: string): Promise<EnergyBill> {
     const bill = await this.billRepository.findOne({
       where: { id: billId },
-      relations: ['supplier', 'analysis', 'switchCases', 'files'],
+      relations: ['supplier', 'analysis', 'switchCases', 'files', 'verifications'],
     });
 
     if (!bill) {
@@ -957,6 +961,140 @@ export class BillsService {
       throw new NotFoundException('File not found');
     }
     return file;
+  }
+
+  // ─── Verification ─────────────────────────────────────────
+
+  async requestVerification(
+    billId: string,
+    dto: RequestVerificationDto,
+  ): Promise<BillVerification> {
+    const bill = await this.getBillByIdAdmin(billId);
+
+    // Mark any previous pending verifications as resolved
+    await this.verificationRepository.update(
+      { billId, status: VerificationStatus.PENDING },
+      { status: VerificationStatus.RESOLVED, resolvedAt: new Date() },
+    );
+
+    const verification = this.verificationRepository.create({
+      billId,
+      adminMessage: dto.message,
+      missingFields: dto.missingFields,
+      requireReupload: dto.requireReupload ?? false,
+      status: VerificationStatus.PENDING,
+    });
+
+    const saved = await this.verificationRepository.save(verification);
+
+    bill.status = BillStatus.VERIFICATION_REQUIRED;
+    await this.billRepository.save(bill);
+
+    await this.notificationsService.sendNotification({
+      userId: bill.userId,
+      title: 'Verifica richiesta per la tua bolletta',
+      body: dto.message,
+      type: NotificationType.BILL_VERIFICATION,
+      data: {
+        billId: bill.id,
+        verificationId: saved.id,
+        missingFields: dto.missingFields,
+        requireReupload: dto.requireReupload ?? false,
+      },
+    });
+
+    return saved;
+  }
+
+  async getActiveVerification(billId: string): Promise<BillVerification | null> {
+    return this.verificationRepository.findOne({
+      where: { billId, status: VerificationStatus.PENDING },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async getVerificationHistory(billId: string): Promise<BillVerification[]> {
+    return this.verificationRepository.find({
+      where: { billId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async submitVerification(
+    billId: string,
+    userId: string,
+    dto: SubmitVerificationDto,
+  ): Promise<EnergyBill> {
+    const bill = await this.getBillById(billId, userId);
+
+    const verification = await this.verificationRepository.findOne({
+      where: { billId, status: VerificationStatus.PENDING },
+      order: { createdAt: 'DESC' },
+    });
+
+    if (!verification) {
+      throw new NotFoundException('No pending verification request found');
+    }
+
+    // Apply user-submitted field values to the bill
+    if (dto.fieldValues) {
+      const fieldMap: Record<string, string> = {
+        podNumber: 'podNumber',
+        pdrNumber: 'pdrNumber',
+        totalAmount: 'totalAmount',
+        consumptionKwh: 'consumptionKwh',
+        consumptionSmc: 'consumptionSmc',
+        costPerUnit: 'costPerUnit',
+        fixedCharges: 'fixedCharges',
+        taxes: 'taxes',
+        billingPeriodStart: 'billingPeriodStart',
+        billingPeriodEnd: 'billingPeriodEnd',
+        supplyAddress: 'supplyAddress',
+        codiceFiscale: 'codiceFiscale',
+        partitaIva: 'partitaIva',
+        contractNumber: 'contractNumber',
+        meterNumber: 'meterNumber',
+        customerName: 'customerName',
+        supplierName: 'supplierName',
+      };
+
+      for (const [key, value] of Object.entries(dto.fieldValues)) {
+        if (fieldMap[key] && value != null && value !== '') {
+          const entityField = fieldMap[key];
+          if (['billingPeriodStart', 'billingPeriodEnd'].includes(entityField)) {
+            (bill as any)[entityField] = new Date(value);
+          } else {
+            (bill as any)[entityField] = value;
+          }
+        }
+      }
+    }
+
+    verification.status = VerificationStatus.SUBMITTED;
+    verification.userMessage = dto.message || null;
+    verification.userData = dto.fieldValues || null;
+    await this.verificationRepository.save(verification);
+
+    // Re-run analysis with updated data
+    bill.status = BillStatus.ANALYZING;
+    await this.billRepository.save(bill);
+
+    // If files were re-uploaded, re-run OCR + analysis in background
+    if (verification.requireReupload) {
+      this.processOcrInBackground(bill).catch((err) =>
+        this.logger.error(`Re-analysis failed for bill ${bill.id}: ${err.message}`),
+      );
+    } else {
+      // Just re-run analysis with the new field values
+      try {
+        await this.runAnalysis(bill);
+      } catch {
+        bill.status = BillStatus.ANALYZED;
+        await this.billRepository.save(bill);
+      }
+    }
+
+    return this.getBillById(bill.id, userId);
   }
 
   private estimateOfferSavings(bill: EnergyBill, offer: Offer): number {

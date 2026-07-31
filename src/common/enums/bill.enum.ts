@@ -9,6 +9,7 @@ export enum BillStatus {
   ANALYZING = 'analyzing',
   ANALYZED = 'analyzed',
   ERROR = 'error',
+  VERIFICATION_REQUIRED = 'verification_required',
   OFFER_SENT = 'offer_sent',
   CASE_CREATED = 'case_created',
   CONTRACT_SENT = 'contract_sent',

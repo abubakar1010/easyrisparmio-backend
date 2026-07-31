@@ -7,6 +7,7 @@ import { BillsService } from './bills.service';
 import { EnergyBill } from './entities/energy-bill.entity';
 import { BillAnalysis } from './entities/bill-analysis.entity';
 import { BillFile } from './entities/bill-file.entity';
+import { BillVerification } from './entities/bill-verification.entity';
 import { Offer } from '../offers/entities/offer.entity';
 import { Supplier } from '../suppliers/entities/supplier.entity';
 import { SentOffer } from '../offers/entities/sent-offer.entity';
@@ -18,7 +19,7 @@ import { VisionOcrService } from './ocr/vision-ocr.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([EnergyBill, BillAnalysis, BillFile, Offer, Supplier, SentOffer, SwitchCase, User]),
+    TypeOrmModule.forFeature([EnergyBill, BillAnalysis, BillFile, BillVerification, Offer, Supplier, SentOffer, SwitchCase, User]),
     NotificationsModule,
     ConfigModule,
   ],

@@ -4,7 +4,6 @@ import { Repository, DataSource } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { SwitchCase } from '../cases/entities/switch-case.entity';
 import { Contract } from '../contracts/entities/contract.entity';
-import { Commission } from '../commissions/entities/commission.entity';
 import { EnergyBill } from '../bills/entities/energy-bill.entity';
 import { BillAnalysis } from '../bills/entities/bill-analysis.entity';
 import { AdminSettings } from './entities/admin-settings.entity';
@@ -24,8 +23,6 @@ export class DashboardService {
     private readonly caseRepository: Repository<SwitchCase>,
     @InjectRepository(Contract)
     private readonly contractRepository: Repository<Contract>,
-    @InjectRepository(Commission)
-    private readonly commissionRepository: Repository<Commission>,
     @InjectRepository(EnergyBill)
     private readonly billRepository: Repository<EnergyBill>,
     @InjectRepository(BillAnalysis)
@@ -42,28 +39,22 @@ export class DashboardService {
   async getAdminDashboard() {
     const [
       kpiStats,
-      financialKpis,
       priorityTasks,
       conversionFunnel,
-      revenueTrend,
       activeAlerts,
       recentActivity,
     ] = await Promise.all([
       this.getKpiStats(),
-      this.getFinancialKpis(),
       this.getPriorityTasks(),
       this.getConversionFunnel(),
-      this.getRevenueTrend(),
       this.getActiveAlerts(),
       this.getRecentActivity(),
     ]);
 
     return {
       kpiStats,
-      financialKpis,
       priorityTasks,
       conversionFunnel,
-      revenueTrend,
       activeAlerts,
       recentActivity,
     };
@@ -210,56 +201,6 @@ export class DashboardService {
     };
   }
 
-  // ─── Financial KPIs ─────────────────────────────────────
-
-  private async getFinancialKpis() {
-    const [commissionsByType, pendingRevenue, churnRate] = await Promise.all([
-      this.dataSource.query(`
-        SELECT
-          commission_type,
-          COALESCE(SUM(amount), 0) AS total,
-          COUNT(*)::int AS count
-        FROM commissions
-        GROUP BY commission_type
-      `),
-      this.commissionRepository
-        .createQueryBuilder('c')
-        .select('COALESCE(SUM(c.amount), 0)', 'total')
-        .addSelect('COUNT(*)::int', 'count')
-        .where('c.status = :status', { status: 'pending' })
-        .getRawOne(),
-      this.dataSource.query(`
-        SELECT
-          COUNT(*) FILTER (WHERE status IN ('expired', 'cancelled'))::int AS churned,
-          COUNT(*) FILTER (WHERE status IN ('active', 'expired', 'cancelled'))::int AS base
-        FROM contracts
-        WHERE deleted_at IS NULL
-      `),
-    ]);
-
-    const activation = commissionsByType.find((r: any) => r.commission_type === 'activation');
-    const renewal = commissionsByType.find((r: any) => r.commission_type === 'renewal');
-    const churnRow = churnRate[0] || {};
-
-    return {
-      acquisitionCommission: {
-        total: parseFloat(activation?.total || '0'),
-        count: activation?.count || 0,
-      },
-      recurringCommission: {
-        total: parseFloat(renewal?.total || '0'),
-        count: renewal?.count || 0,
-      },
-      pendingRevenue: {
-        total: parseFloat(pendingRevenue?.total || '0'),
-        count: pendingRevenue?.count || 0,
-      },
-      churnRate: churnRow.base > 0
-        ? parseFloat(((churnRow.churned / churnRow.base) * 100).toFixed(1))
-        : 0,
-    };
-  }
-
   // ─── Priority Tasks ─────────────────────────────────────
 
   private async getPriorityTasks() {
@@ -324,29 +265,6 @@ export class DashboardService {
         ? parseFloat(((activation / requestReceived) * 100).toFixed(1))
         : 0,
     };
-  }
-
-  // ─── Revenue Trend ──────────────────────────────────────
-
-  private async getRevenueTrend() {
-    const result = await this.dataSource.query(`
-      SELECT
-        TO_CHAR(date_trunc('month', created_at), 'YYYY-MM') AS month,
-        COALESCE(SUM(amount) FILTER (WHERE status = 'pending'), 0) AS potential,
-        COALESCE(SUM(amount) FILTER (WHERE status = 'approved'), 0) AS validated,
-        COALESCE(SUM(amount) FILTER (WHERE status = 'paid'), 0) AS collected
-      FROM commissions
-      WHERE created_at >= NOW() - INTERVAL '12 months'
-      GROUP BY date_trunc('month', created_at)
-      ORDER BY date_trunc('month', created_at) ASC
-    `);
-
-    return result.map((row: any) => ({
-      month: row.month,
-      potential: parseFloat(row.potential),
-      validated: parseFloat(row.validated),
-      collected: parseFloat(row.collected),
-    }));
   }
 
   // ─── Active Alerts ──────────────────────────────────────

@@ -36,10 +36,6 @@ export enum ErrorCode {
   CONTRACT_ALREADY_EXISTS = 'CONTRACT_ALREADY_EXISTS',
   NO_CONTRACT_FOR_CASE = 'NO_CONTRACT_FOR_CASE',
 
-  // ─── Commissions ─────────────────────────────────────────
-  COMMISSION_NOT_FOUND = 'COMMISSION_NOT_FOUND',
-  COMMISSION_RULE_NOT_FOUND = 'COMMISSION_RULE_NOT_FOUND',
-
   // ─── Support ─────────────────────────────────────────────
   TICKET_NOT_FOUND = 'TICKET_NOT_FOUND',
   TICKET_ACCESS_DENIED = 'TICKET_ACCESS_DENIED',

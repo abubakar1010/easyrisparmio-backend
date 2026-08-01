@@ -27,7 +27,7 @@ export class DashboardController {
     summary: 'Get admin dashboard KPIs and charts data',
     description:
       'Returns key performance indicators for the admin panel including total users, ' +
-      'active cases, contracts by status, commission totals, and recent activity. Admin only.',
+      'active cases, contracts by status, and recent activity. Admin only.',
   })
   @ApiOkResponse({
     description: 'Admin dashboard KPIs, charts, tasks, alerts, and activity',
@@ -41,12 +41,6 @@ export class DashboardController {
               activeCustomers: { value: 1247, delta: 8.2 },
               conversionRate: { value: 32.4, delta: 3.1 },
               avgProcessingTime: { value: 18, delta: 2 },
-            },
-            financialKpis: {
-              acquisitionCommission: { total: 12340, count: 124 },
-              recurringCommission: { total: 8920, count: 892 },
-              pendingRevenue: { total: 34560, count: 67 },
-              churnRate: 2.8,
             },
             priorityTasks: {
               missingDocuments: 23,
@@ -62,10 +56,6 @@ export class DashboardController {
               rejected: 44,
               conversionRate: 68.4,
             },
-            revenueTrend: [
-              { month: '2025-07', potential: 11500, validated: 8200, collected: 6100 },
-              { month: '2025-08', potential: 12300, validated: 9100, collected: 7200 },
-            ],
             activeAlerts: [
               {
                 id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',

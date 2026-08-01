@@ -75,7 +75,6 @@ async function bootstrap() {
     .addTag('Offers', 'Energy offer management & comparison')
     .addTag('Cases', 'Switching case management')
     .addTag('Contracts', 'Contract management')
-    .addTag('Commissions', 'Agent commission tracking')
     .addTag('Support', 'Support tickets & FAQ')
     .addTag('Notifications', 'Push notifications & in-app alerts')
     .addTag('Dashboard', 'Analytics & KPI dashboards')

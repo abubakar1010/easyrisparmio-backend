@@ -20,7 +20,6 @@ import { SuppliersModule } from './modules/suppliers/suppliers.module';
 import { OffersModule } from './modules/offers/offers.module';
 import { CasesModule } from './modules/cases/cases.module';
 import { ContractsModule } from './modules/contracts/contracts.module';
-import { CommissionsModule } from './modules/commissions/commissions.module';
 import { SupportModule } from './modules/support/support.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
@@ -99,7 +98,6 @@ import { DeepLinkModule } from './modules/deep-link/deep-link.module';
     OffersModule,
     CasesModule,
     ContractsModule,
-    CommissionsModule,
     SupportModule,
     NotificationsModule,
     DashboardModule,

@@ -73,24 +73,6 @@ export class Supplier extends BaseEntity {
   @Column({ type: 'varchar', length: 34, nullable: true })
   iban: string | null;
 
-  @Column({
-    name: 'commission_electricity',
-    type: 'decimal',
-    precision: 10,
-    scale: 2,
-    nullable: true,
-  })
-  commissionElectricity: number | null;
-
-  @Column({
-    name: 'commission_gas',
-    type: 'decimal',
-    precision: 10,
-    scale: 2,
-    nullable: true,
-  })
-  commissionGas: number | null;
-
   @Column({ name: 'contract_start_date', type: 'date', nullable: true })
   contractStartDate: Date | null;
 

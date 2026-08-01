@@ -19,7 +19,6 @@ import {
 } from './data/users.seed-data';
 import { seedOffers } from './data/offers.seed-data';
 import { seedMeters } from './data/meters.seed-data';
-import { seedCommissionRules } from './data/commissions.seed-data';
 import { seedReferrals } from './data/referrals.seed-data';
 import { seedAgreements } from './data/agreements.seed-data';
 import { seedNotifications, seedPushTokens } from './data/notifications.seed-data';
@@ -28,7 +27,6 @@ import { seedNotifications, seedPushTokens } from './data/notifications.seed-dat
 import { seedEnergyBills } from './data/bills.seed-data';
 import { seedOfferPriceVersions } from './data/offers.seed-data';
 import { seedSupportTickets } from './data/support.seed-data';
-import { seedCommissionTiers } from './data/commissions.seed-data';
 
 // Data seeders - Level 3
 import { seedBillAnalyses } from './data/bills.seed-data';
@@ -41,7 +39,6 @@ import {
   seedCaseEvents,
   seedContracts,
 } from './data/cases.seed-data';
-import { seedCommissions } from './data/commissions.seed-data';
 
 // Data seeders - Level 5
 import { seedAdminAlerts } from './data/admin.seed-data';
@@ -54,14 +51,12 @@ const TABLES_IN_REVERSE_ORDER = [
   'csv_reconciliation_rows',
   'csv_reconciliations',
   'admin_alerts',
-  'commissions',
   'contracts',
   'case_events',
   'case_documents',
   'ticket_messages',
   'switch_cases',
   'bill_analyses',
-  'commission_tiers',
   'support_tickets',
   'offer_price_versions',
   'energy_bills',
@@ -69,7 +64,6 @@ const TABLES_IN_REVERSE_ORDER = [
   'notifications',
   'agreements',
   'referrals',
-  'commission_rules',
   'meters',
   'offers',
   'user_preferences',
@@ -151,18 +145,16 @@ async function run(): Promise<void> {
     await seedUserPreferences(ds, ctx);
     await seedOffers(ds, ctx);
     await seedMeters(ds, ctx);
-    await seedCommissionRules(ds, ctx);
     await seedReferrals(ds, ctx);
     await seedAgreements(ds, ctx);
     await seedNotifications(ds, ctx);
     await seedPushTokens(ds, ctx);
 
     // ---- Level 2: Depend on Level 1 ----
-    console.log('\n--- Level 2: Bills, PriceVersions, Tickets, CommissionTiers ---\n');
+    console.log('\n--- Level 2: Bills, PriceVersions, Tickets ---\n');
     await seedEnergyBills(ds, ctx);
     await seedOfferPriceVersions(ds, ctx);
     await seedSupportTickets(ds, ctx);
-    await seedCommissionTiers(ds, ctx);
 
     // ---- Level 3: Depend on Level 2 ----
     console.log('\n--- Level 3: BillAnalyses, SwitchCases, TicketMessages ---\n');
@@ -171,11 +163,10 @@ async function run(): Promise<void> {
     await seedTicketMessages(ds, ctx);
 
     // ---- Level 4: Depend on Level 3 ----
-    console.log('\n--- Level 4: Documents, Events, Contracts, Commissions ---\n');
+    console.log('\n--- Level 4: Documents, Events, Contracts ---\n');
     await seedCaseDocuments(ds, ctx);
     await seedCaseEvents(ds, ctx);
     await seedContracts(ds, ctx);
-    await seedCommissions(ds, ctx);
 
     // ---- Level 5: Depend on Level 4 ----
     console.log('\n--- Level 5: Alerts, Reconciliation ---\n');

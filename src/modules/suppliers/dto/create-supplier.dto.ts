@@ -113,18 +113,6 @@ export class CreateSupplierDto {
   @MaxLength(34)
   iban?: string;
 
-  @ApiPropertyOptional({ description: 'Commission per electricity contract (EUR)', example: 45.00 })
-  @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
-  commissionElectricity?: number;
-
-  @ApiPropertyOptional({ description: 'Commission per gas contract (EUR)', example: 38.00 })
-  @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
-  commissionGas?: number;
-
   @ApiPropertyOptional({ description: 'Contract start date (ISO 8601)', example: '2025-01-01' })
   @IsOptional()
   @IsDateString()

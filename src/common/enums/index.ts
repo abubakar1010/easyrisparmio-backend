@@ -6,8 +6,6 @@ export * from './case-event.enum';
 export * from './offer.enum';
 export * from './offer-status.enum';
 export * from './contract.enum';
-export * from './commission.enum';
-export * from './commission-calc.enum';
 export * from './support.enum';
 export * from './notification.enum';
 export * from './user.enum';

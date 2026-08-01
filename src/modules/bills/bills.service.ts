@@ -321,6 +321,10 @@ export class BillsService {
       qb.andWhere('bill.source = :source', { source: query.source });
     }
 
+    if (query.userId) {
+      qb.andWhere('bill.userId = :userId', { userId: query.userId });
+    }
+
     if (query.search) {
       qb.andWhere(
         '(user.email ILIKE :search OR user.firstName ILIKE :search OR user.lastName ILIKE :search OR bill.podNumber ILIKE :search OR bill.pdrNumber ILIKE :search)',
@@ -723,16 +727,22 @@ export class BillsService {
     // Calculate best savings for notification message
     const bestSavings = Math.max(...offerSnapshots.map((s) => s.estimatedSavings || 0));
 
-    await this.notificationsService.sendNotification({
-      userId: bill.userId,
-      title: 'Nuove offerte consigliate per te',
-      body: `Abbiamo trovato ${offerSnapshots.length} offerte migliori per la tua bolletta. Risparmio stimato: EUR ${bestSavings.toFixed(2)}`,
-      type: NotificationType.OFFER_AVAILABLE,
-      data: {
-        billId: bill.id,
-        offers: offerSnapshots,
-      },
-    });
+    try {
+      await this.notificationsService.sendNotification({
+        userId: bill.userId,
+        title: 'Nuove offerte consigliate per te',
+        body: `Abbiamo trovato ${offerSnapshots.length} offerte migliori per la tua bolletta. Risparmio stimato: EUR ${bestSavings.toFixed(2)}`,
+        type: NotificationType.OFFER_AVAILABLE,
+        data: {
+          billId: bill.id,
+          offers: offerSnapshots,
+        },
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Failed to send offer notification: ${error?.message || error}`,
+      );
+    }
 
     bill.status = BillStatus.OFFER_SENT;
     await this.billRepository.save(bill);
@@ -990,18 +1000,24 @@ export class BillsService {
     bill.status = BillStatus.VERIFICATION_REQUIRED;
     await this.billRepository.save(bill);
 
-    await this.notificationsService.sendNotification({
-      userId: bill.userId,
-      title: 'Verifica richiesta per la tua bolletta',
-      body: dto.message,
-      type: NotificationType.BILL_VERIFICATION,
-      data: {
-        billId: bill.id,
-        verificationId: saved.id,
-        missingFields: dto.missingFields,
-        requireReupload: dto.requireReupload ?? false,
-      },
-    });
+    try {
+      await this.notificationsService.sendNotification({
+        userId: bill.userId,
+        title: 'Verifica richiesta per la tua bolletta',
+        body: dto.message,
+        type: NotificationType.BILL_VERIFICATION,
+        data: {
+          billId: bill.id,
+          verificationId: saved.id,
+          missingFields: dto.missingFields,
+          requireReupload: dto.requireReupload ?? false,
+        },
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Failed to send verification notification: ${error?.message || error}`,
+      );
+    }
 
     return saved;
   }

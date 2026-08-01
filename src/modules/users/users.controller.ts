@@ -28,6 +28,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { QueryUsersDto } from './dto/query-users.dto';
+import { AdminResetPasswordDto } from './dto/admin-reset-password.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -382,9 +383,10 @@ export class UsersController {
   @ApiOperation({
     summary: 'Admin-triggered password reset (admin only)',
     description:
-      'Sends a password reset OTP code to the user\'s email. The user can then use the standard reset-password flow to set a new password.',
+      'Directly sets a new password for the user. No verification or OTP required.',
   })
-  @ApiOkResponse({ description: 'Password reset code sent to user email' })
+  @ApiBody({ type: AdminResetPasswordDto })
+  @ApiOkResponse({ description: 'Password has been reset successfully' })
   @ApiNotFoundResponse({
     description: 'User not found',
     content: { 'application/json': { example: { success: false, statusCode: 404, message: ['User not found'], timestamp: '2026-06-24T12:00:00.000Z' } } },
@@ -397,8 +399,11 @@ export class UsersController {
     description: 'User does not have admin role',
     content: { 'application/json': { example: { success: false, statusCode: 403, message: ['Forbidden resource'], timestamp: '2026-06-24T12:00:00.000Z' } } },
   })
-  async resetPassword(@Param('id', ParseUUIDPipe) id: string) {
-    return this.usersService.adminResetPassword(id);
+  async resetPassword(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AdminResetPasswordDto,
+  ) {
+    return this.usersService.adminResetPassword(id, dto.newPassword);
   }
 
   @Get(':id/preferences')

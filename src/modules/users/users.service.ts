@@ -260,35 +260,17 @@ export class UsersService {
     return this.preferenceRepository.save(preferences);
   }
 
-  async adminResetPassword(userId: string): Promise<{ message: string }> {
+  async adminResetPassword(userId: string, newPassword: string): Promise<{ message: string }> {
     const user = await this.findById(userId);
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    // Invalidate existing unused PASSWORD_RESET OTPs
-    await this.otpCodeRepository.update(
-      { userId: user.id, type: OtpType.PASSWORD_RESET, used: false },
-      { used: true },
-    );
+    // Directly hash and set the new password
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    await this.userRepository.save(user);
 
-    // Generate 6-digit OTP
-    const code = randomInt(100000, 999999).toString();
-    const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + 10);
-
-    const otpCode = this.otpCodeRepository.create({
-      code,
-      type: OtpType.PASSWORD_RESET,
-      expiresAt,
-      userId: user.id,
-    });
-    await this.otpCodeRepository.save(otpCode);
-
-    // Send password reset email
-    await this.emailService.sendOtpEmail(user.email, code, 'password_reset');
-
-    return { message: 'Password reset code sent to user email' };
+    return { message: 'Password has been reset successfully' };
   }
 
   async updateProfile(userId: string, dto: UpdateUserDto): Promise<User> {

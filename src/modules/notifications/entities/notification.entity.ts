@@ -35,7 +35,14 @@ export class Notification extends BaseEntity {
   @Column({ name: 'read_at', type: 'timestamptz', nullable: true })
   readAt: Date | null;
 
+  @Column({ name: 'sent_by', type: 'uuid', nullable: true })
+  sentBy: string | null;
+
   @ManyToOne(() => User, (user) => user.notifications, { eager: false })
   @JoinColumn({ name: 'user_id' })
   user: User;
+
+  @ManyToOne(() => User, { eager: false })
+  @JoinColumn({ name: 'sent_by' })
+  sender: User;
 }

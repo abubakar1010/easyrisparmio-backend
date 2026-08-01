@@ -7,6 +7,7 @@ import { Notification } from './entities/notification.entity';
 import { PushToken } from './entities/push-token.entity';
 import { SendNotificationDto } from './dto/send-notification.dto';
 import { QueryNotificationsDto } from './dto/query-notifications.dto';
+import { QueryAdminNotificationsDto } from './dto/query-admin-notifications.dto';
 import { PaginatedResponseDto } from '../../common/dto/pagination.dto';
 import { Platform } from '../../common/enums/notification.enum';
 
@@ -23,6 +24,7 @@ export class NotificationsService {
 
   async sendNotification(
     dto: SendNotificationDto,
+    sentBy?: string,
   ): Promise<Notification | Notification[]> {
     const userIds = dto.userIds || (dto.userId ? [dto.userId] : []);
 
@@ -33,6 +35,7 @@ export class NotificationsService {
         body: dto.body,
         type: dto.type,
         data: dto.data || null,
+        sentBy: sentBy || null,
       }),
     );
 
@@ -90,6 +93,61 @@ export class NotificationsService {
       { userId, isRead: false },
       { isRead: true, readAt: new Date() },
     );
+  }
+
+  async getAdminNotifications(
+    adminId: string,
+    query: QueryAdminNotificationsDto,
+  ): Promise<PaginatedResponseDto<Notification>> {
+    const qb = this.notificationRepository
+      .createQueryBuilder('notification')
+      .leftJoinAndSelect('notification.user', 'user');
+
+    const direction = query.direction || 'all';
+
+    if (direction === 'sent') {
+      qb.where('notification.sentBy = :adminId', { adminId });
+    } else if (direction === 'received') {
+      qb.where('notification.userId = :adminId', { adminId });
+    } else {
+      qb.where(
+        '(notification.sentBy = :adminId OR notification.userId = :adminId)',
+        { adminId },
+      );
+    }
+
+    if (query.type) {
+      qb.andWhere('notification.type = :type', { type: query.type });
+    }
+
+    qb.orderBy('notification.createdAt', 'DESC');
+    qb.skip(query.skip).take(query.limit);
+
+    const [data, total] = await qb.getManyAndCount();
+    return new PaginatedResponseDto(data, total, query.page, query.limit);
+  }
+
+  async getNotificationById(
+    notificationId: string,
+    adminId: string,
+  ): Promise<Notification> {
+    const notification = await this.notificationRepository.findOne({
+      where: { id: notificationId },
+      relations: ['user'],
+    });
+
+    if (!notification) {
+      throw new NotFoundException('Notification not found');
+    }
+
+    // Auto-mark as read if this is a received notification for the admin
+    if (notification.userId === adminId && !notification.isRead) {
+      notification.isRead = true;
+      notification.readAt = new Date();
+      await this.notificationRepository.save(notification);
+    }
+
+    return notification;
   }
 
   async getUnreadCount(userId: string): Promise<number> {

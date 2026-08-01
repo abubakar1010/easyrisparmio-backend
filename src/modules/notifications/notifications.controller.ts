@@ -25,6 +25,7 @@ import {
 import { NotificationsService } from './notifications.service';
 import { SendNotificationDto } from './dto/send-notification.dto';
 import { QueryNotificationsDto } from './dto/query-notifications.dto';
+import { QueryAdminNotificationsDto } from './dto/query-admin-notifications.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -375,6 +376,39 @@ export class NotificationsController {
     return { message: 'Push token removed' };
   }
 
+  @Get('admin')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Get admin notifications (sent & received)',
+    description:
+      'Returns notifications for the admin panel with direction filtering. ' +
+      'Use `direction=sent` for notifications sent by admin, `direction=received` for system notifications, ' +
+      'or `direction=all` (default) for both.',
+  })
+  getAdminNotifications(
+    @CurrentUser('id') adminId: string,
+    @Query() query: QueryAdminNotificationsDto,
+  ) {
+    return this.notificationsService.getAdminNotifications(adminId, query);
+  }
+
+  @Get('admin/:id')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Get notification details (admin)',
+    description:
+      'Returns full notification details. If the notification is a received notification ' +
+      'for the admin and is unread, it is automatically marked as read.',
+  })
+  getNotificationById(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('id') adminId: string,
+  ) {
+    return this.notificationsService.getNotificationById(id, adminId);
+  }
+
   @Post('send')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
@@ -386,68 +420,10 @@ export class NotificationsController {
       'Requires admin role.',
   })
   @ApiBody({ type: SendNotificationDto })
-  @ApiCreatedResponse({
-    description: 'Notification sent successfully',
-    content: {
-      'application/json': {
-        example: {
-          success: true,
-          data: {
-            id: 'n1a2b3c4-d5e6-7890-abcd-ef1234567890',
-            userId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-            title: 'New Offer Available',
-            body: 'A new energy offer is available that could save you 20% on your electricity bill.',
-            type: 'offer_available',
-            data: { offerId: 'o1c2d3e4-f5a6-7890-bcde-f12345678901' },
-            isRead: false,
-            readAt: null,
-            createdAt: '2026-06-20T16:00:00.000Z',
-            updatedAt: '2026-06-20T16:00:00.000Z',
-          },
-        },
-      },
-    },
-  })
-  @ApiBadRequestResponse({
-    description: 'Validation failed',
-    content: {
-      'application/json': {
-        example: {
-          success: false,
-          statusCode: 400,
-          message: ['title should not be empty', 'type must be a valid enum value'],
-          timestamp: '2026-06-20T12:00:00.000Z',
-        },
-      },
-    },
-  })
-  @ApiUnauthorizedResponse({
-    description: 'Missing or invalid JWT access token',
-    content: {
-      'application/json': {
-        example: {
-          success: false,
-          statusCode: 401,
-          message: ['Unauthorized'],
-          timestamp: '2026-06-20T12:00:00.000Z',
-        },
-      },
-    },
-  })
-  @ApiForbiddenResponse({
-    description: 'User does not have admin role',
-    content: {
-      'application/json': {
-        example: {
-          success: false,
-          statusCode: 403,
-          message: ['Forbidden resource'],
-          timestamp: '2026-06-20T12:00:00.000Z',
-        },
-      },
-    },
-  })
-  sendNotification(@Body() dto: SendNotificationDto) {
-    return this.notificationsService.sendNotification(dto);
+  sendNotification(
+    @Body() dto: SendNotificationDto,
+    @CurrentUser('id') adminId: string,
+  ) {
+    return this.notificationsService.sendNotification(dto, adminId);
   }
 }

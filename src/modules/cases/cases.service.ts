@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
@@ -25,6 +26,8 @@ import { resolveBillStatusFromCases } from '../../common/utils/bill-status-sync'
 
 @Injectable()
 export class CasesService {
+  private readonly logger = new Logger(CasesService.name);
+
   constructor(
     @InjectRepository(SwitchCase)
     private readonly caseRepository: Repository<SwitchCase>,
@@ -209,13 +212,19 @@ export class CasesService {
         actorId,
       });
 
-      await this.notificationsService.sendNotification({
-        userId: switchCase.userId,
-        title: 'Aggiornamento Pratica',
-        body: `La tua pratica ${switchCase.caseNumber} è stata aggiornata.`,
-        type: NotificationType.CASE_UPDATE,
-        data: { caseId: id, newStatus: dto.status },
-      });
+      try {
+        await this.notificationsService.sendNotification({
+          userId: switchCase.userId,
+          title: 'Aggiornamento Pratica',
+          body: `La tua pratica ${switchCase.caseNumber} è stata aggiornata.`,
+          type: NotificationType.CASE_UPDATE,
+          data: { caseId: id, newStatus: dto.status },
+        });
+      } catch (error) {
+        this.logger.warn(
+          `Failed to send case update notification: ${error?.message || error}`,
+        );
+      }
 
       // Sync bill status to reflect case progression
       await this.syncBillStatusFromCase(switchCase.billId);

@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   ConflictException,
   ForbiddenException,
@@ -25,6 +26,8 @@ import { resolveBillStatusFromCases } from '../../common/utils/bill-status-sync'
 
 @Injectable()
 export class ContractsService {
+  private readonly logger = new Logger(ContractsService.name);
+
   constructor(
     @InjectRepository(Contract)
     private readonly contractRepository: Repository<Contract>,
@@ -119,17 +122,23 @@ export class ContractsService {
           ? 'Il tuo contratto è stato caricato. Puoi scaricarlo dalla app.'
           : `Il tuo contratto ti è stato inviato via ${dto.deliveryMethod}.`;
 
-      await this.notificationsService.sendNotification({
-        userId: switchCase.userId,
-        title: 'Contratto Inviato',
-        body: bodyText,
-        type: NotificationType.CONTRACT_STATUS,
-        data: {
-          caseId: switchCase.id,
-          contractId: saved.id,
-          deliveryMethod: dto.deliveryMethod,
-        },
-      });
+      try {
+        await this.notificationsService.sendNotification({
+          userId: switchCase.userId,
+          title: 'Contratto Inviato',
+          body: bodyText,
+          type: NotificationType.CONTRACT_STATUS,
+          data: {
+            caseId: switchCase.id,
+            contractId: saved.id,
+            deliveryMethod: dto.deliveryMethod,
+          },
+        });
+      } catch (error) {
+        this.logger.warn(
+          `Failed to send contract notification: ${error?.message || error}`,
+        );
+      }
     }
 
     // Sync bill status to reflect case progression
@@ -245,17 +254,23 @@ export class ContractsService {
           );
 
           // Send notification to user
-          await this.notificationsService.sendNotification({
-            userId: switchCase.userId,
-            title: notificationTitle,
-            body: notificationBody,
-            type: NotificationType.CONTRACT_STATUS,
-            data: {
-              caseId: switchCase.id,
-              contractId: saved.id,
-              newStatus: dto.status,
-            },
-          });
+          try {
+            await this.notificationsService.sendNotification({
+              userId: switchCase.userId,
+              title: notificationTitle,
+              body: notificationBody,
+              type: NotificationType.CONTRACT_STATUS,
+              data: {
+                caseId: switchCase.id,
+                contractId: saved.id,
+                newStatus: dto.status,
+              },
+            });
+          } catch (error) {
+            this.logger.warn(
+              `Failed to send contract status notification: ${error?.message || error}`,
+            );
+          }
 
           // Sync bill status to reflect case progression
           await this.syncBillStatusFromCase(switchCase.billId);

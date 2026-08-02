@@ -36,6 +36,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserRole } from '../../common/enums/role.enum';
+import { ActivityLogService } from '../activity-log/activity-log.service';
 
 const CASE_EXAMPLE = {
   id: 'cs1a2b3c-d5e6-7890-abcd-ef1234567890',
@@ -87,7 +88,10 @@ const ERROR_403 = { success: false, statusCode: 403, message: ['Forbidden resour
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('cases')
 export class CasesController {
-  constructor(private readonly casesService: CasesService) {}
+  constructor(
+    private readonly casesService: CasesService,
+    private readonly activityLogService: ActivityLogService,
+  ) {}
 
   @Post()
   @ApiOperation({
@@ -214,12 +218,14 @@ export class CasesController {
   @ApiNotFoundResponse({ description: 'Case not found', content: { 'application/json': { example: { success: false, statusCode: 404, message: ['Case not found'], timestamp: '2026-06-10T12:00:00.000Z' } } } })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT', content: { 'application/json': { example: ERROR_401 } } })
   @ApiForbiddenResponse({ description: 'User does not have admin role', content: { 'application/json': { example: ERROR_403 } } })
-  update(
+  async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateCaseDto,
     @CurrentUser('id') adminId: string,
   ) {
-    return this.casesService.updateCase(id, dto, adminId);
+    const result = await this.casesService.updateCase(id, dto, adminId);
+    void this.activityLogService.log(adminId, 'Case Updated', 'case', id, { status: dto.status, priority: dto.priority });
+    return result;
   }
 
   @Post(':id/documents')
@@ -339,11 +345,13 @@ export class CasesController {
   @ApiNotFoundResponse({ description: 'Document not found', content: { 'application/json': { example: { success: false, statusCode: 404, message: ['Document not found'], timestamp: '2026-06-10T12:00:00.000Z' } } } })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT', content: { 'application/json': { example: ERROR_401 } } })
   @ApiForbiddenResponse({ description: 'User does not have admin role', content: { 'application/json': { example: ERROR_403 } } })
-  verifyDocument(
+  async verifyDocument(
     @Param('id', ParseUUIDPipe) caseId: string,
     @Param('docId', ParseUUIDPipe) docId: string,
     @CurrentUser('id') userId: string,
   ) {
-    return this.casesService.verifyDocument(caseId, docId, userId);
+    const result = await this.casesService.verifyDocument(caseId, docId, userId);
+    void this.activityLogService.log(userId, 'Document Verified', 'case', caseId, { documentId: docId });
+    return result;
   }
 }

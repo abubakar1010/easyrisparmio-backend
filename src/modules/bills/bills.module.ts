@@ -16,12 +16,14 @@ import { User } from '../users/entities/user.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ConfigModule } from '@nestjs/config';
 import { VisionOcrService } from './ocr/vision-ocr.service';
+import { ActivityLogModule } from '../activity-log/activity-log.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([EnergyBill, BillAnalysis, BillFile, BillVerification, Offer, Supplier, SentOffer, SwitchCase, User]),
     NotificationsModule,
     ConfigModule,
+    ActivityLogModule,
   ],
   controllers: [BillsController],
   providers: [BillsService, VisionOcrService],

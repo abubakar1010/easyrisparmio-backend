@@ -9,11 +9,13 @@ import { SentOffer } from '../offers/entities/sent-offer.entity';
 import { BillAnalysis } from '../bills/entities/bill-analysis.entity';
 import { EnergyBill } from '../bills/entities/energy-bill.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { ActivityLogModule } from '../activity-log/activity-log.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Contract, SwitchCase, CaseEvent, SentOffer, BillAnalysis, EnergyBill]),
     NotificationsModule,
+    ActivityLogModule,
   ],
   controllers: [ContractsController],
   providers: [ContractsService],

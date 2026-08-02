@@ -50,6 +50,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserRole } from '../../common/enums/role.enum';
 import { BillType } from '../../common/enums/bill.enum';
+import { ActivityLogService } from '../activity-log/activity-log.service';
 
 const BILL_EXAMPLE = {
   id: 'bl1a2b3c-d5e6-7890-abcd-ef1234567890',
@@ -121,6 +122,7 @@ export class BillsController {
   constructor(
     private readonly billsService: BillsService,
     private readonly visionOcrService: VisionOcrService,
+    private readonly activityLogService: ActivityLogService,
   ) {}
 
   // ─── OCR Extraction ───────────────────────────────────────
@@ -336,6 +338,7 @@ export class BillsController {
     }),
   )
   async adminUploadEmailBill(
+    @CurrentUser('id') adminId: string,
     @UploadedFile() file: Express.Multer.File,
     @Body('billType') billType: string,
     @Body('userId') userId: string,
@@ -361,12 +364,14 @@ export class BillsController {
     }
 
     const fileUrl = `uploads/bills/${file.filename}`;
-    return this.billsService.adminUploadEmailBill(
+    const result = await this.billsService.adminUploadEmailBill(
       fileUrl,
       billType as BillType,
       userId,
       parsedExtractedData,
     );
+    void this.activityLogService.log(adminId, 'Email Bill Uploaded', 'bill', result.id, { userId, billType });
+    return result;
   }
 
   @Post('admin/:id/associate-user')
@@ -383,14 +388,17 @@ export class BillsController {
   @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT', content: { 'application/json': { example: ERROR_401 } } })
   @ApiForbiddenResponse({ description: 'User does not have admin role', content: { 'application/json': { example: ERROR_403 } } })
   async associateBillWithUser(
+    @CurrentUser('id') adminId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: AssociateBillUserDto,
   ) {
-    return this.billsService.adminAssociateBillWithUser(
+    const result = await this.billsService.adminAssociateBillWithUser(
       id,
       dto.userId,
       dto.pendingBillId,
     );
+    void this.activityLogService.log(adminId, 'Bill Associated with User', 'bill', id, { userId: dto.userId });
+    return result;
   }
 
   @Get('admin')
@@ -486,10 +494,12 @@ export class BillsController {
   @ApiOkResponse({ description: 'Offers sent to user' })
   @ApiNotFoundResponse({ description: 'Bill or offers not found' })
   async sendOffersToUser(
+    @CurrentUser('id') adminId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: SendOffersDto,
   ) {
     await this.billsService.sendOffersToUser(id, dto.offers);
+    void this.activityLogService.log(adminId, 'Offers Sent to User', 'bill', id, { offerCount: dto.offers.length });
     return { message: 'Offers sent to user successfully' };
   }
 
@@ -519,11 +529,14 @@ export class BillsController {
   @ApiBody({ type: RequestVerificationDto })
   @ApiCreatedResponse({ description: 'Verification request sent' })
   @ApiNotFoundResponse({ description: 'Bill not found' })
-  requestVerification(
+  async requestVerification(
+    @CurrentUser('id') adminId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RequestVerificationDto,
   ) {
-    return this.billsService.requestVerification(id, dto);
+    const result = await this.billsService.requestVerification(id, dto);
+    void this.activityLogService.log(adminId, 'Bill Verification Requested', 'bill', id);
+    return result;
   }
 
   @Get(':id/verification')

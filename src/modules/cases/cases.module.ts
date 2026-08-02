@@ -8,6 +8,7 @@ import { CaseEvent } from './entities/case-event.entity';
 import { EnergyBill } from '../bills/entities/energy-bill.entity';
 import { Offer } from '../offers/entities/offer.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { ActivityLogModule } from '../activity-log/activity-log.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
       Offer,
     ]),
     NotificationsModule,
+    ActivityLogModule,
   ],
   controllers: [CasesController],
   providers: [CasesService],

@@ -32,13 +32,17 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserRole } from '../../common/enums/role.enum';
+import { ActivityLogService } from '../activity-log/activity-log.service';
 
 @ApiTags('Contracts')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('contracts')
 export class ContractsController {
-  constructor(private readonly contractsService: ContractsService) {}
+  constructor(
+    private readonly contractsService: ContractsService,
+    private readonly activityLogService: ActivityLogService,
+  ) {}
 
   // ─── User Endpoints (named routes first) ──────────────────
 
@@ -173,8 +177,13 @@ export class ContractsController {
       },
     },
   })
-  create(@Body() dto: CreateContractDto) {
-    return this.contractsService.createContract(dto);
+  async create(
+    @CurrentUser('id') adminId: string,
+    @Body() dto: CreateContractDto,
+  ) {
+    const result = await this.contractsService.createContract(dto);
+    void this.activityLogService.log(adminId, 'Contract Created', 'contract', result.id, { contractNumber: result.contractNumber });
+    return result;
   }
 
   @Get()
@@ -425,11 +434,14 @@ export class ContractsController {
       },
     },
   })
-  update(
+  async update(
+    @CurrentUser('id') adminId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateContractDto,
   ) {
-    return this.contractsService.updateContract(id, dto);
+    const result = await this.contractsService.updateContract(id, dto);
+    void this.activityLogService.log(adminId, 'Contract Updated', 'contract', id, { status: dto.status });
+    return result;
   }
 
   @Get('case/:caseId')

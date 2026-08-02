@@ -243,8 +243,8 @@ export class DashboardService {
     const result = await this.dataSource.query(`
       SELECT
         COUNT(*) FILTER (WHERE status != 'cancelled')::int AS request_received,
-        COUNT(*) FILTER (WHERE status NOT IN ('new', 'cancelled'))::int AS documentation,
-        COUNT(*) FILTER (WHERE status NOT IN ('new', 'in_progress', 'documents_pending', 'cancelled'))::int AS validation,
+        COUNT(*) FILTER (WHERE status NOT IN ('new', 'cancelled', 'rejected'))::int AS documentation,
+        COUNT(*) FILTER (WHERE status NOT IN ('new', 'in_progress', 'documents_pending', 'cancelled', 'rejected'))::int AS validation,
         COUNT(*) FILTER (WHERE status = 'activated')::int AS activation,
         COUNT(*) FILTER (WHERE status = 'rejected')::int AS rejected
       FROM switch_cases

@@ -34,11 +34,15 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserRole } from '../../common/enums/role.enum';
+import { ActivityLogService } from '../activity-log/activity-log.service';
 
 @ApiTags('Suppliers')
 @Controller('suppliers')
 export class SuppliersController {
-  constructor(private readonly suppliersService: SuppliersService) {}
+  constructor(
+    private readonly suppliersService: SuppliersService,
+    private readonly activityLogService: ActivityLogService,
+  ) {}
 
   // ─── Public Endpoints ─────────────────────────────────────
 
@@ -269,11 +273,13 @@ export class SuppliersController {
     description: 'User does not have admin role',
     content: { 'application/json': { example: { success: false, statusCode: 403, message: ['Forbidden resource'], timestamp: '2026-06-10T12:00:00.000Z' } } },
   })
-  create(
+  async create(
     @CurrentUser('id') adminId: string,
     @Body() dto: CreateSupplierDto,
   ) {
-    return this.suppliersService.create(dto, adminId);
+    const result = await this.suppliersService.create(dto, adminId);
+    void this.activityLogService.log(adminId, 'Supplier Created', 'supplier', result.id, { name: dto.name });
+    return result;
   }
 
   @Patch(':id/toggle-status')
@@ -334,12 +340,14 @@ export class SuppliersController {
     description: 'User does not have admin role',
     content: { 'application/json': { example: { success: false, statusCode: 403, message: ['Forbidden resource'], timestamp: '2026-06-10T12:00:00.000Z' } } },
   })
-  toggleStatus(
+  async toggleStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateSupplierStatusDto,
     @CurrentUser('id') adminId: string,
   ) {
-    return this.suppliersService.toggleStatus(id, dto, adminId);
+    const result = await this.suppliersService.toggleStatus(id, dto, adminId);
+    void this.activityLogService.log(adminId, 'Supplier Status Toggled', 'supplier', id, { isActive: dto.isActive });
+    return result;
   }
 
   @Patch(':id')
@@ -386,12 +394,14 @@ export class SuppliersController {
     description: 'User does not have admin role',
     content: { 'application/json': { example: { success: false, statusCode: 403, message: ['Forbidden resource'], timestamp: '2026-06-10T12:00:00.000Z' } } },
   })
-  update(
+  async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateSupplierDto,
     @CurrentUser('id') adminId: string,
   ) {
-    return this.suppliersService.update(id, dto, adminId);
+    const result = await this.suppliersService.update(id, dto, adminId);
+    void this.activityLogService.log(adminId, 'Supplier Updated', 'supplier', id);
+    return result;
   }
 
   @Delete(':id')
@@ -419,8 +429,12 @@ export class SuppliersController {
     description: 'User does not have admin role',
     content: { 'application/json': { example: { success: false, statusCode: 403, message: ['Forbidden resource'], timestamp: '2026-06-10T12:00:00.000Z' } } },
   })
-  async remove(@Param('id', ParseUUIDPipe) id: string) {
+  async remove(
+    @CurrentUser('id') adminId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     await this.suppliersService.softDelete(id);
+    void this.activityLogService.log(adminId, 'Supplier Deleted', 'supplier', id);
     return { message: 'Supplier deleted successfully' };
   }
 }

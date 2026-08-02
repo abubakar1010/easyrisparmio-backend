@@ -36,6 +36,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserRole } from '../../common/enums/role.enum';
+import { ActivityLogService } from '../activity-log/activity-log.service';
 
 // Shared example fragments
 const OFFER_EXAMPLE = {
@@ -83,7 +84,10 @@ const ERROR_403 = { success: false, statusCode: 403, message: ['Forbidden resour
 @ApiTags('Offers')
 @Controller('offers')
 export class OffersController {
-  constructor(private readonly offersService: OffersService) {}
+  constructor(
+    private readonly offersService: OffersService,
+    private readonly activityLogService: ActivityLogService,
+  ) {}
 
   // ─── Public Endpoints ─────────────────────────────────────
 
@@ -371,11 +375,13 @@ export class OffersController {
     description: 'User does not have admin role',
     content: { 'application/json': { example: ERROR_403 } },
   })
-  create(
+  async create(
     @CurrentUser('id') adminId: string,
     @Body() dto: CreateOfferDto,
   ) {
-    return this.offersService.create(dto, adminId);
+    const result = await this.offersService.create(dto, adminId);
+    void this.activityLogService.log(adminId, 'Offer Created', 'offer', result.id, { name: dto.name });
+    return result;
   }
 
   @Patch(':id/status')
@@ -451,12 +457,14 @@ export class OffersController {
     description: 'User does not have admin role',
     content: { 'application/json': { example: ERROR_403 } },
   })
-  updateStatus(
+  async updateStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateOfferStatusDto,
     @CurrentUser('id') adminId: string,
   ) {
-    return this.offersService.updateStatus(id, dto, adminId);
+    const result = await this.offersService.updateStatus(id, dto, adminId);
+    void this.activityLogService.log(adminId, 'Offer Status Changed', 'offer', id, { newStatus: dto.offerStatus });
+    return result;
   }
 
   @Patch(':id')
@@ -506,12 +514,14 @@ export class OffersController {
     description: 'User does not have admin role',
     content: { 'application/json': { example: ERROR_403 } },
   })
-  update(
+  async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateOfferDto,
     @CurrentUser('id') adminId: string,
   ) {
-    return this.offersService.update(id, dto, adminId);
+    const result = await this.offersService.update(id, dto, adminId);
+    void this.activityLogService.log(adminId, 'Offer Updated', 'offer', id);
+    return result;
   }
 
   @Delete(':id')
@@ -539,8 +549,12 @@ export class OffersController {
     description: 'User does not have admin role',
     content: { 'application/json': { example: ERROR_403 } },
   })
-  async remove(@Param('id', ParseUUIDPipe) id: string) {
+  async remove(
+    @CurrentUser('id') adminId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     await this.offersService.softDelete(id);
+    void this.activityLogService.log(adminId, 'Offer Deleted', 'offer', id);
     return { message: 'Offer deleted successfully' };
   }
 }

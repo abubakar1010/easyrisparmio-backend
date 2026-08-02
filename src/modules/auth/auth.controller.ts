@@ -31,6 +31,7 @@ import { LoginDto } from './dto/login.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
 import { ForgotPasswordDto, ResetPasswordDto } from './dto/reset-password.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { SocialLoginDto } from './dto/social-login.dto';
 import {
@@ -723,6 +724,95 @@ export class AuthController {
   })
   async logout(@Body() dto: RefreshTokenDto) {
     return this.authService.logout(dto.refreshToken);
+  }
+
+  // ─── Change Password ───────────────────────────────────────
+
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @ApiOperation({
+    summary: 'Change password for authenticated user',
+    description:
+      'Allows an authenticated user to change their password by providing the current password ' +
+      'and a new password. The new password must meet complexity requirements. ' +
+      'Social login accounts without a password cannot use this endpoint.',
+  })
+  @ApiBody({ type: ChangePasswordDto })
+  @ApiOkResponse({
+    description: 'Password changed successfully',
+    type: MessageResponseDto,
+    content: {
+      'application/json': {
+        example: {
+          success: true,
+          data: {
+            message: 'Password changed successfully',
+          },
+        },
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'Validation failed or current password incorrect',
+    type: ErrorResponseDto,
+    content: {
+      'application/json': {
+        examples: {
+          incorrect_password: {
+            summary: 'Current password is incorrect',
+            value: {
+              success: false,
+              statusCode: 400,
+              message: ['Current password is incorrect'],
+              timestamp: '2026-06-09T12:00:00.000Z',
+            },
+          },
+          same_password: {
+            summary: 'New password same as current',
+            value: {
+              success: false,
+              statusCode: 400,
+              message: ['New password must be different from current password'],
+              timestamp: '2026-06-09T12:00:00.000Z',
+            },
+          },
+          passwords_dont_match: {
+            summary: 'New password and confirmation do not match',
+            value: {
+              success: false,
+              statusCode: 400,
+              message: ['New password and confirmation do not match'],
+              timestamp: '2026-06-09T12:00:00.000Z',
+            },
+          },
+          validation_error: {
+            summary: 'Password complexity requirements not met',
+            value: {
+              success: false,
+              statusCode: 400,
+              message: [
+                'New password must contain at least one uppercase letter',
+                'New password must contain at least one special character',
+              ],
+              timestamp: '2026-06-09T12:00:00.000Z',
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing or invalid JWT access token',
+    type: ErrorResponseDto,
+  })
+  async changePassword(
+    @CurrentUser() user: User,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(user.id, dto);
   }
 
   // ─── Profile ──────────────────────────────────────────────

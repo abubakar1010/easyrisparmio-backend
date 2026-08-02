@@ -87,72 +87,110 @@ export class DashboardService {
   // ─── KPI Stats ──────────────────────────────────────────
 
   private async getKpiStats() {
-    const result = await this.dataSource.query(`
-      WITH date_ranges AS (
+    const [result, sparklineRows] = await Promise.all([
+      this.dataSource.query(`
+        WITH date_ranges AS (
+          SELECT
+            date_trunc('month', NOW()) AS current_month_start,
+            date_trunc('month', NOW()) - INTERVAL '1 month' AS prev_month_start,
+            date_trunc('month', NOW()) AS prev_month_end
+        ),
+        switch_stats AS (
+          SELECT
+            COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE sc.created_at >= dr.current_month_start)::int AS current_month,
+            COUNT(*) FILTER (WHERE sc.created_at >= dr.prev_month_start AND sc.created_at < dr.prev_month_end)::int AS prev_month
+          FROM switch_cases sc, date_ranges dr
+          WHERE sc.deleted_at IS NULL
+        ),
+        customer_stats AS (
+          SELECT
+            COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE u.created_at >= dr.current_month_start)::int AS new_current,
+            COUNT(*) FILTER (WHERE u.created_at >= dr.prev_month_start AND u.created_at < dr.prev_month_end)::int AS new_prev
+          FROM users u, date_ranges dr
+          WHERE u.status = 'active'
+            AND u.role IN ('personal', 'business')
+            AND u.deleted_at IS NULL
+        ),
+        conversion_all AS (
+          SELECT
+            COUNT(*) FILTER (WHERE sc.status != 'cancelled')::int AS total_eligible,
+            COUNT(*) FILTER (WHERE sc.status = 'activated')::int AS total_activated,
+            COUNT(*) FILTER (WHERE sc.status != 'cancelled' AND sc.created_at >= dr.current_month_start)::int AS curr_eligible,
+            COUNT(*) FILTER (WHERE sc.status = 'activated' AND sc.created_at >= dr.current_month_start)::int AS curr_activated,
+            COUNT(*) FILTER (WHERE sc.status != 'cancelled' AND sc.created_at >= dr.prev_month_start AND sc.created_at < dr.prev_month_end)::int AS prev_eligible,
+            COUNT(*) FILTER (WHERE sc.status = 'activated' AND sc.created_at >= dr.prev_month_start AND sc.created_at < dr.prev_month_end)::int AS prev_activated
+          FROM switch_cases sc, date_ranges dr
+          WHERE sc.deleted_at IS NULL
+        ),
+        processing_time AS (
+          SELECT
+            ROUND(AVG(EXTRACT(EPOCH FROM (ce.created_at - sc.created_at)) / 86400)::numeric, 1) AS avg_days,
+            ROUND(AVG(EXTRACT(EPOCH FROM (ce.created_at - sc.created_at)) / 86400) FILTER (WHERE ce.created_at >= dr.current_month_start)::numeric, 1) AS curr_avg,
+            ROUND(AVG(EXTRACT(EPOCH FROM (ce.created_at - sc.created_at)) / 86400) FILTER (WHERE ce.created_at >= dr.prev_month_start AND ce.created_at < dr.prev_month_end)::numeric, 1) AS prev_avg
+          FROM case_events ce
+          JOIN switch_cases sc ON ce.case_id = sc.id
+          CROSS JOIN date_ranges dr
+          WHERE ce.event_type = 'status_change'
+            AND ce.new_status = 'activated'
+            AND sc.deleted_at IS NULL
+        )
         SELECT
-          date_trunc('month', NOW()) AS current_month_start,
-          date_trunc('month', NOW()) - INTERVAL '1 month' AS prev_month_start,
-          date_trunc('month', NOW()) AS prev_month_end
-      ),
-      switch_stats AS (
+          ss.total AS switches_total,
+          ss.current_month AS switches_current,
+          ss.prev_month AS switches_prev,
+          cs.total AS customers_total,
+          cs.new_current AS customers_new_current,
+          cs.new_prev AS customers_new_prev,
+          ca.total_eligible,
+          ca.total_activated,
+          ca.curr_eligible,
+          ca.curr_activated,
+          ca.prev_eligible,
+          ca.prev_activated,
+          pt.avg_days AS processing_avg,
+          pt.curr_avg AS processing_curr,
+          pt.prev_avg AS processing_prev
+        FROM switch_stats ss, customer_stats cs, conversion_all ca, processing_time pt
+      `),
+      this.dataSource.query(`
+        WITH months AS (
+          SELECT generate_series(
+            date_trunc('month', NOW()) - INTERVAL '6 months',
+            date_trunc('month', NOW()),
+            '1 month'
+          ) AS month_start
+        )
         SELECT
-          COUNT(*)::int AS total,
-          COUNT(*) FILTER (WHERE sc.created_at >= dr.current_month_start)::int AS current_month,
-          COUNT(*) FILTER (WHERE sc.created_at >= dr.prev_month_start AND sc.created_at < dr.prev_month_end)::int AS prev_month
-        FROM switch_cases sc, date_ranges dr
-        WHERE sc.deleted_at IS NULL
-      ),
-      customer_stats AS (
-        SELECT
-          COUNT(*)::int AS total,
-          COUNT(*) FILTER (WHERE u.created_at >= dr.current_month_start)::int AS new_current,
-          COUNT(*) FILTER (WHERE u.created_at >= dr.prev_month_start AND u.created_at < dr.prev_month_end)::int AS new_prev
-        FROM users u, date_ranges dr
-        WHERE u.status = 'active'
-          AND u.role IN ('personal', 'business')
-          AND u.deleted_at IS NULL
-      ),
-      conversion_all AS (
-        SELECT
-          COUNT(*) FILTER (WHERE sc.status != 'cancelled')::int AS total_eligible,
-          COUNT(*) FILTER (WHERE sc.status = 'activated')::int AS total_activated,
-          COUNT(*) FILTER (WHERE sc.status != 'cancelled' AND sc.created_at >= dr.current_month_start)::int AS curr_eligible,
-          COUNT(*) FILTER (WHERE sc.status = 'activated' AND sc.created_at >= dr.current_month_start)::int AS curr_activated,
-          COUNT(*) FILTER (WHERE sc.status != 'cancelled' AND sc.created_at >= dr.prev_month_start AND sc.created_at < dr.prev_month_end)::int AS prev_eligible,
-          COUNT(*) FILTER (WHERE sc.status = 'activated' AND sc.created_at >= dr.prev_month_start AND sc.created_at < dr.prev_month_end)::int AS prev_activated
-        FROM switch_cases sc, date_ranges dr
-        WHERE sc.deleted_at IS NULL
-      ),
-      processing_time AS (
-        SELECT
-          ROUND(AVG(EXTRACT(EPOCH FROM (ce.created_at - sc.created_at)) / 86400)::numeric, 1) AS avg_days,
-          ROUND(AVG(EXTRACT(EPOCH FROM (ce.created_at - sc.created_at)) / 86400) FILTER (WHERE ce.created_at >= dr.current_month_start)::numeric, 1) AS curr_avg,
-          ROUND(AVG(EXTRACT(EPOCH FROM (ce.created_at - sc.created_at)) / 86400) FILTER (WHERE ce.created_at >= dr.prev_month_start AND ce.created_at < dr.prev_month_end)::numeric, 1) AS prev_avg
-        FROM case_events ce
-        JOIN switch_cases sc ON ce.case_id = sc.id
-        CROSS JOIN date_ranges dr
-        WHERE ce.event_type = 'status_change'
-          AND ce.new_status = 'activated'
-          AND sc.deleted_at IS NULL
-      )
-      SELECT
-        ss.total AS switches_total,
-        ss.current_month AS switches_current,
-        ss.prev_month AS switches_prev,
-        cs.total AS customers_total,
-        cs.new_current AS customers_new_current,
-        cs.new_prev AS customers_new_prev,
-        ca.total_eligible,
-        ca.total_activated,
-        ca.curr_eligible,
-        ca.curr_activated,
-        ca.prev_eligible,
-        ca.prev_activated,
-        pt.avg_days AS processing_avg,
-        pt.curr_avg AS processing_curr,
-        pt.prev_avg AS processing_prev
-      FROM switch_stats ss, customer_stats cs, conversion_all ca, processing_time pt
-    `);
+          m.month_start,
+          (SELECT COUNT(*)::int FROM switch_cases
+           WHERE created_at >= m.month_start AND created_at < m.month_start + INTERVAL '1 month'
+             AND deleted_at IS NULL) AS switches,
+          (SELECT COUNT(*)::int FROM users
+           WHERE created_at >= m.month_start AND created_at < m.month_start + INTERVAL '1 month'
+             AND status = 'active' AND role IN ('personal', 'business')
+             AND deleted_at IS NULL) AS customers,
+          COALESCE((
+            SELECT ROUND(
+              COUNT(*) FILTER (WHERE status = 'activated')::numeric * 100.0 /
+              NULLIF(COUNT(*) FILTER (WHERE status != 'cancelled')::numeric, 0), 1)
+            FROM switch_cases
+            WHERE created_at >= m.month_start AND created_at < m.month_start + INTERVAL '1 month'
+              AND deleted_at IS NULL
+          ), 0) AS conversion_rate,
+          COALESCE((
+            SELECT ROUND(AVG(EXTRACT(EPOCH FROM (ce.created_at - sc.created_at)) / 86400)::numeric, 1)
+            FROM case_events ce
+            JOIN switch_cases sc ON ce.case_id = sc.id
+            WHERE ce.event_type = 'status_change' AND ce.new_status = 'activated'
+              AND ce.created_at >= m.month_start AND ce.created_at < m.month_start + INTERVAL '1 month'
+              AND sc.deleted_at IS NULL
+          ), 0) AS processing_time
+        FROM months m
+        ORDER BY m.month_start
+      `),
+    ]);
 
     const row = result[0] || {};
 
@@ -185,18 +223,22 @@ export class DashboardService {
       totalSwitches: {
         value: switchesTotal,
         delta: this.calcDelta(switchesCurr, switchesPrev),
+        sparkline: sparklineRows.map((r: any) => parseInt(r.switches) || 0),
       },
       activeCustomers: {
         value: customersTotal,
         delta: this.calcDelta(customersNewCurr, customersNewPrev),
+        sparkline: sparklineRows.map((r: any) => parseInt(r.customers) || 0),
       },
       conversionRate: {
         value: conversionRate,
         delta: parseFloat((currConvRate - prevConvRate).toFixed(1)),
+        sparkline: sparklineRows.map((r: any) => parseFloat(r.conversion_rate) || 0),
       },
       avgProcessingTime: {
         value: processingAvg,
         delta: parseFloat((processingCurr - processingPrev).toFixed(1)),
+        sparkline: sparklineRows.map((r: any) => parseFloat(r.processing_time) || 0),
       },
     };
   }

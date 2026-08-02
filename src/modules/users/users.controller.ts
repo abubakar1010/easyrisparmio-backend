@@ -35,13 +35,17 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserRole } from '../../common/enums/role.enum';
 import { User } from './entities/user.entity';
+import { ActivityLogService } from '../activity-log/activity-log.service';
 
 @ApiTags('Users')
 @ApiBearerAuth()
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly activityLogService: ActivityLogService,
+  ) {}
 
   // ─── User Endpoints (named routes first) ──────────────────
 
@@ -311,9 +315,13 @@ export class UsersController {
     description: 'User does not have admin role',
     content: { 'application/json': { example: { success: false, statusCode: 403, message: ['Forbidden resource'], timestamp: '2026-06-24T12:00:00.000Z' } } },
   })
-  async create(@Body() dto: CreateUserDto) {
+  async create(
+    @CurrentUser('id') adminId: string,
+    @Body() dto: CreateUserDto,
+  ) {
     const user = await this.usersService.adminCreateUser(dto);
     const { passwordHash: _, ...result } = user;
+    void this.activityLogService.log(adminId, 'User Created', 'user', user.id, { email: user.email, role: user.role });
     return result;
   }
 
@@ -372,9 +380,13 @@ export class UsersController {
     description: 'User does not have admin role',
     content: { 'application/json': { example: { success: false, statusCode: 403, message: ['Forbidden resource'], timestamp: '2026-06-24T12:00:00.000Z' } } },
   })
-  async toggleStatus(@Param('id', ParseUUIDPipe) id: string) {
+  async toggleStatus(
+    @CurrentUser('id') adminId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     const user = await this.usersService.toggleStatus(id);
     const { passwordHash: _, ...result } = user;
+    void this.activityLogService.log(adminId, 'User Status Toggled', 'user', id, { newStatus: user.status });
     return result;
   }
 
@@ -400,10 +412,13 @@ export class UsersController {
     content: { 'application/json': { example: { success: false, statusCode: 403, message: ['Forbidden resource'], timestamp: '2026-06-24T12:00:00.000Z' } } },
   })
   async resetPassword(
+    @CurrentUser('id') adminId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: AdminResetPasswordDto,
   ) {
-    return this.usersService.adminResetPassword(id, dto.newPassword);
+    const result = await this.usersService.adminResetPassword(id, dto.newPassword);
+    void this.activityLogService.log(adminId, 'User Password Reset', 'user', id);
+    return result;
   }
 
   @Get(':id/preferences')
@@ -500,11 +515,13 @@ export class UsersController {
     content: { 'application/json': { example: { success: false, statusCode: 403, message: ['Forbidden resource'], timestamp: '2026-06-24T12:00:00.000Z' } } },
   })
   async update(
+    @CurrentUser('id') adminId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateUserDto,
   ) {
     const user = await this.usersService.adminUpdateUser(id, dto);
     const { passwordHash: _, ...result } = user;
+    void this.activityLogService.log(adminId, 'User Updated', 'user', id, { email: user.email });
     return result;
   }
 
@@ -528,9 +545,13 @@ export class UsersController {
     description: 'User does not have admin role',
     content: { 'application/json': { example: { success: false, statusCode: 403, message: ['Forbidden resource'], timestamp: '2026-06-24T12:00:00.000Z' } } },
   })
-  async remove(@Param('id', ParseUUIDPipe) id: string) {
+  async remove(
+    @CurrentUser('id') adminId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     const user = await this.usersService.softDelete(id);
     const { passwordHash: _, ...result } = user;
+    void this.activityLogService.log(adminId, 'User Deleted', 'user', id);
     return result;
   }
 }

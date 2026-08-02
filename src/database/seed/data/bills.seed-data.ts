@@ -174,8 +174,6 @@ export async function seedBillAnalyses(
       potentialSavings: 32.5,
       currentMonthlyAvg: 92.75,
       recommendedMarketType: MarketType.VARIABLE,
-      analysisSummary:
-        'La bolletta presenta un costo unitario superiore alla media di mercato. Il passaggio a un\'offerta a prezzo variabile potrebbe generare un risparmio stimato di 32,50 EUR/bimestre.',
       analysisDetails: {
         currentPricePerKwh: 0.098,
         marketAvgPricePerKwh: 0.082,
@@ -195,8 +193,6 @@ export async function seedBillAnalyses(
       potentialSavings: 15.0,
       currentMonthlyAvg: 47.65,
       recommendedMarketType: MarketType.FIXED,
-      analysisSummary:
-        'Il contratto gas attuale ha un prezzo nella media. Tuttavia, un\'offerta a prezzo fisso garantirebbe protezione da eventuali rialzi invernali.',
       analysisDetails: {
         currentPricePerSmc: 0.42,
         marketAvgPricePerSmc: 0.4,

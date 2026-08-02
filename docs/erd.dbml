@@ -626,7 +626,6 @@ Table bill_analyses [headercolor: #e67e22] {
   potential_savings decimal(10,2) [not null]
   current_monthly_avg decimal(10,2) [not null]
   recommended_market_type market_type [not null]
-  analysis_summary text [not null]
   analysis_details jsonb
   confidence_score decimal(5,2) [note: 'OCR confidence 0-100']
   recommended_offers jsonb [note: 'Array of {offer_id, savings_estimate}']

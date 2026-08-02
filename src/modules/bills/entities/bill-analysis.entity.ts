@@ -33,9 +33,6 @@ export class BillAnalysis extends BaseEntity {
   })
   recommendedMarketType: MarketType;
 
-  @Column({ name: 'analysis_summary', type: 'text' })
-  analysisSummary: string;
-
   @Column({ name: 'analysis_details', type: 'jsonb', nullable: true })
   analysisDetails: Record<string, any>;
 

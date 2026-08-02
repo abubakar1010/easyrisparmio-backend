@@ -799,10 +799,6 @@ export class BillsService {
         estimatedSavings: this.estimateOfferSavings(bill, offer),
       }));
 
-      const analysisSummary = allOffers.length > 0
-        ? `Abbiamo trovato ${allOffers.length} offerte per la tua bolletta ${bill.billType}. La migliore offerta è "${allOffers[0].name}" di ${allOffers[0].supplier?.name || 'fornitore'}, con un risparmio stimato di EUR ${potentialSavings} all'anno.`
-        : `Non abbiamo trovato offerte per la tua bolletta ${bill.billType} al momento. Ti aggiorneremo quando saranno disponibili nuove offerte.`;
-
       let analysis = await this.analysisRepository.findOne({
         where: { billId: bill.id },
       });
@@ -811,7 +807,6 @@ export class BillsService {
         potentialSavings,
         currentMonthlyAvg,
         recommendedMarketType,
-        analysisSummary,
         analysisDetails: {
           currentCostPerUnit: bill.costPerUnit,
           currentFixedCharges: bill.fixedCharges,

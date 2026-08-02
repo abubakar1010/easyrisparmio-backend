@@ -68,7 +68,6 @@ UPLOADED → ANALYZING → ANALYZED
 | `potentialSavings` | decimal | Estimated EUR savings |
 | `currentMonthlyAvg` | decimal | Current monthly average cost |
 | `recommendedMarketType` | enum | `fixed`, `variable`, `indexed` |
-| `analysisSummary` | text | Human-readable summary |
 | `analysisDetails` | jsonb | Detailed breakdown with recommended actions |
 | `confidenceScore` | decimal | Analysis quality metric |
 | `recommendedOffers` | jsonb | Array of recommended offer data |

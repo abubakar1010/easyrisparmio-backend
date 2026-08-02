@@ -79,7 +79,6 @@ const ANALYSIS_EXAMPLE = {
   potentialSavings: '18.08',
   currentMonthlyAvg: '114.48',
   recommendedMarketType: 'fixed',
-  analysisSummary: 'Based on your electricity bill analysis, you could save approximately EUR 18.08 by switching to a fixed-rate plan.',
   analysisDetails: {
     currentCostPerUnit: '0.085000',
     averageMarketRate: 0.08,

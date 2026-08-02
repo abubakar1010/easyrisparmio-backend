@@ -302,9 +302,6 @@ async function seedBillAnalysesForUser(
         potentialSavings,
         currentMonthlyAvg: parseFloat((bill.totalAmount / 2).toFixed(2)),
         recommendedMarketType: pick([MarketType.FIXED, MarketType.VARIABLE]),
-        analysisSummary: isElectricity
-          ? `La bolletta presenta un costo unitario di ${bill.costPerUnit} €/kWh. Passando a un'offerta più competitiva si potrebbe risparmiare circa ${potentialSavings} EUR.`
-          : `Il contratto gas ha un costo di ${bill.costPerUnit} €/smc. Un'offerta alternativa potrebbe generare un risparmio di ${potentialSavings} EUR.`,
         analysisDetails: {
           ...(isElectricity
             ? {

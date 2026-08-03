@@ -11,6 +11,7 @@ import {
 import { BaseEntity } from '../../../common/entities/base.entity';
 import { CaseStatus, CasePriority } from '../../../common/enums/case.enum';
 import { CaseType } from '../../../common/enums/case-type.enum';
+import { PaymentMethod, InvoiceDelivery } from '../../../common/enums/payment.enum';
 import { User } from '../../users/entities/user.entity';
 import { Supplier } from '../../suppliers/entities/supplier.entity';
 import { EnergyBill } from '../../bills/entities/energy-bill.entity';
@@ -90,6 +91,24 @@ export class SwitchCase extends BaseEntity {
 
   @Column({ name: 'residential_province', type: 'varchar', length: 100, nullable: true })
   residentialProvince: string | null;
+
+  @Column({ name: 'payment_method', type: 'enum', enum: PaymentMethod, nullable: true })
+  paymentMethod: PaymentMethod | null;
+
+  @Column({ name: 'invoice_delivery', type: 'enum', enum: InvoiceDelivery, nullable: true })
+  invoiceDelivery: InvoiceDelivery | null;
+
+  @Column({ type: 'varchar', length: 34, nullable: true })
+  iban: string | null;
+
+  @Column({ name: 'iban_holder_first_name', type: 'varchar', length: 100, nullable: true })
+  ibanHolderFirstName: string | null;
+
+  @Column({ name: 'iban_holder_last_name', type: 'varchar', length: 100, nullable: true })
+  ibanHolderLastName: string | null;
+
+  @Column({ name: 'iban_holder_tax_code', type: 'varchar', length: 16, nullable: true })
+  ibanHolderTaxCode: string | null;
 
   @DeleteDateColumn({ name: 'deleted_at' })
   deletedAt: Date | null;

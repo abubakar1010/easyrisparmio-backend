@@ -74,6 +74,12 @@ export class CasesService {
       residentialCity: dto.residentialCity || null,
       residentialZip: dto.residentialZip || null,
       residentialProvince: dto.residentialProvince || null,
+      paymentMethod: dto.paymentMethod || null,
+      invoiceDelivery: dto.invoiceDelivery || null,
+      iban: dto.iban || null,
+      ibanHolderFirstName: dto.ibanHolderFirstName || null,
+      ibanHolderLastName: dto.ibanHolderLastName || null,
+      ibanHolderTaxCode: dto.ibanHolderTaxCode || null,
     });
 
     const saved = await this.caseRepository.save(switchCase);

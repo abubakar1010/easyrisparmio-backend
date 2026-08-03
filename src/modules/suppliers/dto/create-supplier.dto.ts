@@ -12,6 +12,7 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { SupplierStatus, Commodity } from '../../../common/enums/supplier.enum';
+import { IsPhoneNumber } from '../../../common/validators/is-phone-number.validator';
 
 export class CreateSupplierDto {
   @ApiProperty({ description: 'Supplier brand name', example: 'Enel Energia', maxLength: 255 })
@@ -71,10 +72,11 @@ export class CreateSupplierDto {
   @MaxLength(255)
   contactEmail?: string;
 
-  @ApiPropertyOptional({ description: 'Contact phone number', example: '+39 800 900 860', maxLength: 20 })
+  @ApiPropertyOptional({ description: 'Contact phone number', example: '+39800900860', maxLength: 20 })
   @IsOptional()
   @IsString()
   @MaxLength(20)
+  @IsPhoneNumber()
   contactPhone?: string;
 
   @ApiPropertyOptional({ description: 'Website URL', example: 'https://www.enelenergia.it', maxLength: 500 })

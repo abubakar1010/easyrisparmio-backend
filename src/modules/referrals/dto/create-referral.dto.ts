@@ -1,5 +1,6 @@
 import { IsOptional, IsEmail, IsString, MaxLength } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsPhoneNumber } from '../../../common/validators/is-phone-number.validator';
 
 export class CreateReferralDto {
   @ApiPropertyOptional({
@@ -18,5 +19,6 @@ export class CreateReferralDto {
   @IsOptional()
   @IsString()
   @MaxLength(20)
+  @IsPhoneNumber()
   referredPhone?: string;
 }

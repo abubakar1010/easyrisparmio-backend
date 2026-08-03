@@ -14,6 +14,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserRole } from '../../../common/enums/role.enum';
 import { UserStatus } from '../../../common/enums/user.enum';
 import { CreateAddressDto } from './create-address.dto';
+import { IsPhoneNumber } from '../../../common/validators/is-phone-number.validator';
 
 export class CreateUserDto {
   @ApiProperty({ example: 'mario.rossi@email.com' })
@@ -43,6 +44,7 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   @MaxLength(20)
+  @IsPhoneNumber()
   phone?: string;
 
   @ApiProperty({ enum: UserRole, example: UserRole.PERSONAL })

@@ -46,6 +46,12 @@ export class CreateOfferDto {
   @Min(0)
   pricePerSmc?: number;
 
+  @ApiPropertyOptional({ description: 'Spread markup on market index for variable/indexed offers', example: 0.012 })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 6 })
+  @Min(0)
+  spread?: number;
+
   @ApiProperty({ description: 'Fixed monthly fee', example: 9.9, default: 0 })
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)

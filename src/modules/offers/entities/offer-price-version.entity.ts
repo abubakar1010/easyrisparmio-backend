@@ -16,6 +16,9 @@ export class OfferPriceVersion extends BaseEntity {
   @Column({ name: 'price_per_smc', type: 'decimal', precision: 10, scale: 6, nullable: true })
   pricePerSmc: number | null;
 
+  @Column({ name: 'spread', type: 'decimal', precision: 10, scale: 6, nullable: true })
+  spread: number | null;
+
   @Column({ name: 'fixed_monthly_fee', type: 'decimal', precision: 10, scale: 2, nullable: true })
   fixedMonthlyFee: number | null;
 

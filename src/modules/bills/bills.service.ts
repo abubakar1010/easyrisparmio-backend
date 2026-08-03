@@ -625,9 +625,9 @@ export class BillsService {
       );
 
     if (bill.billType === BillType.ELECTRICITY) {
-      qb.orderBy('offer.pricePerKwh', 'ASC', 'NULLS LAST');
+      qb.orderBy('COALESCE(offer.spread, offer.price_per_kwh)', 'ASC', 'NULLS LAST');
     } else {
-      qb.orderBy('offer.pricePerSmc', 'ASC', 'NULLS LAST');
+      qb.orderBy('COALESCE(offer.spread, offer.price_per_smc)', 'ASC', 'NULLS LAST');
     }
 
     const offers = await qb.getMany();
@@ -690,6 +690,7 @@ export class BillsService {
       supplierId: offer.supplierId,
       pricePerKwh: offer.pricePerKwh,
       pricePerSmc: offer.pricePerSmc,
+      spread: offer.spread,
       fixedMonthlyFee: offer.fixedMonthlyFee,
       energyType: offer.energyType,
       marketType: offer.marketType,
@@ -770,9 +771,9 @@ export class BillsService {
         );
 
       if (bill.billType === BillType.ELECTRICITY) {
-        qb.orderBy('offer.pricePerKwh', 'ASC', 'NULLS LAST');
+        qb.orderBy('COALESCE(offer.spread, offer.price_per_kwh)', 'ASC', 'NULLS LAST');
       } else {
-        qb.orderBy('offer.pricePerSmc', 'ASC', 'NULLS LAST');
+        qb.orderBy('COALESCE(offer.spread, offer.price_per_smc)', 'ASC', 'NULLS LAST');
       }
 
       const allOffers = await qb.getMany();
@@ -791,6 +792,7 @@ export class BillsService {
         supplierId: offer.supplierId,
         pricePerKwh: offer.pricePerKwh,
         pricePerSmc: offer.pricePerSmc,
+        spread: offer.spread,
         fixedMonthlyFee: offer.fixedMonthlyFee,
         energyType: offer.energyType,
         marketType: offer.marketType,
@@ -856,9 +858,14 @@ export class BillsService {
     // If we have full cost data + offers, calculate real savings
     if (costPerUnit > 0 && consumption > 0 && offers.length > 0) {
       const bestOffer = offers[0];
-      const bestOfferPrice = bill.billType === BillType.ELECTRICITY
-        ? Number(bestOffer.pricePerKwh) || 0
-        : Number(bestOffer.pricePerSmc) || 0;
+      let bestOfferPrice: number;
+      if (bestOffer.marketType === MarketType.VARIABLE || bestOffer.marketType === MarketType.INDEXED) {
+        bestOfferPrice = Number(bestOffer.spread) || 0;
+      } else {
+        bestOfferPrice = bill.billType === BillType.ELECTRICITY
+          ? Number(bestOffer.pricePerKwh) || 0
+          : Number(bestOffer.pricePerSmc) || 0;
+      }
       const bestOfferFee = Number(bestOffer.fixedMonthlyFee) || 0;
 
       const currentCost = (consumption * costPerUnit) + fixedCharges;
@@ -1116,9 +1123,14 @@ export class BillsService {
       : Number(bill.consumptionSmc) || 0;
 
     if (costPerUnit > 0 && consumption > 0) {
-      const offerPrice = bill.billType === BillType.ELECTRICITY
-        ? Number(offer.pricePerKwh) || 0
-        : Number(offer.pricePerSmc) || 0;
+      let offerPrice: number;
+      if (offer.marketType === MarketType.VARIABLE || offer.marketType === MarketType.INDEXED) {
+        offerPrice = Number(offer.spread) || 0;
+      } else {
+        offerPrice = bill.billType === BillType.ELECTRICITY
+          ? Number(offer.pricePerKwh) || 0
+          : Number(offer.pricePerSmc) || 0;
+      }
       const offerFee = Number(offer.fixedMonthlyFee) || 0;
 
       const currentCost = (consumption * costPerUnit) + fixedCharges;

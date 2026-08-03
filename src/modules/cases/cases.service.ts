@@ -15,8 +15,10 @@ import { CreateCaseDto } from './dto/create-case.dto';
 import { UpdateCaseDto } from './dto/update-case.dto';
 import { QueryCasesDto } from './dto/query-cases.dto';
 import { PaginatedResponseDto } from '../../common/dto/pagination.dto';
+import { Contract } from '../contracts/entities/contract.entity';
 import { CaseStatus } from '../../common/enums/case.enum';
 import { CaseEventType } from '../../common/enums/case-event.enum';
+import { ContractStatus } from '../../common/enums/contract.enum';
 import { UserRole } from '../../common/enums/role.enum';
 import { DocumentType } from '../../common/enums/user.enum';
 import { BillStatus } from '../../common/enums/bill.enum';
@@ -39,6 +41,8 @@ export class CasesService {
     private readonly billRepository: Repository<EnergyBill>,
     @InjectRepository(Offer)
     private readonly offerRepository: Repository<Offer>,
+    @InjectRepository(Contract)
+    private readonly contractRepository: Repository<Contract>,
     private readonly notificationsService: NotificationsService,
   ) {}
 
@@ -217,6 +221,21 @@ export class CasesService {
         newStatus: dto.status,
         actorId,
       });
+
+      // When case is activated, also sync the associated contract to ACTIVE
+      // so the utility appears in the user's my-services list
+      if (dto.status === CaseStatus.ACTIVATED) {
+        const contract = await this.contractRepository.findOne({
+          where: { caseId: id },
+        });
+        if (contract && contract.status !== ContractStatus.ACTIVE) {
+          contract.status = ContractStatus.ACTIVE;
+          if (!contract.activationDate) {
+            contract.activationDate = new Date();
+          }
+          await this.contractRepository.save(contract);
+        }
+      }
 
       try {
         await this.notificationsService.sendNotification({

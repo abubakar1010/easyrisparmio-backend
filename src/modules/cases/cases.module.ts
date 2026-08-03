@@ -7,6 +7,7 @@ import { CaseDocument } from './entities/case-document.entity';
 import { CaseEvent } from './entities/case-event.entity';
 import { EnergyBill } from '../bills/entities/energy-bill.entity';
 import { Offer } from '../offers/entities/offer.entity';
+import { Contract } from '../contracts/entities/contract.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ActivityLogModule } from '../activity-log/activity-log.module';
 
@@ -18,6 +19,7 @@ import { ActivityLogModule } from '../activity-log/activity-log.module';
       CaseEvent,
       EnergyBill,
       Offer,
+      Contract,
     ]),
     NotificationsModule,
     ActivityLogModule,

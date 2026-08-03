@@ -26,6 +26,12 @@ import { BillStatus, BillType, BillSource } from '../../common/enums/bill.enum';
 import { EnergyType, MarketType } from '../../common/enums/offer.enum';
 import { OfferStatus } from '../../common/enums/offer-status.enum';
 import { NotificationType } from '../../common/enums/notification.enum';
+import { TransitionBillStatusDto, SubmitContractVerificationDto } from './dto/transition-bill-status.dto';
+import { isValidTransition, getAvailableTransitions } from '../../common/utils/bill-status-transitions';
+import { CaseEvent } from '../cases/entities/case-event.entity';
+import { CaseEventType } from '../../common/enums/case-event.enum';
+import { SwitchCase } from '../cases/entities/switch-case.entity';
+import { Contract } from '../contracts/entities/contract.entity';
 import { readFileSync } from 'fs';
 import { join, extname } from 'path';
 
@@ -50,6 +56,12 @@ export class BillsService {
     private readonly sentOfferRepository: Repository<SentOffer>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(SwitchCase)
+    private readonly caseRepository: Repository<SwitchCase>,
+    @InjectRepository(CaseEvent)
+    private readonly eventRepository: Repository<CaseEvent>,
+    @InjectRepository(Contract)
+    private readonly contractRepository: Repository<Contract>,
     private readonly notificationsService: NotificationsService,
     private readonly visionOcrService: VisionOcrService,
   ) {}
@@ -311,10 +323,6 @@ export class BillsService {
 
     if (query.dateTo) {
       qb.andWhere('bill.createdAt <= :dateTo', { dateTo: query.dateTo });
-    }
-
-    if (query.caseStatus) {
-      qb.andWhere('switchCase.status = :caseStatus', { caseStatus: query.caseStatus });
     }
 
     if (query.source) {
@@ -661,6 +669,12 @@ export class BillsService {
       );
     }
 
+    if (bill.status !== BillStatus.VERIFIED && bill.status !== BillStatus.OFFER_SENT) {
+      throw new BadRequestException(
+        'Bill must be verified before sending offers.',
+      );
+    }
+
     if (!selectedOffers?.length) {
       throw new NotFoundException('No offers selected to send');
     }
@@ -833,7 +847,7 @@ export class BillsService {
 
       await this.analysisRepository.save(analysis);
 
-      bill.status = BillStatus.ANALYZED;
+      bill.status = BillStatus.VERIFICATION_REVIEW;
       await this.billRepository.save(bill);
 
       return analysis;
@@ -1094,11 +1108,9 @@ export class BillsService {
     await this.verificationRepository.save(verification);
 
     // Re-run analysis with updated data
-    bill.status = BillStatus.ANALYZING;
-    await this.billRepository.save(bill);
-
-    // If files were re-uploaded, re-run OCR + analysis in background
     if (verification.requireReupload) {
+      bill.status = BillStatus.ANALYZING;
+      await this.billRepository.save(bill);
       this.processOcrInBackground(bill).catch((err) =>
         this.logger.error(`Re-analysis failed for bill ${bill.id}: ${err.message}`),
       );
@@ -1107,7 +1119,8 @@ export class BillsService {
       try {
         await this.runAnalysis(bill);
       } catch {
-        bill.status = BillStatus.ANALYZED;
+        // runAnalysis already sets VERIFICATION_REVIEW on success
+        bill.status = BillStatus.VERIFICATION_REVIEW;
         await this.billRepository.save(bill);
       }
     }
@@ -1142,4 +1155,196 @@ export class BillsService {
     return 0;
   }
 
+  // ─── Status Transitions ───────────────────────────────────
+
+  getAvailableTransitionsForBill(status: BillStatus): BillStatus[] {
+    return getAvailableTransitions(status);
+  }
+
+  async transitionBillStatus(
+    billId: string,
+    dto: TransitionBillStatusDto,
+    adminId: string,
+  ): Promise<EnergyBill> {
+    const bill = await this.getBillByIdAdmin(billId);
+
+    if (!isValidTransition(bill.status, dto.targetStatus)) {
+      throw new BadRequestException(
+        `Cannot transition from "${bill.status}" to "${dto.targetStatus}"`,
+      );
+    }
+
+    const oldStatus = bill.status;
+
+    // Handle verification_required — create verification record
+    if (dto.targetStatus === BillStatus.VERIFICATION_REQUIRED) {
+      if (!dto.message) {
+        throw new BadRequestException('Message is required when requesting verification');
+      }
+      await this.requestVerification(billId, {
+        message: dto.message,
+        missingFields: dto.missingFields || [],
+        requireReupload: dto.requireReupload,
+      });
+      return this.getBillByIdAdmin(billId);
+    }
+
+    // Handle contract_verification_required — create verification record for contract
+    if (dto.targetStatus === BillStatus.CONTRACT_VERIFICATION_REQUIRED) {
+      if (!dto.message) {
+        throw new BadRequestException('Message is required when requesting contract verification');
+      }
+
+      // Mark any previous pending verifications as resolved
+      await this.verificationRepository.update(
+        { billId, status: VerificationStatus.PENDING },
+        { status: VerificationStatus.RESOLVED, resolvedAt: new Date() },
+      );
+
+      // Create a contract verification record
+      const verification = this.verificationRepository.create({
+        billId,
+        adminMessage: dto.message,
+        missingFields: dto.missingFields || [],
+        requireReupload: dto.requireReupload ?? false,
+        status: VerificationStatus.PENDING,
+      });
+      await this.verificationRepository.save(verification);
+
+      bill.status = BillStatus.CONTRACT_VERIFICATION_REQUIRED;
+      await this.billRepository.save(bill);
+
+      // Send notification
+      try {
+        await this.notificationsService.sendNotification({
+          userId: bill.userId,
+          title: 'Verifica contratto richiesta',
+          body: dto.message,
+          type: NotificationType.BILL_VERIFICATION,
+          data: { billId: bill.id },
+        });
+      } catch (error) {
+        this.logger.warn(`Failed to send contract verification notification: ${error?.message || error}`);
+      }
+
+      return this.getBillByIdAdmin(billId);
+    }
+
+    // Handle verified — resolve pending verifications
+    if (dto.targetStatus === BillStatus.VERIFIED) {
+      await this.verificationRepository.update(
+        { billId, status: VerificationStatus.PENDING },
+        { status: VerificationStatus.RESOLVED, resolvedAt: new Date() },
+      );
+    }
+
+    // Update bill status
+    bill.status = dto.targetStatus;
+    await this.billRepository.save(bill);
+
+    // Log case event if a case exists
+    const activeCase = bill.switchCases?.length
+      ? bill.switchCases.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
+      : null;
+
+    if (activeCase) {
+      await this.eventRepository.save(
+        this.eventRepository.create({
+          caseId: activeCase.id,
+          eventType: CaseEventType.STATUS_CHANGE,
+          title: `Status: ${oldStatus} → ${dto.targetStatus}`,
+          description: dto.message || `Bill status transitioned to ${dto.targetStatus}`,
+          actorId: adminId,
+        }),
+      );
+    }
+
+    // Send notification for key transitions
+    const notificationMap: Partial<Record<BillStatus, { title: string; body: string; type: NotificationType }>> = {
+      [BillStatus.VERIFIED]: {
+        title: 'Bolletta verificata',
+        body: 'I dati della tua bolletta sono stati verificati. A breve riceverai le offerte.',
+        type: NotificationType.BILL_ANALYZED,
+      },
+      [BillStatus.CONTRACT_VERIFIED]: {
+        title: 'Contratto approvato',
+        body: 'Il tuo contratto è stato verificato e approvato.',
+        type: NotificationType.CONTRACT_STATUS,
+      },
+      [BillStatus.AWAITING_ACTIVATION]: {
+        title: 'In attesa di attivazione',
+        body: 'La tua utenza è in fase di attivazione. Ti aggiorneremo appena sarà attiva.',
+        type: NotificationType.CONTRACT_STATUS,
+      },
+      [BillStatus.ACTIVATED]: {
+        title: 'Utenza Attivata',
+        body: 'La tua utenza è stata attivata! Puoi vederla nella sezione Le Mie Utenze.',
+        type: NotificationType.CONTRACT_STATUS,
+      },
+    };
+
+    const notification = notificationMap[dto.targetStatus];
+    if (notification) {
+      try {
+        await this.notificationsService.sendNotification({
+          userId: bill.userId,
+          title: notification.title,
+          body: notification.body,
+          type: notification.type,
+          data: { billId: bill.id },
+        });
+      } catch (error) {
+        this.logger.warn(`Failed to send transition notification: ${error?.message || error}`);
+      }
+    }
+
+    return this.getBillByIdAdmin(billId);
+  }
+
+  async submitContractVerification(
+    billId: string,
+    userId: string,
+    dto: SubmitContractVerificationDto,
+  ): Promise<EnergyBill> {
+    const bill = await this.getBillById(billId, userId);
+
+    if (bill.status !== BillStatus.CONTRACT_VERIFICATION_REQUIRED) {
+      throw new BadRequestException(
+        'Bill must be in contract_verification_required status',
+      );
+    }
+
+    const verification = await this.verificationRepository.findOne({
+      where: { billId, status: VerificationStatus.PENDING },
+      order: { createdAt: 'DESC' },
+    });
+
+    if (verification) {
+      verification.status = VerificationStatus.SUBMITTED;
+      verification.userMessage = dto.message || null;
+      await this.verificationRepository.save(verification);
+    }
+
+    // Update signed document if provided
+    if (dto.signedDocumentUrl) {
+      const activeCase = bill.switchCases?.length
+        ? bill.switchCases.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
+        : null;
+
+      if (activeCase) {
+        const contract = await this.contractRepository.findOne({
+          where: { caseId: activeCase.id },
+        });
+        if (contract) {
+          contract.signedDocumentUrl = dto.signedDocumentUrl;
+          await this.contractRepository.save(contract);
+        }
+      }
+    }
+
+    bill.status = BillStatus.CONTRACT_REVIEW;
+    await this.billRepository.save(bill);
+
+    return this.getBillById(bill.id, userId);
+  }
 }

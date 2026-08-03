@@ -12,6 +12,8 @@ import { Offer } from '../offers/entities/offer.entity';
 import { Supplier } from '../suppliers/entities/supplier.entity';
 import { SentOffer } from '../offers/entities/sent-offer.entity';
 import { SwitchCase } from '../cases/entities/switch-case.entity';
+import { CaseEvent } from '../cases/entities/case-event.entity';
+import { Contract } from '../contracts/entities/contract.entity';
 import { User } from '../users/entities/user.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ConfigModule } from '@nestjs/config';
@@ -20,7 +22,7 @@ import { ActivityLogModule } from '../activity-log/activity-log.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([EnergyBill, BillAnalysis, BillFile, BillVerification, Offer, Supplier, SentOffer, SwitchCase, User]),
+    TypeOrmModule.forFeature([EnergyBill, BillAnalysis, BillFile, BillVerification, Offer, Supplier, SentOffer, SwitchCase, CaseEvent, Contract, User]),
     NotificationsModule,
     ConfigModule,
     ActivityLogModule,

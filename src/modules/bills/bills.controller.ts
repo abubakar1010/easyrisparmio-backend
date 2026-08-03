@@ -44,6 +44,7 @@ import { AssociateBillUserDto } from './dto/associate-bill-user.dto';
 import { QueryBillsDto } from './dto/query-bills.dto';
 import { SendOffersDto } from './dto/send-offers.dto';
 import { RequestVerificationDto, SubmitVerificationDto } from './dto/request-verification.dto';
+import { TransitionBillStatusDto, SubmitContractVerificationDto } from './dto/transition-bill-status.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -791,5 +792,44 @@ export class BillsController {
       `inline; filename="${billFile.originalName || `file-${fileId}${ext}`}"`,
     );
     res.sendFile(filePath);
+  }
+
+  // ─── Status Transition Endpoints ──────────────────────────
+
+  @Post('admin/:id/transition')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Transition bill status (admin)' })
+  @ApiBearerAuth()
+  async transitionBillStatus(
+    @CurrentUser('id') adminId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: TransitionBillStatusDto,
+  ) {
+    return this.billsService.transitionBillStatus(id, dto, adminId);
+  }
+
+  @Get('admin/:id/available-transitions')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Get available status transitions for a bill (admin)' })
+  @ApiBearerAuth()
+  async getAvailableTransitions(
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    const bill = await this.billsService.getBillByIdAdmin(id);
+    return this.billsService.getAvailableTransitionsForBill(bill.status);
+  }
+
+  @Post(':id/contract-verification/submit')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Submit contract verification response (user)' })
+  @ApiBearerAuth()
+  async submitContractVerification(
+    @CurrentUser('id') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SubmitContractVerificationDto,
+  ) {
+    return this.billsService.submitContractVerification(id, userId, dto);
   }
 }

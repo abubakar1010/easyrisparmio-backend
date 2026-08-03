@@ -22,7 +22,7 @@ import { CaseStatus } from '../../common/enums/case.enum';
 import { CaseEventType } from '../../common/enums/case-event.enum';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../../common/enums/notification.enum';
-import { resolveBillStatusFromCases } from '../../common/utils/bill-status-sync';
+import { BillStatus } from '../../common/enums/bill.enum';
 
 @Injectable()
 export class ContractsService {
@@ -130,6 +130,7 @@ export class ContractsService {
           type: NotificationType.CONTRACT_STATUS,
           data: {
             caseId: switchCase.id,
+            billId: switchCase.billId,
             contractId: saved.id,
             deliveryMethod: dto.deliveryMethod,
           },
@@ -141,8 +142,12 @@ export class ContractsService {
       }
     }
 
-    // Sync bill status to reflect case progression
-    await this.syncBillStatusFromCase(switchCase.billId);
+    // Set bill status directly
+    const bill = await this.billRepository.findOne({ where: { id: switchCase.billId } });
+    if (bill) {
+      bill.status = BillStatus.CONTRACT_SENT;
+      await this.billRepository.save(bill);
+    }
 
     return saved;
   }
@@ -262,6 +267,7 @@ export class ContractsService {
               type: NotificationType.CONTRACT_STATUS,
               data: {
                 caseId: switchCase.id,
+                billId: switchCase.billId,
                 contractId: saved.id,
                 newStatus: dto.status,
               },
@@ -272,8 +278,18 @@ export class ContractsService {
             );
           }
 
-          // Sync bill status to reflect case progression
-          await this.syncBillStatusFromCase(switchCase.billId);
+          // Set bill status directly based on contract status
+          const bill = await this.billRepository.findOne({ where: { id: switchCase.billId } });
+          if (bill) {
+            if (dto.status === ContractStatus.SENT) {
+              bill.status = BillStatus.CONTRACT_SENT;
+            } else if (dto.status === ContractStatus.SIGNED) {
+              bill.status = BillStatus.CONTRACT_REVIEW;
+            } else if (dto.status === ContractStatus.ACTIVE) {
+              bill.status = BillStatus.ACTIVATED;
+            }
+            await this.billRepository.save(bill);
+          }
         }
       }
     }
@@ -373,25 +389,14 @@ export class ContractsService {
         }),
       );
 
-      // Sync bill status to reflect case progression
-      await this.syncBillStatusFromCase(switchCase.billId);
+      // Set bill status directly: signed → contract_review
+      const bill = await this.billRepository.findOne({ where: { id: switchCase.billId } });
+      if (bill) {
+        bill.status = BillStatus.CONTRACT_REVIEW;
+        await this.billRepository.save(bill);
+      }
     }
 
     return saved;
-  }
-
-  private async syncBillStatusFromCase(billId: string): Promise<void> {
-    const allCases = await this.caseRepository.find({
-      where: { billId },
-      select: ['status'],
-    });
-    const resolvedStatus = resolveBillStatusFromCases(
-      allCases.map(c => c.status),
-    );
-    const bill = await this.billRepository.findOne({ where: { id: billId } });
-    if (bill && bill.status !== resolvedStatus) {
-      bill.status = resolvedStatus;
-      await this.billRepository.save(bill);
-    }
   }
 }

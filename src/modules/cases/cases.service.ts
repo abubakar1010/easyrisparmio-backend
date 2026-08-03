@@ -24,7 +24,6 @@ import { DocumentType } from '../../common/enums/user.enum';
 import { BillStatus } from '../../common/enums/bill.enum';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../../common/enums/notification.enum';
-import { resolveBillStatusFromCases } from '../../common/utils/bill-status-sync';
 
 @Injectable()
 export class CasesService {
@@ -88,7 +87,7 @@ export class CasesService {
 
     const saved = await this.caseRepository.save(switchCase);
 
-    bill.status = BillStatus.CASE_CREATED;
+    bill.status = BillStatus.OFFER_ACCEPTED;
     await this.billRepository.save(bill);
 
     await this.logEvent(saved.id, CaseEventType.STATUS_CHANGE, 'Case created', {
@@ -243,7 +242,7 @@ export class CasesService {
           title: 'Aggiornamento Pratica',
           body: `La tua pratica ${switchCase.caseNumber} è stata aggiornata.`,
           type: NotificationType.CASE_UPDATE,
-          data: { caseId: id, newStatus: dto.status },
+          data: { caseId: id, billId: switchCase.billId, newStatus: dto.status },
         });
       } catch (error) {
         this.logger.warn(
@@ -251,8 +250,6 @@ export class CasesService {
         );
       }
 
-      // Sync bill status to reflect case progression
-      await this.syncBillStatusFromCase(switchCase.billId);
     }
 
     // Log agent assignment event
@@ -360,21 +357,6 @@ export class CasesService {
     }
 
     return `${prefix}${String(seq).padStart(5, '0')}`;
-  }
-
-  private async syncBillStatusFromCase(billId: string): Promise<void> {
-    const allCases = await this.caseRepository.find({
-      where: { billId },
-      select: ['status'],
-    });
-    const resolvedStatus = resolveBillStatusFromCases(
-      allCases.map(c => c.status),
-    );
-    const bill = await this.billRepository.findOne({ where: { id: billId } });
-    if (bill && bill.status !== resolvedStatus) {
-      bill.status = resolvedStatus;
-      await this.billRepository.save(bill);
-    }
   }
 
   private async logEvent(

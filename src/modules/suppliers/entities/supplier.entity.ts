@@ -64,6 +64,9 @@ export class Supplier extends BaseEntity {
   @Column({ type: 'varchar', length: 100, nullable: true })
   city: string | null;
 
+  @Column({ type: 'varchar', length: 2, nullable: true })
+  province: string | null;
+
   @Column({ name: 'zip_code', type: 'varchar', length: 20, nullable: true })
   zipCode: string | null;
 

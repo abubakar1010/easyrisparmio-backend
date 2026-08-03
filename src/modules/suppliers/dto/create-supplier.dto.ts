@@ -97,6 +97,12 @@ export class CreateSupplierDto {
   @MaxLength(100)
   city?: string;
 
+  @ApiPropertyOptional({ description: 'Province (2-letter Italian code)', example: 'RM', maxLength: 2 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2)
+  province?: string;
+
   @ApiPropertyOptional({ description: 'ZIP / Postal code', example: '00198', maxLength: 20 })
   @IsOptional()
   @IsString()

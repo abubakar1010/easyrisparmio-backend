@@ -165,7 +165,6 @@ src/
 │   ├── dashboard/           # Admin analytics & KPIs
 │   ├── email/               # Email service (SMTP/Resend)
 │   ├── file-upload/         # File upload handling
-│   ├── market-data/         # Italian energy market indices (PUN/GME)
 │   ├── meters/              # Utility meter management (POD/PDR)
 │   ├── notifications/       # Push & in-app notifications
 │   ├── offers/              # Energy offer comparison

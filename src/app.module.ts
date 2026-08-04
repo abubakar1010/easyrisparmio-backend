@@ -23,7 +23,6 @@ import { ContractsModule } from './modules/contracts/contracts.module';
 import { SupportModule } from './modules/support/support.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
-import { MarketDataModule } from './modules/market-data/market-data.module';
 import { FileUploadModule } from './modules/file-upload/file-upload.module';
 import { ActivityLogModule } from './modules/activity-log/activity-log.module';
 import { MetersModule } from './modules/meters/meters.module';
@@ -101,7 +100,6 @@ import { DeepLinkModule } from './modules/deep-link/deep-link.module';
     SupportModule,
     NotificationsModule,
     DashboardModule,
-    MarketDataModule,
     FileUploadModule,
     ActivityLogModule,
     MetersModule,

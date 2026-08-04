@@ -61,7 +61,7 @@ Key cross-module imports:
 
 ### Entity Conventions
 
-All entities extend `BaseEntity` (uuid PK, `created_at`, `updated_at`). Exceptions: `ActivityLog` (no updatedAt), `MarketIndex` (custom PK).
+All entities extend `BaseEntity` (uuid PK, `created_at`, `updated_at`). Exceptions: `ActivityLog` (no updatedAt).
 
 - TypeScript: camelCase properties. DB: snake_case columns via `{ name: 'column_name' }`
 - Enums stored as Postgres `enum` type

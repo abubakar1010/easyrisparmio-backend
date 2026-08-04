@@ -54,7 +54,6 @@ import {
 } from './data/notifications.seed-data';
 import { seedReferrals } from './data/referrals.seed-data';
 import { seedAgreements } from './data/agreements.seed-data';
-import { seedMarketIndices } from './data/market-data.seed-data';
 import { seedStaticPages } from './data/static-pages.seed-data';
 import { seedAdminSettings, seedAdminAlerts } from './data/admin.seed-data';
 import {
@@ -137,9 +136,6 @@ const SEEDERS: Record<
   },
   agreements: async (ds, ctx) => {
     await seedAgreements(ds, ctx);
-  },
-  'market-data': async (ds) => {
-    await seedMarketIndices(ds);
   },
   'static-pages': async (ds) => {
     await seedStaticPages(ds);

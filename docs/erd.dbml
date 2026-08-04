@@ -316,7 +316,6 @@ TableGroup notifications_group {
 TableGroup admin_system {
   activity_logs
   admin_alerts
-  market_indices
 }
 
 TableGroup reconciliation_group {
@@ -987,29 +986,6 @@ Table csv_reconciliation_rows [headercolor: #95a5a6] {
     status
     (reconciliation_id, status)
   }
-}
-
-// ===========================
-// GROUP 10: MARKET DATA
-// Standalone reference — placed in corner
-// ===========================
-
-Table market_indices [headercolor: #7f8c8d] {
-  id uuid [pk, default: `gen_random_uuid()`]
-  index_name varchar(50) [not null, note: 'PUN, GME, PSV']
-  value decimal(12,4) [not null]
-  unit varchar(20) [not null, note: 'EUR/MWh, EUR/Smc']
-  date date [not null]
-  source varchar(100) [note: 'GME, ARERA']
-  created_at timestamptz [not null, default: `now()`]
-  updated_at timestamptz [not null, default: `now()`]
-
-  indexes {
-    (index_name, date) [unique]
-    (date)
-  }
-
-  Note: 'Italian energy market price indices. PUN = Prezzo Unico Nazionale.'
 }
 
 // ===========================

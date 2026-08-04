@@ -106,6 +106,9 @@ export class UsersService {
     // Include bill count as virtual property
     qb.loadRelationCountAndMap('user.billCount', 'user.bills');
 
+    // Exclude admin users from client list
+    qb.andWhere('user.role != :adminRole', { adminRole: UserRole.ADMIN });
+
     if (query.role) {
       qb.andWhere('user.role = :role', { role: query.role });
     }

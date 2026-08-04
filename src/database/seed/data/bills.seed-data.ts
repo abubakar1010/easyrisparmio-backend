@@ -202,7 +202,7 @@ export async function seedBillAnalyses(
       },
       confidenceScore: 0.82,
       recommendedOffers: [
-        { offerCode: 'SEED-ENEL-GC', estimatedSaving: 15.0 },
+        { offerCode: 'SEED-ENEL-GCS', estimatedSaving: 15.0 },
       ],
       offersSentToUser: false,
     },

@@ -20,8 +20,22 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "seed": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed.ts",
     "seed:reset": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed.ts --reset",
+    "seed:all": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed.ts",
     "seed:all-users": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-all-users.ts",
-    "seed:suppliers": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-suppliers.ts"
+    "seed:users": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts users",
+    "seed:suppliers": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts suppliers",
+    "seed:offers": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts offers",
+    "seed:meters": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts meters",
+    "seed:bills": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts bills",
+    "seed:cases": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts cases",
+    "seed:support": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts support",
+    "seed:notifications": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts notifications",
+    "seed:referrals": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts referrals",
+    "seed:agreements": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts agreements",
+    "seed:market-data": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts market-data",
+    "seed:static-pages": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts static-pages",
+    "seed:admin": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts admin",
+    "seed:reconciliation": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts reconciliation"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.111.0",

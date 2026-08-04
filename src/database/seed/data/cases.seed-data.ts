@@ -10,6 +10,16 @@ import { ContractStatus } from '../../../common/enums/contract.enum';
 import { DocumentType } from '../../../common/enums/user.enum';
 import { SeedContext } from '../seed-context';
 
+/** Find an offer by its offerCode in the seed context */
+function offerByCode(ctx: SeedContext, code: string) {
+  return ctx.offers.find((o) => o.offerCode === code);
+}
+
+/** Find a supplier by its supplierCode in the seed context */
+function supplierByCode(ctx: SeedContext, code: string) {
+  return ctx.suppliers.find((s) => s.supplierCode === code);
+}
+
 export async function seedSwitchCases(
   ds: DataSource,
   ctx: SeedContext,
@@ -19,13 +29,16 @@ export async function seedSwitchCases(
   const testUser = ctx.users.personal[2]; // test@yopmail.com
   const giuseppe = ctx.users.business[0];
   const admin = ctx.users.admin;
-  const [enel, eni, a2a] = ctx.suppliers;
+
+  const enel = supplierByCode(ctx, 'ENEL');
+  const eni = supplierByCode(ctx, 'ENI');
+  const a2a = supplierByCode(ctx, 'A2A');
 
   const casesData = [
     {
       userId: marco.id,
       billId: ctx.bills[0].id, // Marco's electricity bill
-      selectedOfferId: ctx.offers[2].id, // Trend Casa Luce (Eni)
+      selectedOfferId: offerByCode(ctx, 'SEED-ENI-TCL')?.id, // Trend Casa Luce (Eni)
       assignedAgentId: admin.id,
       status: CaseStatus.IN_PROGRESS,
       priority: CasePriority.MEDIUM,
@@ -36,13 +49,13 @@ export async function seedSwitchCases(
       slaDaysTotal: 30,
       slaDeadline: new Date('2026-07-15T23:59:59Z'),
       estimatedAnnualValue: 2200.0,
-      fromSupplierId: enel.id,
-      toSupplierId: eni.id,
+      fromSupplierId: enel?.id,
+      toSupplierId: eni?.id,
     },
     {
       userId: marco.id,
       billId: ctx.bills[1].id, // Marco's gas bill
-      selectedOfferId: ctx.offers[1].id, // Gas Casa (Enel)
+      selectedOfferId: offerByCode(ctx, 'SEED-ENEL-GCS')?.id, // Gas Casa Sicura (Enel)
       assignedAgentId: admin.id,
       status: CaseStatus.CONTRACT_SIGNED,
       priority: CasePriority.LOW,
@@ -51,13 +64,13 @@ export async function seedSwitchCases(
       notes: 'Passaggio gas completato. Contratto firmato.',
       slaDaysTotal: 30,
       estimatedAnnualValue: 1140.0,
-      fromSupplierId: eni.id,
-      toSupplierId: enel.id,
+      fromSupplierId: eni?.id,
+      toSupplierId: enel?.id,
     },
     {
       userId: giuseppe.id,
       billId: ctx.bills[3].id, // Giuseppe's electricity bill
-      selectedOfferId: ctx.offers[3].id, // Dual Business Pro (Eni)
+      selectedOfferId: offerByCode(ctx, 'SEED-ENI-BDP')?.id, // Business Dual Pro (Eni)
       assignedAgentId: admin.id,
       status: CaseStatus.NEW,
       priority: CasePriority.HIGH,
@@ -69,14 +82,14 @@ export async function seedSwitchCases(
       slaDaysTotal: 14,
       slaDeadline: new Date('2026-07-09T23:59:59Z'),
       estimatedAnnualValue: 54000.0,
-      fromSupplierId: a2a.id,
-      toSupplierId: eni.id,
+      fromSupplierId: a2a?.id,
+      toSupplierId: eni?.id,
     },
     // test@yopmail.com — electricity switch (ACTIVATED)
     {
       userId: testUser.id,
       billId: ctx.bills[4].id, // test user's electricity bill
-      selectedOfferId: ctx.offers[0].id, // Luce Fissa 24 (Enel)
+      selectedOfferId: offerByCode(ctx, 'SEED-ENEL-LF24')?.id, // Luce Fissa 24 (Enel)
       assignedAgentId: admin.id,
       status: CaseStatus.ACTIVATED,
       priority: CasePriority.MEDIUM,
@@ -85,14 +98,14 @@ export async function seedSwitchCases(
       notes: 'Switch luce completato e attivato.',
       slaDaysTotal: 30,
       estimatedAnnualValue: 1740.0,
-      fromSupplierId: eni.id,
-      toSupplierId: enel.id,
+      fromSupplierId: eni?.id,
+      toSupplierId: enel?.id,
     },
     // test@yopmail.com — gas switch (ACTIVATED)
     {
       userId: testUser.id,
       billId: ctx.bills[5].id, // test user's gas bill
-      selectedOfferId: ctx.offers[1].id, // Gas Casa (Enel)
+      selectedOfferId: offerByCode(ctx, 'SEED-ENEL-GCS')?.id, // Gas Casa Sicura (Enel)
       assignedAgentId: admin.id,
       status: CaseStatus.ACTIVATED,
       priority: CasePriority.LOW,
@@ -101,8 +114,8 @@ export async function seedSwitchCases(
       notes: 'Switch gas completato e attivato.',
       slaDaysTotal: 30,
       estimatedAnnualValue: 942.0,
-      fromSupplierId: eni.id,
-      toSupplierId: enel.id,
+      fromSupplierId: eni?.id,
+      toSupplierId: enel?.id,
     },
   ];
 
@@ -252,7 +265,7 @@ export async function seedContracts(
   const contractsData = [
     {
       caseId: ctx.cases[1].id, // SEED-CASE-002 (CONTRACT_SIGNED)
-      offerId: ctx.offers[1].id, // Gas Casa
+      offerId: offerByCode(ctx, 'SEED-ENEL-GCS')?.id, // Gas Casa Sicura
       userId: marco.id,
       contractNumber: 'SEED-CTR-001',
       status: ContractStatus.SIGNED,
@@ -266,7 +279,7 @@ export async function seedContracts(
     // test@yopmail.com — electricity contract (ACTIVE)
     {
       caseId: ctx.cases[3].id, // SEED-CASE-004 (ACTIVATED)
-      offerId: ctx.offers[0].id, // Luce Fissa 24
+      offerId: offerByCode(ctx, 'SEED-ENEL-LF24')?.id, // Luce Fissa 24
       userId: testUser.id,
       contractNumber: 'SEED-CTR-002',
       status: ContractStatus.ACTIVE,
@@ -280,7 +293,7 @@ export async function seedContracts(
     // test@yopmail.com — gas contract (ACTIVE)
     {
       caseId: ctx.cases[4].id, // SEED-CASE-005 (ACTIVATED)
-      offerId: ctx.offers[1].id, // Gas Casa
+      offerId: offerByCode(ctx, 'SEED-ENEL-GCS')?.id, // Gas Casa Sicura
       userId: testUser.id,
       contractNumber: 'SEED-CTR-003',
       status: ContractStatus.ACTIVE,

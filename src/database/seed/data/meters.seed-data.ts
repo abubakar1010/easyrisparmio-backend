@@ -13,32 +13,18 @@ export async function seedMeters(
   const metersData = [
     {
       utilityType: UtilityType.ELECTRICITY,
-      name: 'Electricity',
-      description: 'Residential and business electricity supply',
+      name: 'Energia Elettrica',
+      description:
+        'Fornitura di energia elettrica per utenze domestiche e business. Identificata dal codice POD (Point of Delivery).',
       isActive: true,
       createdBy: admin.id,
       updatedBy: admin.id,
     },
     {
       utilityType: UtilityType.GAS,
-      name: 'Gas',
-      description: 'Natural gas supply for heating and cooking',
-      isActive: true,
-      createdBy: admin.id,
-      updatedBy: admin.id,
-    },
-    {
-      utilityType: UtilityType.WATER,
-      name: 'Water',
-      description: 'Municipal water supply service',
-      isActive: true,
-      createdBy: admin.id,
-      updatedBy: admin.id,
-    },
-    {
-      utilityType: UtilityType.INTERNET,
-      name: 'Internet',
-      description: 'Broadband internet connectivity',
+      name: 'Gas Naturale',
+      description:
+        'Fornitura di gas naturale per riscaldamento, acqua calda e cottura. Identificata dal codice PDR (Punto di Riconsegna).',
       isActive: true,
       createdBy: admin.id,
       updatedBy: admin.id,

@@ -18,6 +18,7 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
+    "db:drop": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/drop-database.ts",
     "seed": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed.ts",
     "seed:reset": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed.ts --reset",
     "seed:all": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed.ts",

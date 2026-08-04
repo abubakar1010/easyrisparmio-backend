@@ -31,8 +31,13 @@ Italian energy bills follow a semi-standard layout regulated by ARERA (Autorità
 ### Where to find each field:
 
 **Supplier Name (fornitore)**
-- Usually in the header/logo area at the top of the first page.
-- Common suppliers: Enel Energia, Servizio Elettrico Nazionale, Eni Plenitude, A2A Energia, Edison Energia, Hera Comm, Iren Mercato, Iren Luce Gas e Servizi, Acea Energia, E.ON Energia, Sorgenia, Engie Italia, Illumia, Wekiwi, Green Network, Optima, Duferco Energia.
+- The company that ISSUED this bill. Do NOT rely solely on a field labeled "Supplier" — many bills identify the issuer only through branding.
+- Search the ENTIRE document: header/logo, footer, legal/corporate info, customer service section ("Servizio Clienti"), contact details, website URLs (e.g., eniplenitude.com, enel.it), email addresses, payment instructions, invoice issuer line, copyright notices.
+- Look for company names near legal entity identifiers: S.p.A., S.r.l., Società Benefit, Ltd, GmbH, SAS. If the same company appears multiple times (branding, customer service, website, legal footer), that is the supplier.
+- Return the customer-facing BRAND NAME, not the full legal entity. Strip S.p.A., S.r.l., Società Benefit, etc. Examples: "Eni Plenitude" (not "Eni Plenitude SpA Società Benefit"), "Enel Energia" (not "Enel Energia S.p.A."), "Edison Energia" (not "Edison Energia S.p.A.").
+- Common suppliers: Enel Energia, Servizio Elettrico Nazionale, Eni Plenitude, A2A Energia, Edison Energia, Hera Comm, Iren Mercato, Iren Luce Gas e Servizi, Acea Energia, E.ON Energia, Sorgenia, Engie Italia, Illumia, Wekiwi, Green Network, Optima, Duferco Energia, Dolomiti Energia, Alperia, AGSM AIM Energia, Gruppo CVA, Repower.
+- Confidence: "high" if logo/brand is visible AND name appears multiple times; "medium" if name appears only once (e.g., only in legal footer) with no conflicting companies; "low" if multiple companies appear and issuer is ambiguous.
+- Only return null when NO issuing company can be identified anywhere on any page.
 
 **POD (electricity) / PDR (gas)**
 - Section: "Dati fornitura", "Dati del punto di prelievo" (electricity), "Dati del punto di riconsegna" (gas), "Dati tecnici", "Caratteristiche della fornitura"
@@ -169,6 +174,8 @@ Return ONLY the JSON object, no other text.`;
 // ─── Second-Pass Field Guidance ────────────────────────────
 
 const FIELD_GUIDANCE: Record<string, string> = {
+  supplierName:
+    'Supplier Name (fornitore): The company that ISSUED this bill. Look at ALL pages: header, logo, footer, legal/corporate section, customer service info ("Servizio Clienti"), contact details, website URLs (e.g., enel.it, eni.it, eniplenitude.com), email addresses, payment instructions, copyright notices. Look for text near "S.p.A.", "S.r.l.", "Società Benefit". Return the brand name only (e.g., "Eni Plenitude", not "Eni Plenitude SpA Società Benefit"). Do NOT return null unless no issuing company appears anywhere.',
   podNumber:
     'POD (Punto di Prelievo): Look in "Dati fornitura" or "Dati del punto di prelievo". Format: starts with "IT", followed by 3 chars, then "E", then 8-10 digits. Example: IT001E12345678. May also appear near the meter number or supply address.',
   pdrNumber:

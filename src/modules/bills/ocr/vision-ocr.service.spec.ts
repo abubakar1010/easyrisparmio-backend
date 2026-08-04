@@ -187,6 +187,73 @@ describe('VisionOcrService', () => {
       expect(mockCreate).toHaveBeenCalledTimes(2);
     });
 
+    it('should trigger second pass when supplierName is missing and merge result', async () => {
+      const firstPassResponse = {
+        supplierName: null,
+        podNumber: 'IT001E12345678',
+        pdrNumber: null,
+        totalAmount: 120.50,
+        consumptionKwh: 350,
+        consumptionSmc: null,
+        costPerUnit: 0.085,
+        fixedCharges: 9.90,
+        taxes: 22.10,
+        billingPeriodStart: '2026-01-01',
+        billingPeriodEnd: '2026-01-31',
+        supplyAddress: 'Via Roma 42, Milano',
+        codiceFiscale: 'RSSMRA85M01H501Z',
+        partitaIva: null,
+        contractNumber: 'C-001',
+        meterNumber: '12345678',
+        customerName: 'Mario Rossi',
+        confidence: {
+          supplierName: null,
+          podNumber: 'high',
+          pdrNumber: null,
+          totalAmount: 'high',
+          consumptionKwh: 'high',
+          consumptionSmc: null,
+          costPerUnit: 'medium',
+          fixedCharges: 'high',
+          taxes: 'high',
+          billingPeriodStart: 'high',
+          billingPeriodEnd: 'high',
+          supplyAddress: 'high',
+          codiceFiscale: 'high',
+          partitaIva: null,
+          contractNumber: 'medium',
+          meterNumber: 'medium',
+          customerName: 'high',
+        },
+      };
+
+      const secondPassResponse = {
+        supplierName: 'Dolomiti Energia',
+        confidence: { supplierName: 'medium' },
+      };
+
+      mockCreate
+        .mockResolvedValueOnce({
+          choices: [{ message: { content: JSON.stringify(firstPassResponse) } }],
+        })
+        .mockResolvedValueOnce({
+          choices: [{ message: { content: JSON.stringify(secondPassResponse) } }],
+        });
+
+      const result = await service.extractFromImages(
+        [Buffer.from('fake')],
+        BillType.ELECTRICITY,
+      );
+
+      expect(result.supplierName).toBe('Dolomiti Energia');
+      expect(result.confidence.supplierName).toBe('medium');
+      // Other fields from first pass should be preserved
+      expect(result.podNumber).toBe('IT001E12345678');
+      expect(result.totalAmount).toBe(120.50);
+      // Second pass was triggered because supplierName was missing
+      expect(mockCreate).toHaveBeenCalledTimes(2);
+    });
+
     it('should throw on non-retryable error', async () => {
       const authError = new Error('Invalid API key');
       (authError as any).status = 401;

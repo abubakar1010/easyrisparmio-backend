@@ -332,6 +332,7 @@ export function getMissingMandatoryFields(
   const missing: string[] = [];
   const isElectricity = billType === BillType.ELECTRICITY;
 
+  if (!result.supplierName) missing.push('supplierName');
   if (isElectricity && !result.podNumber) missing.push('podNumber');
   if (!isElectricity && !result.pdrNumber) missing.push('pdrNumber');
   if (result.totalAmount == null) missing.push('totalAmount');

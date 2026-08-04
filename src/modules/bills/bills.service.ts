@@ -8,7 +8,6 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { EnergyBill } from './entities/energy-bill.entity';
-import { BillAnalysis } from './entities/bill-analysis.entity';
 import { BillFile } from './entities/bill-file.entity';
 import { BillVerification, VerificationStatus } from './entities/bill-verification.entity';
 import { RequestVerificationDto, SubmitVerificationDto } from './dto/request-verification.dto';
@@ -42,8 +41,6 @@ export class BillsService {
   constructor(
     @InjectRepository(EnergyBill)
     private readonly billRepository: Repository<EnergyBill>,
-    @InjectRepository(BillAnalysis)
-    private readonly analysisRepository: Repository<BillAnalysis>,
     @InjectRepository(BillFile)
     private readonly billFileRepository: Repository<BillFile>,
     @InjectRepository(BillVerification)
@@ -97,7 +94,7 @@ export class BillsService {
       meterNumber: dto.meterNumber,
       customerName: dto.customerName,
       source: BillSource.UPLOAD,
-      status: BillStatus.ANALYZING,
+      status: BillStatus.VERIFICATION_REVIEW,
       rawAnalysisData: dto.supplierName ? {
         ocrSupplierName: dto.supplierName,
         ocrConfidence: (dto as any).confidence ?? null,
@@ -181,8 +178,8 @@ export class BillsService {
           ocrWarning: 'No readable images found in uploaded files',
           ocrTimestamp: new Date().toISOString(),
         };
+        bill.status = BillStatus.VERIFICATION_REVIEW;
         await this.billRepository.save(bill);
-        await this.runAnalysis(bill);
         return;
       }
 
@@ -232,12 +229,10 @@ export class BillsService {
         imagesProcessed: allImageBuffers.length,
       };
 
+      bill.status = BillStatus.VERIFICATION_REVIEW;
       await this.billRepository.save(bill);
 
-      // Run analysis — works with whatever data was collected
-      await this.runAnalysis(bill);
-
-      this.logger.log(`Background OCR + analysis completed for bill ${bill.id}`);
+      this.logger.log(`Background OCR completed for bill ${bill.id}`);
     } catch (error) {
       this.logger.error(
         `Background OCR processing failed for bill ${bill.id}: ${error.message}`,
@@ -248,15 +243,8 @@ export class BillsService {
         ocrWarning: error.message,
         ocrFailedAt: new Date().toISOString(),
       };
+      bill.status = BillStatus.VERIFICATION_REVIEW;
       await this.billRepository.save(bill);
-      // Still try to run analysis with whatever data exists
-      try {
-        await this.runAnalysis(bill);
-      } catch (analysisErr) {
-        this.logger.error(`Analysis also failed for bill ${bill.id}: ${analysisErr.message}`);
-        bill.status = BillStatus.ANALYZED;
-        await this.billRepository.save(bill);
-      }
     }
   }
 
@@ -269,7 +257,6 @@ export class BillsService {
     const qb = this.billRepository
       .createQueryBuilder('bill')
       .leftJoinAndSelect('bill.supplier', 'supplier')
-      .leftJoinAndSelect('bill.analysis', 'analysis')
       .leftJoinAndSelect('bill.switchCases', 'switchCase')
       .leftJoinAndSelect('bill.files', 'billFile')
       .where('bill.userId = :userId', { userId });
@@ -351,7 +338,7 @@ export class BillsService {
   async getBillByIdAdmin(billId: string): Promise<EnergyBill> {
     const bill = await this.billRepository.findOne({
       where: { id: billId },
-      relations: ['supplier', 'analysis', 'user', 'switchCases', 'files', 'verifications'],
+      relations: ['supplier', 'user', 'switchCases', 'files', 'verifications'],
     });
 
     if (!bill) {
@@ -364,7 +351,7 @@ export class BillsService {
   async getBillById(billId: string, userId: string): Promise<EnergyBill> {
     const bill = await this.billRepository.findOne({
       where: { id: billId },
-      relations: ['supplier', 'analysis', 'switchCases', 'files', 'verifications'],
+      relations: ['supplier', 'switchCases', 'files', 'verifications'],
     });
 
     if (!bill) {
@@ -502,16 +489,9 @@ export class BillsService {
         model: 'gpt-4o',
       };
 
+      savedBill.status = BillStatus.VERIFICATION_REVIEW;
       await this.billRepository.save(savedBill);
 
-      // Run analysis to generate savings data and recommended offers
-      try {
-        await this.runAnalysis(savedBill);
-      } catch (error) {
-        this.logger.error(
-          `Analysis failed for bill ${savedBill.id}: ${error.message}`,
-        );
-      }
     }
 
     return this.getBillByIdAdmin(savedBill.id);
@@ -583,31 +563,7 @@ export class BillsService {
     return this.billRepository.save(bill);
   }
 
-  // ─── Analysis ─────────────────────────────────────────────
-
-  async reanalyzeBill(billId: string): Promise<BillAnalysis> {
-    const bill = await this.getBillByIdAdmin(billId);
-    return this.runAnalysis(bill);
-  }
-
-  // ─── Admin: Recommended Offers ────────────────────────────
-
-  async getRecommendedOffersAdmin(billId: string) {
-    const analysis = await this.analysisRepository.findOne({
-      where: { billId },
-    });
-
-    if (!analysis) {
-      throw new NotFoundException('Analysis not found for this bill');
-    }
-
-    return {
-      billId,
-      recommendedOffers: analysis.recommendedOffers || [],
-      potentialSavings: analysis.potentialSavings,
-      offersSentToUser: analysis.offersSentToUser,
-    };
-  }
+  // ─── Admin: Offers for Bill ────────────────────────────────
 
   async getAllOffersForBill(billId: string) {
     const bill = await this.getBillByIdAdmin(billId);
@@ -763,154 +719,7 @@ export class BillsService {
     await this.billRepository.save(bill);
   }
 
-  // ─── Private: Core Analysis Logic ─────────────────────────
-
-  private async runAnalysis(bill: EnergyBill): Promise<BillAnalysis> {
-    bill.status = BillStatus.ANALYZING;
-    await this.billRepository.save(bill);
-
-    try {
-      const energyType = bill.billType === BillType.ELECTRICITY
-        ? EnergyType.ELECTRICITY
-        : EnergyType.GAS;
-
-      const qb = this.offerRepository
-        .createQueryBuilder('offer')
-        .leftJoinAndSelect('offer.supplier', 'supplier')
-        .where('offer.isActive = :isActive', { isActive: true })
-        .andWhere('offer.offerStatus = :offerStatus', { offerStatus: OfferStatus.ACTIVE })
-        .andWhere(
-          '(offer.energyType = :energyType OR offer.energyType = :dual)',
-          { energyType, dual: EnergyType.DUAL },
-        );
-
-      if (bill.billType === BillType.ELECTRICITY) {
-        qb.orderBy('COALESCE(offer.spread, offer.price_per_kwh)', 'ASC', 'NULLS LAST');
-      } else {
-        qb.orderBy('COALESCE(offer.spread, offer.price_per_smc)', 'ASC', 'NULLS LAST');
-      }
-
-      const allOffers = await qb.getMany();
-
-      const { potentialSavings, currentMonthlyAvg, confidenceScore } =
-        this.calculateSavings(bill, allOffers);
-
-      const recommendedMarketType = allOffers.length > 0
-        ? allOffers[0].marketType
-        : MarketType.FIXED;
-
-      const offerSnapshots = allOffers.map((offer) => ({
-        id: offer.id,
-        name: offer.name,
-        supplierName: offer.supplier?.name || null,
-        supplierId: offer.supplierId,
-        pricePerKwh: offer.pricePerKwh,
-        pricePerSmc: offer.pricePerSmc,
-        spread: offer.spread,
-        fixedMonthlyFee: offer.fixedMonthlyFee,
-        energyType: offer.energyType,
-        marketType: offer.marketType,
-        contractDurationDays: offer.contractDurationDays,
-        isGreenEnergy: offer.isGreenEnergy,
-        estimatedSavings: this.estimateOfferSavings(bill, offer),
-      }));
-
-      let analysis = await this.analysisRepository.findOne({
-        where: { billId: bill.id },
-      });
-
-      const analysisData = {
-        potentialSavings,
-        currentMonthlyAvg,
-        recommendedMarketType,
-        analysisDetails: {
-          currentCostPerUnit: bill.costPerUnit,
-          currentFixedCharges: bill.fixedCharges,
-          consumption: bill.billType === BillType.ELECTRICITY
-            ? bill.consumptionKwh
-            : bill.consumptionSmc,
-          offersCompared: allOffers.length,
-        },
-        confidenceScore,
-        recommendedOffers: offerSnapshots,
-        offersSentToUser: false,
-      };
-
-      if (analysis) {
-        Object.assign(analysis, analysisData);
-      } else {
-        analysis = this.analysisRepository.create({
-          billId: bill.id,
-          ...analysisData,
-        });
-      }
-
-      await this.analysisRepository.save(analysis);
-
-      bill.status = BillStatus.VERIFICATION_REVIEW;
-      await this.billRepository.save(bill);
-
-      return analysis;
-    } catch (error) {
-      bill.status = BillStatus.ERROR;
-      await this.billRepository.save(bill);
-      throw error;
-    }
-  }
-
-  private calculateSavings(
-    bill: EnergyBill,
-    offers: Offer[],
-  ): { potentialSavings: number; currentMonthlyAvg: number; confidenceScore: number } {
-    const totalAmount = Number(bill.totalAmount) || 0;
-    const costPerUnit = Number(bill.costPerUnit) || 0;
-    const fixedCharges = Number(bill.fixedCharges) || 0;
-    const consumption = bill.billType === BillType.ELECTRICITY
-      ? Number(bill.consumptionKwh) || 0
-      : Number(bill.consumptionSmc) || 0;
-
-    // If we have full cost data + offers, calculate real savings
-    if (costPerUnit > 0 && consumption > 0 && offers.length > 0) {
-      const bestOffer = offers[0];
-      let bestOfferPrice: number;
-      if (bestOffer.marketType === MarketType.VARIABLE || bestOffer.marketType === MarketType.INDEXED) {
-        bestOfferPrice = Number(bestOffer.spread) || 0;
-      } else {
-        bestOfferPrice = bill.billType === BillType.ELECTRICITY
-          ? Number(bestOffer.pricePerKwh) || 0
-          : Number(bestOffer.pricePerSmc) || 0;
-      }
-      const bestOfferFee = Number(bestOffer.fixedMonthlyFee) || 0;
-
-      const currentCost = (consumption * costPerUnit) + fixedCharges;
-      const bestOfferCost = (consumption * bestOfferPrice) + bestOfferFee;
-      const periodsPerYear = this.getBillingPeriodsPerYear(bill);
-      const savings = Math.max(0, +((currentCost - bestOfferCost) * periodsPerYear).toFixed(2));
-
-      return {
-        potentialSavings: savings,
-        currentMonthlyAvg: +currentCost.toFixed(2),
-        confidenceScore: 0.9,
-      };
-    }
-
-    // Fallback: estimate from totalAmount (annualized)
-    if (totalAmount > 0 && offers.length > 0) {
-      const periodsPerYear = this.getBillingPeriodsPerYear(bill);
-      return {
-        potentialSavings: +(totalAmount * 0.10 * periodsPerYear).toFixed(2),
-        currentMonthlyAvg: +totalAmount.toFixed(2),
-        confidenceScore: 0.4,
-      };
-    }
-
-    // No data available
-    return {
-      potentialSavings: 0,
-      currentMonthlyAvg: totalAmount,
-      confidenceScore: 0,
-    };
-  }
+  // ─── Private: Savings Helpers ──────────────────────────────
 
   private getBillingPeriodsPerYear(bill: EnergyBill): number {
     const start = bill.billingPeriodStart ? new Date(bill.billingPeriodStart) : null;
@@ -1107,22 +916,16 @@ export class BillsService {
     verification.userData = dto.fieldValues || null;
     await this.verificationRepository.save(verification);
 
-    // Re-run analysis with updated data
+    // Re-run OCR if re-upload was required, otherwise just update status
     if (verification.requireReupload) {
       bill.status = BillStatus.ANALYZING;
       await this.billRepository.save(bill);
       this.processOcrInBackground(bill).catch((err) =>
-        this.logger.error(`Re-analysis failed for bill ${bill.id}: ${err.message}`),
+        this.logger.error(`Re-OCR failed for bill ${bill.id}: ${err.message}`),
       );
     } else {
-      // Just re-run analysis with the new field values
-      try {
-        await this.runAnalysis(bill);
-      } catch {
-        // runAnalysis already sets VERIFICATION_REVIEW on success
-        bill.status = BillStatus.VERIFICATION_REVIEW;
-        await this.billRepository.save(bill);
-      }
+      bill.status = BillStatus.VERIFICATION_REVIEW;
+      await this.billRepository.save(bill);
     }
 
     return this.getBillById(bill.id, userId);

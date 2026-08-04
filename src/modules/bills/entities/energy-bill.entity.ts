@@ -2,7 +2,6 @@ import {
   Entity,
   Column,
   ManyToOne,
-  OneToOne,
   OneToMany,
   JoinColumn,
   DeleteDateColumn,
@@ -12,7 +11,6 @@ import { BaseEntity } from '../../../common/entities/base.entity';
 import { BillType, BillStatus, BillSource } from '../../../common/enums/bill.enum';
 import { User } from '../../users/entities/user.entity';
 import { Supplier } from '../../suppliers/entities/supplier.entity';
-import { BillAnalysis } from './bill-analysis.entity';
 import { BillFile } from './bill-file.entity';
 import { BillVerification } from './bill-verification.entity';
 import { SwitchCase } from '../../cases/entities/switch-case.entity';
@@ -156,9 +154,6 @@ export class EnergyBill extends BaseEntity {
 
   @DeleteDateColumn({ name: 'deleted_at' })
   deletedAt: Date | null;
-
-  @OneToOne(() => BillAnalysis, (analysis) => analysis.bill)
-  analysis: BillAnalysis;
 
   @OneToMany(() => BillFile, (f) => f.bill, { cascade: true })
   files: BillFile[];

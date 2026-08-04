@@ -5,7 +5,6 @@ import { User } from '../users/entities/user.entity';
 import { SwitchCase } from '../cases/entities/switch-case.entity';
 import { Contract } from '../contracts/entities/contract.entity';
 import { EnergyBill } from '../bills/entities/energy-bill.entity';
-import { BillAnalysis } from '../bills/entities/bill-analysis.entity';
 import { AdminSettings } from './entities/admin-settings.entity';
 import { AdminAlert } from '../alerts/entities/admin-alert.entity';
 import { ActivityLog } from '../activity-log/entities/activity-log.entity';
@@ -25,8 +24,6 @@ export class DashboardService {
     private readonly contractRepository: Repository<Contract>,
     @InjectRepository(EnergyBill)
     private readonly billRepository: Repository<EnergyBill>,
-    @InjectRepository(BillAnalysis)
-    private readonly analysisRepository: Repository<BillAnalysis>,
     @InjectRepository(AdminSettings)
     private readonly adminSettingsRepository: Repository<AdminSettings>,
     @InjectRepository(AdminAlert)
@@ -344,11 +341,10 @@ export class DashboardService {
   private async getUserPotentialSavings(userId: string) {
     const result = await this.dataSource.query(
       `SELECT
-        COALESCE(SUM(COALESCE(contract.estimated_savings, so.estimated_savings, ba.potential_savings, 0)), 0) AS "totalSavings",
+        COALESCE(SUM(COALESCE(contract.estimated_savings, so.estimated_savings, 0)), 0) AS "totalSavings",
         COUNT(DISTINCT contract.id)::int AS "activeUtilities"
       FROM contracts contract
       INNER JOIN switch_cases sc ON sc.id = contract.case_id
-      LEFT JOIN bill_analyses ba ON ba.bill_id = sc.bill_id
       LEFT JOIN sent_offers so ON so.bill_id = sc.bill_id AND so.offer_id = sc.selected_offer_id
       WHERE contract.user_id = $1
         AND sc.status = 'activated'

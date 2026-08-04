@@ -6,7 +6,6 @@ import { UserAddress } from '../../modules/users/entities/user-address.entity';
 import { UserPreference } from '../../modules/users/entities/user-preference.entity';
 import { BusinessProfile } from '../../modules/users/entities/business-profile.entity';
 import { EnergyBill } from '../../modules/bills/entities/energy-bill.entity';
-import { BillAnalysis } from '../../modules/bills/entities/bill-analysis.entity';
 import { Notification } from '../../modules/notifications/entities/notification.entity';
 import { SupportTicket } from '../../modules/support/entities/support-ticket.entity';
 import { TicketMessage } from '../../modules/support/entities/ticket-message.entity';
@@ -19,7 +18,6 @@ import {
   LanguagePref,
 } from '../../common/enums/payment.enum';
 import { BillType, BillStatus } from '../../common/enums/bill.enum';
-import { MarketType } from '../../common/enums/offer.enum';
 import { NotificationType } from '../../common/enums/notification.enum';
 import {
   TicketStatus,
@@ -273,57 +271,6 @@ async function seedBillsForUser(
   return bills;
 }
 
-async function seedBillAnalysesForUser(
-  ds: DataSource,
-  bills: EnergyBill[],
-  userEmail: string,
-): Promise<void> {
-  const repo = ds.getRepository(BillAnalysis);
-
-  const analyzedBills = bills.filter((b) => b.status === BillStatus.ANALYZED);
-  if (analyzedBills.length === 0) return;
-
-  for (const bill of analyzedBills) {
-    const existing = await repo.findOne({ where: { billId: bill.id } });
-    if (existing) {
-      console.log(`    Bill analysis already exists for bill: ${bill.id.substring(0, 8)}...`);
-      continue;
-    }
-
-    const isElectricity = bill.billType === BillType.ELECTRICITY;
-    const savingsPercentage = randomDecimal(5, 25);
-    const potentialSavings = parseFloat(
-      ((bill.totalAmount * savingsPercentage) / 100).toFixed(2),
-    );
-
-    await repo.save(
-      repo.create({
-        billId: bill.id,
-        potentialSavings,
-        currentMonthlyAvg: parseFloat((bill.totalAmount / 2).toFixed(2)),
-        recommendedMarketType: pick([MarketType.FIXED, MarketType.VARIABLE]),
-        analysisDetails: {
-          ...(isElectricity
-            ? {
-                currentPricePerKwh: bill.costPerUnit,
-                marketAvgPricePerKwh: randomDecimal(0.07, 0.1, 4),
-              }
-            : {
-                currentPricePerSmc: bill.costPerUnit,
-                marketAvgPricePerSmc: randomDecimal(0.35, 0.45, 4),
-              }),
-          savingsPercentage,
-          consumptionProfile: isElectricity ? 'standard domestico' : 'riscaldamento autonomo',
-        },
-        confidenceScore: randomDecimal(0.78, 0.95),
-        recommendedOffers: [],
-        offersSentToUser: Math.random() > 0.5,
-      }),
-    );
-    console.log(`    Created bill analysis for ${userEmail} (${bill.billType})`);
-  }
-}
-
 async function seedNotificationsForUser(
   ds: DataSource,
   user: User,
@@ -481,9 +428,6 @@ async function run(): Promise<void> {
 
       // Level 1: Bills
       const bills = await seedBillsForUser(ds, user, suppliers);
-
-      // Level 2: Bill analyses (for analyzed bills)
-      await seedBillAnalysesForUser(ds, bills, user.email);
 
       // Level 1: Notifications
       await seedNotificationsForUser(ds, user);

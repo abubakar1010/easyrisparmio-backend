@@ -35,7 +35,7 @@ import {
 import { seedSuppliers } from './data/suppliers.seed-data';
 import { seedOffers, seedOfferPriceVersions } from './data/offers.seed-data';
 import { seedMeters } from './data/meters.seed-data';
-import { seedEnergyBills, seedBillAnalyses } from './data/bills.seed-data';
+import { seedEnergyBills } from './data/bills.seed-data';
 import {
   seedSwitchCases,
   seedCaseDocuments,
@@ -113,7 +113,6 @@ const SEEDERS: Record<
   },
   bills: async (ds, ctx) => {
     await seedEnergyBills(ds, ctx);
-    await seedBillAnalyses(ds, ctx);
   },
   cases: async (ds, ctx) => {
     await seedSwitchCases(ds, ctx);

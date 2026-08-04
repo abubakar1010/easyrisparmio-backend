@@ -5,8 +5,8 @@ import { BillStatus } from '../enums/bill.enum';
  * Each key maps to the list of statuses it can transition TO.
  */
 const ALLOWED_TRANSITIONS: Record<string, BillStatus[]> = {
-  [BillStatus.UPLOADED]: [BillStatus.ANALYZING],
-  [BillStatus.ANALYZING]: [BillStatus.ANALYZED, BillStatus.ERROR],
+  [BillStatus.UPLOADED]: [BillStatus.ANALYZING, BillStatus.VERIFICATION_REVIEW],
+  [BillStatus.ANALYZING]: [BillStatus.VERIFICATION_REVIEW, BillStatus.ERROR],
   [BillStatus.ANALYZED]: [BillStatus.VERIFICATION_REVIEW],
   [BillStatus.VERIFICATION_REVIEW]: [BillStatus.VERIFIED, BillStatus.VERIFICATION_REQUIRED],
   [BillStatus.VERIFICATION_REQUIRED]: [BillStatus.VERIFICATION_REVIEW],

@@ -28,7 +28,6 @@ import { seedOfferPriceVersions } from './data/offers.seed-data';
 import { seedSupportTickets } from './data/support.seed-data';
 
 // Data seeders - Level 3
-import { seedBillAnalyses } from './data/bills.seed-data';
 import { seedSwitchCases } from './data/cases.seed-data';
 import { seedTicketMessages } from './data/support.seed-data';
 
@@ -154,8 +153,7 @@ async function run(): Promise<void> {
     await seedSupportTickets(ds, ctx);
 
     // ---- Level 3: Depend on Level 2 ----
-    console.log('\n--- Level 3: BillAnalyses, SwitchCases, TicketMessages ---\n');
-    await seedBillAnalyses(ds, ctx);
+    console.log('\n--- Level 3: SwitchCases, TicketMessages ---\n');
     await seedSwitchCases(ds, ctx);
     await seedTicketMessages(ds, ctx);
 

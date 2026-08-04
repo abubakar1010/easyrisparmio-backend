@@ -15,7 +15,6 @@ import { PaginationDto, PaginatedResponseDto } from '../../common/dto/pagination
 import { SwitchCase } from '../cases/entities/switch-case.entity';
 import { CaseEvent } from '../cases/entities/case-event.entity';
 import { SentOffer } from '../offers/entities/sent-offer.entity';
-import { BillAnalysis } from '../bills/entities/bill-analysis.entity';
 import { EnergyBill } from '../bills/entities/energy-bill.entity';
 import { ContractStatus } from '../../common/enums/contract.enum';
 import { CaseStatus } from '../../common/enums/case.enum';
@@ -37,8 +36,6 @@ export class ContractsService {
     private readonly eventRepository: Repository<CaseEvent>,
     @InjectRepository(SentOffer)
     private readonly sentOfferRepository: Repository<SentOffer>,
-    @InjectRepository(BillAnalysis)
-    private readonly analysisRepository: Repository<BillAnalysis>,
     @InjectRepository(EnergyBill)
     private readonly billRepository: Repository<EnergyBill>,
     private readonly notificationsService: NotificationsService,
@@ -67,20 +64,13 @@ export class ContractsService {
       ? ContractStatus.SENT
       : ContractStatus.DRAFT;
 
-    // Resolve estimated savings: SentOffer (admin-approved) → BillAnalysis → null
+    // Resolve estimated savings from the sent offer
     let estimatedSavings: number | null = null;
     const sentOffer = await this.sentOfferRepository.findOne({
       where: { billId: switchCase.billId, offerId: switchCase.selectedOfferId },
     });
     if (sentOffer?.estimatedSavings) {
       estimatedSavings = Number(sentOffer.estimatedSavings);
-    } else {
-      const analysis = await this.analysisRepository.findOne({
-        where: { billId: switchCase.billId },
-      });
-      if (analysis?.potentialSavings) {
-        estimatedSavings = Number(analysis.potentialSavings);
-      }
     }
 
     const contract = this.contractRepository.create({

@@ -1,8 +1,6 @@
 import { DataSource } from 'typeorm';
 import { EnergyBill } from '../../../modules/bills/entities/energy-bill.entity';
-import { BillAnalysis } from '../../../modules/bills/entities/bill-analysis.entity';
 import { BillType, BillStatus } from '../../../common/enums/bill.enum';
-import { MarketType } from '../../../common/enums/offer.enum';
 import { SeedContext } from '../seed-context';
 
 export async function seedEnergyBills(
@@ -159,68 +157,5 @@ export async function seedEnergyBills(
       );
     }
     ctx.bills.push(bill);
-  }
-}
-
-export async function seedBillAnalyses(
-  ds: DataSource,
-  ctx: SeedContext,
-): Promise<void> {
-  const repo = ds.getRepository(BillAnalysis);
-
-  const analysesData = [
-    {
-      billId: ctx.bills[0].id, // Marco's electricity bill
-      potentialSavings: 32.5,
-      currentMonthlyAvg: 92.75,
-      recommendedMarketType: MarketType.VARIABLE,
-      analysisDetails: {
-        currentPricePerKwh: 0.098,
-        marketAvgPricePerKwh: 0.082,
-        savingsPercentage: 17.5,
-        consumptionProfile: 'standard domestico',
-        peakHoursPercentage: 35,
-      },
-      confidenceScore: 0.87,
-      recommendedOffers: [
-        { offerCode: 'SEED-ENI-TCL', estimatedSaving: 32.5 },
-        { offerCode: 'SEED-A2A-CLV', estimatedSaving: 18.2 },
-      ],
-      offersSentToUser: true,
-    },
-    {
-      billId: ctx.bills[1].id, // Marco's gas bill
-      potentialSavings: 15.0,
-      currentMonthlyAvg: 47.65,
-      recommendedMarketType: MarketType.FIXED,
-      analysisDetails: {
-        currentPricePerSmc: 0.42,
-        marketAvgPricePerSmc: 0.4,
-        savingsPercentage: 7.9,
-        consumptionProfile: 'riscaldamento autonomo',
-        heatingType: 'caldaia condensazione',
-      },
-      confidenceScore: 0.82,
-      recommendedOffers: [
-        { offerCode: 'SEED-ENEL-GCS', estimatedSaving: 15.0 },
-      ],
-      offersSentToUser: false,
-    },
-  ];
-
-  for (const data of analysesData) {
-    const existing = await repo.findOne({
-      where: { billId: data.billId },
-    });
-    if (!existing) {
-      await repo.save(repo.create(data));
-      console.log(
-        `  Created bill analysis for bill: ${data.billId.substring(0, 8)}...`,
-      );
-    } else {
-      console.log(
-        `  Bill analysis already exists for bill: ${data.billId.substring(0, 8)}...`,
-      );
-    }
   }
 }

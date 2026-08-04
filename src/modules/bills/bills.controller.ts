@@ -75,24 +75,6 @@ const BILL_EXAMPLE = {
   updatedAt: '2026-06-01T10:00:00.000Z',
 };
 
-const ANALYSIS_EXAMPLE = {
-  id: 'an1a2b3c-d5e6-7890-abcd-ef1234567890',
-  billId: 'bl1a2b3c-d5e6-7890-abcd-ef1234567890',
-  potentialSavings: '18.08',
-  currentMonthlyAvg: '114.48',
-  recommendedMarketType: 'fixed',
-  analysisDetails: {
-    currentCostPerUnit: '0.085000',
-    averageMarketRate: 0.08,
-    consumptionPattern: 'standard',
-    recommendedActions: ['Consider switching to a fixed-rate contract', 'Review your consumption during peak hours', 'Compare offers from alternative suppliers'],
-  },
-  confidenceScore: null,
-  recommendedOffers: null,
-  createdAt: '2026-06-01T10:05:00.000Z',
-  updatedAt: '2026-06-01T10:05:00.000Z',
-};
-
 const ERROR_401 = { success: false, statusCode: 401, message: ['Unauthorized'], timestamp: '2026-06-10T12:00:00.000Z' };
 const ERROR_403 = { success: false, statusCode: 403, message: ['Forbidden resource'], timestamp: '2026-06-10T12:00:00.000Z' };
 
@@ -448,7 +430,6 @@ export class BillsController {
             ...BILL_EXAMPLE,
             user: { id: 'a1b2c3d4...', email: 'mario.rossi@email.com', firstName: 'Mario', lastName: 'Rossi' },
             supplier: { id: 's1a2b3c4...', name: 'Enel Energia' },
-            analysis: ANALYSIS_EXAMPLE,
           },
         },
       },
@@ -473,19 +454,6 @@ export class BillsController {
     return this.billsService.getAllOffersForBill(id);
   }
 
-  @Get('admin/:id/recommended-offers')
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({
-    summary: 'Get recommended offers for a bill (admin)',
-    description: 'Returns the top recommended offers stored from the bill analysis.',
-    deprecated: true,
-  })
-  @ApiOkResponse({ description: 'Recommended offers for the bill' })
-  @ApiNotFoundResponse({ description: 'Analysis not found', content: { 'application/json': { example: { success: false, statusCode: 404, message: ['Analysis not found for this bill'], timestamp: '2026-06-24T12:00:00.000Z' } } } })
-  getRecommendedOffersAdmin(@Param('id', ParseUUIDPipe) id: string) {
-    return this.billsService.getRecommendedOffersAdmin(id);
-  }
-
   @Post('admin/:id/send-offers')
   @Roles(UserRole.ADMIN)
   @ApiOperation({
@@ -502,19 +470,6 @@ export class BillsController {
     await this.billsService.sendOffersToUser(id, dto.offers);
     void this.activityLogService.log(adminId, 'Offers Sent to User', 'bill', id, { offerCount: dto.offers.length });
     return { message: 'Offers sent to user successfully' };
-  }
-
-  @Post('admin/:id/reanalyze')
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({
-    summary: 'Re-analyze a bill (admin)',
-    description: 'Re-triggers the analysis for a bill, comparing with current offers.',
-    deprecated: true,
-  })
-  @ApiOkResponse({ description: 'Bill re-analyzed successfully' })
-  @ApiNotFoundResponse({ description: 'Bill not found' })
-  reanalyzeBill(@Param('id', ParseUUIDPipe) id: string) {
-    return this.billsService.reanalyzeBill(id);
   }
 
   // ─── Verification ──────────────────────────────────────────
@@ -615,7 +570,7 @@ export class BillsController {
   })
   @ApiOkResponse({
     description: 'Bill details',
-    content: { 'application/json': { example: { success: true, data: { ...BILL_EXAMPLE, supplier: { id: 's1a2b3c4...', name: 'Enel Energia' }, analysis: ANALYSIS_EXAMPLE } } } },
+    content: { 'application/json': { example: { success: true, data: { ...BILL_EXAMPLE, supplier: { id: 's1a2b3c4...', name: 'Enel Energia' } } } } },
   })
   @ApiNotFoundResponse({ description: 'Bill not found', content: { 'application/json': { example: { success: false, statusCode: 404, message: ['Bill not found'], timestamp: '2026-06-10T12:00:00.000Z' } } } })
   @ApiForbiddenResponse({ description: 'User does not own this bill', content: { 'application/json': { example: { success: false, statusCode: 403, message: ['You do not have access to this bill'], timestamp: '2026-06-10T12:00:00.000Z' } } } })

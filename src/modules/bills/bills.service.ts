@@ -30,6 +30,7 @@ import { TransitionBillStatusDto, SubmitContractVerificationDto } from './dto/tr
 import { isValidTransition, getAvailableTransitions } from '../../common/utils/bill-status-transitions';
 import { CaseEvent } from '../cases/entities/case-event.entity';
 import { CaseEventType } from '../../common/enums/case-event.enum';
+import { ContractStatus } from '../../common/enums/contract.enum';
 import { SwitchCase } from '../cases/entities/switch-case.entity';
 import { Contract } from '../contracts/entities/contract.entity';
 import { readFileSync } from 'fs';
@@ -1056,6 +1057,30 @@ export class BillsService {
     // Update bill status
     bill.status = dto.targetStatus;
     await this.billRepository.save(bill);
+
+    // When bill reaches awaiting_activation or activated, sync the contract
+    // to ACTIVE so the utility appears in the user's my-services list
+    if (
+      dto.targetStatus === BillStatus.AWAITING_ACTIVATION ||
+      dto.targetStatus === BillStatus.ACTIVATED
+    ) {
+      const activeCase = bill.switchCases?.length
+        ? bill.switchCases.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
+        : null;
+
+      if (activeCase) {
+        const contract = await this.contractRepository.findOne({
+          where: { caseId: activeCase.id },
+        });
+        if (contract && contract.status !== ContractStatus.ACTIVE) {
+          contract.status = ContractStatus.ACTIVE;
+          if (!contract.activationDate) {
+            contract.activationDate = new Date();
+          }
+          await this.contractRepository.save(contract);
+        }
+      }
+    }
 
     // Log case event if a case exists
     const activeCase = bill.switchCases?.length

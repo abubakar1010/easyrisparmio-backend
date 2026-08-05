@@ -12,7 +12,6 @@ import { QueryMetersDto } from './dto/query-meters.dto';
 import { PaginatedResponseDto } from '../../common/dto/pagination.dto';
 import { Contract } from '../contracts/entities/contract.entity';
 import { ContractStatus } from '../../common/enums/contract.enum';
-import { CaseStatus } from '../../common/enums/case.enum';
 
 @Injectable()
 export class MetersService {
@@ -126,7 +125,6 @@ export class MetersService {
       .addSelect(['supplier.id', 'supplier.name', 'supplier.logoUrl'])
       .where('c.userId = :userId', { userId })
       .andWhere('c.status = :contractStatus', { contractStatus: ContractStatus.ACTIVE })
-      .andWhere('sc.status = :caseStatus', { caseStatus: CaseStatus.ACTIVATED })
       .orderBy('c.createdAt', 'DESC')
       .getMany();
 

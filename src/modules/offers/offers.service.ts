@@ -5,11 +5,12 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, Not } from 'typeorm';
 import { Offer } from './entities/offer.entity';
 import { SentOffer } from './entities/sent-offer.entity';
 import { SwitchCase } from '../cases/entities/switch-case.entity';
 import { Supplier } from '../suppliers/entities/supplier.entity';
+import { Contract } from '../contracts/entities/contract.entity';
 import { CreateOfferDto } from './dto/create-offer.dto';
 import { UpdateOfferDto } from './dto/update-offer.dto';
 import { UpdateOfferStatusDto } from './dto/update-offer-status.dto';
@@ -20,6 +21,8 @@ import { BillType } from '../../common/enums/bill.enum';
 import { EnergyType, UserTarget } from '../../common/enums/offer.enum';
 import { OfferStatus } from '../../common/enums/offer-status.enum';
 import { SupplierStatus } from '../../common/enums/supplier.enum';
+import { ContractStatus } from '../../common/enums/contract.enum';
+import { CaseStatus } from '../../common/enums/case.enum';
 
 @Injectable()
 export class OffersService {
@@ -34,6 +37,8 @@ export class OffersService {
     private readonly switchCaseRepository: Repository<SwitchCase>,
     @InjectRepository(Supplier)
     private readonly supplierRepository: Repository<Supplier>,
+    @InjectRepository(Contract)
+    private readonly contractRepository: Repository<Contract>,
   ) {}
 
   resolveOfferLocale(offer: Offer, locale?: string): Offer {
@@ -55,17 +60,39 @@ export class OffersService {
   }
 
   async create(dto: CreateOfferDto, adminId: string): Promise<Offer> {
-    // Block offer creation for suppliers pending deletion
+    // Validate supplier exists and is eligible
     const supplier = await this.supplierRepository.findOne({
       where: { id: dto.supplierId },
     });
     if (!supplier) {
       throw new NotFoundException('Supplier not found');
     }
+    if (!supplier.isActive) {
+      throw new BadRequestException(
+        'Cannot create offers for an inactive supplier',
+      );
+    }
     if (supplier.status === SupplierStatus.PENDING_DELETION) {
       throw new BadRequestException(
         'Cannot create offers for a supplier that is pending deletion',
       );
+    }
+
+    // Validate commodity compatibility
+    if (supplier.commodity) {
+      const energyType = dto.energyType as string;
+      const supplierCommodity = supplier.commodity as string;
+
+      if (supplierCommodity !== 'dual' && energyType !== supplierCommodity) {
+        throw new BadRequestException(
+          `Commodity mismatch: supplier "${supplier.name}" supports "${supplierCommodity}" but the offer energy type is "${energyType}"`,
+        );
+      }
+      if (energyType === 'dual' && supplierCommodity !== 'dual') {
+        throw new BadRequestException(
+          `Commodity mismatch: a dual offer requires a dual supplier, but "${supplier.name}" supports only "${supplierCommodity}"`,
+        );
+      }
     }
 
     const offer = this.offerRepository.create({
@@ -241,9 +268,56 @@ export class OffersService {
     }
   }
 
-  async softDelete(id: string): Promise<void> {
+  async deleteOffer(id: string): Promise<{ message: string; cancelledCases?: number }> {
     const offer = await this.findById(id);
+
+    // Check for active contracts linked to this offer
+    const activeContracts = await this.contractRepository
+      .createQueryBuilder('contract')
+      .where('contract.offerId = :offerId', { offerId: id })
+      .andWhere('contract.status = :status', { status: ContractStatus.ACTIVE })
+      .andWhere('contract.deletedAt IS NULL')
+      .andWhere(
+        '(contract.expiryDate IS NULL OR contract.expiryDate > :today)',
+        { today: new Date() },
+      )
+      .getMany();
+
+    if (activeContracts.length > 0) {
+      const contractNumbers = activeContracts
+        .map((c) => c.contractNumber)
+        .join(', ');
+      throw new BadRequestException(
+        `Cannot delete this offer: it has ${activeContracts.length} active contract(s) (${contractNumbers}). Wait for them to expire or cancel them first.`,
+      );
+    }
+
+    // Check for in-progress cases (not yet contracted but not terminal)
+    const activeCaseStatuses = [
+      CaseStatus.NEW,
+      CaseStatus.IN_PROGRESS,
+      CaseStatus.DOCUMENTS_PENDING,
+      CaseStatus.CONTRACT_SENT,
+      CaseStatus.CONTRACT_SIGNED,
+    ];
+
+    const activeCases = await this.switchCaseRepository.count({
+      where: {
+        selectedOfferId: id,
+        status: In(activeCaseStatuses),
+      },
+    });
+
+    if (activeCases > 0) {
+      throw new BadRequestException(
+        `Cannot delete this offer: it has ${activeCases} active case(s) in progress. Cancel or complete them first.`,
+      );
+    }
+
+    // Safe to delete — only terminal cases (ACTIVATED, CANCELLED, REJECTED) remain
     await this.offerRepository.softRemove(offer);
+
+    return { message: 'Offer deleted successfully' };
   }
 
   async updateStatus(

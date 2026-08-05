@@ -529,13 +529,27 @@ export class OffersController {
   @ApiBearerAuth()
   @Roles(UserRole.ADMIN)
   @ApiOperation({
-    summary: 'Soft-delete an offer (admin)',
+    summary: 'Delete an offer (admin)',
     description:
-      'Marks the offer as deleted (sets `deleted_at`). The offer is hidden from all queries but preserved in the database.',
+      'Deletes an offer if it has no active contracts or in-progress cases. ' +
+      'Returns an error if the offer cannot be safely deleted.',
   })
   @ApiOkResponse({
     description: 'Offer deleted successfully',
     content: { 'application/json': { example: { success: true, data: { message: 'Offer deleted successfully' } } } },
+  })
+  @ApiBadRequestResponse({
+    description: 'Offer has active contracts or in-progress cases',
+    content: {
+      'application/json': {
+        example: {
+          success: false,
+          statusCode: 400,
+          message: ['Cannot delete this offer: it has 2 active contract(s) (CTR-001, CTR-002). Wait for them to expire or cancel them first.'],
+          timestamp: '2026-06-10T12:00:00.000Z',
+        },
+      },
+    },
   })
   @ApiNotFoundResponse({
     description: 'Offer not found',
@@ -553,8 +567,8 @@ export class OffersController {
     @CurrentUser('id') adminId: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.offersService.softDelete(id);
+    const result = await this.offersService.deleteOffer(id);
     void this.activityLogService.log(adminId, 'Offer Deleted', 'offer', id);
-    return { message: 'Offer deleted successfully' };
+    return result;
   }
 }

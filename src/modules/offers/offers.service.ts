@@ -113,6 +113,11 @@ export class OffersService {
           'Referenced supplier does not exist',
         );
       }
+      if (error.message?.includes('numeric field overflow')) {
+        throw new BadRequestException(
+          'A numeric value exceeds the allowed range. Prices allow up to 4 integer digits, fees/costs up to 8 integer digits.',
+        );
+      }
       throw error;
     }
   }
@@ -262,6 +267,11 @@ export class OffersService {
       if (error.code === '23503') {
         throw new BadRequestException(
           'Referenced supplier does not exist',
+        );
+      }
+      if (error.message?.includes('numeric field overflow')) {
+        throw new BadRequestException(
+          'A numeric value exceeds the allowed range. Prices allow up to 4 integer digits, fees/costs up to 8 integer digits.',
         );
       }
       throw error;

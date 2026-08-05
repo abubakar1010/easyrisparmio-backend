@@ -10,6 +10,7 @@ import {
   IsInt,
   MaxLength,
   Min,
+  Max,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { EnergyType, MarketType, UserTarget } from '../../../common/enums/offer.enum';
@@ -38,28 +39,33 @@ export class CreateOfferDto {
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 6 })
   @Min(0)
+  @Max(9999.999999)
   pricePerKwh?: number;
 
   @ApiPropertyOptional({ description: 'Price per standard cubic meter for gas', example: 0.45 })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 6 })
   @Min(0)
+  @Max(9999.999999)
   pricePerSmc?: number;
 
   @ApiPropertyOptional({ description: 'Spread markup on market index for variable/indexed offers', example: 0.012 })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 6 })
   @Min(0)
+  @Max(9999.999999)
   spread?: number;
 
   @ApiProperty({ description: 'Fixed monthly fee', example: 9.9, default: 0 })
-  @IsNumber({ maxDecimalPlaces: 6 })
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
+  @Max(99999999.99)
   fixedMonthlyFee: number;
 
   @ApiProperty({ description: 'One-time activation cost', example: 0, default: 0 })
-  @IsNumber({ maxDecimalPlaces: 6 })
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
+  @Max(99999999.99)
   activationCost: number;
 
   @ApiProperty({ description: 'Contract duration in days', example: 365 })

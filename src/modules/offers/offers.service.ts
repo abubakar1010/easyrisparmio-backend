@@ -9,6 +9,7 @@ import { Repository, In } from 'typeorm';
 import { Offer } from './entities/offer.entity';
 import { SentOffer } from './entities/sent-offer.entity';
 import { SwitchCase } from '../cases/entities/switch-case.entity';
+import { Supplier } from '../suppliers/entities/supplier.entity';
 import { CreateOfferDto } from './dto/create-offer.dto';
 import { UpdateOfferDto } from './dto/update-offer.dto';
 import { UpdateOfferStatusDto } from './dto/update-offer-status.dto';
@@ -18,6 +19,7 @@ import { EnergyBill } from '../bills/entities/energy-bill.entity';
 import { BillType } from '../../common/enums/bill.enum';
 import { EnergyType, UserTarget } from '../../common/enums/offer.enum';
 import { OfferStatus } from '../../common/enums/offer-status.enum';
+import { SupplierStatus } from '../../common/enums/supplier.enum';
 
 @Injectable()
 export class OffersService {
@@ -30,6 +32,8 @@ export class OffersService {
     private readonly sentOfferRepository: Repository<SentOffer>,
     @InjectRepository(SwitchCase)
     private readonly switchCaseRepository: Repository<SwitchCase>,
+    @InjectRepository(Supplier)
+    private readonly supplierRepository: Repository<Supplier>,
   ) {}
 
   resolveOfferLocale(offer: Offer, locale?: string): Offer {
@@ -51,6 +55,19 @@ export class OffersService {
   }
 
   async create(dto: CreateOfferDto, adminId: string): Promise<Offer> {
+    // Block offer creation for suppliers pending deletion
+    const supplier = await this.supplierRepository.findOne({
+      where: { id: dto.supplierId },
+    });
+    if (!supplier) {
+      throw new NotFoundException('Supplier not found');
+    }
+    if (supplier.status === SupplierStatus.PENDING_DELETION) {
+      throw new BadRequestException(
+        'Cannot create offers for a supplier that is pending deletion',
+      );
+    }
+
     const offer = this.offerRepository.create({
       ...dto,
       createdBy: adminId,
@@ -64,6 +81,11 @@ export class OffersService {
           'An offer with this offer code already exists',
         );
       }
+      if (error.code === '23503') {
+        throw new BadRequestException(
+          'Referenced supplier does not exist',
+        );
+      }
       throw error;
     }
   }
@@ -75,7 +97,10 @@ export class OffersService {
       .createQueryBuilder('offer')
       .leftJoinAndSelect('offer.supplier', 'supplier')
       .where('offer.isActive = :isActive', { isActive: true })
-      .andWhere('offer.offerStatus = :status', { status: OfferStatus.ACTIVE });
+      .andWhere('offer.offerStatus = :status', { status: OfferStatus.ACTIVE })
+      .andWhere('supplier.status != :pendingDeletion', {
+        pendingDeletion: SupplierStatus.PENDING_DELETION,
+      });
 
     if (query.search) {
       qb.andWhere(
@@ -207,6 +232,11 @@ export class OffersService {
           'An offer with this offer code already exists',
         );
       }
+      if (error.code === '23503') {
+        throw new BadRequestException(
+          'Referenced supplier does not exist',
+        );
+      }
       throw error;
     }
   }
@@ -264,6 +294,9 @@ export class OffersService {
       .leftJoinAndSelect('offer.supplier', 'supplier')
       .where('offer.isActive = :isActive', { isActive: true })
       .andWhere('offer.offerStatus = :offerStatus', { offerStatus: OfferStatus.ACTIVE })
+      .andWhere('supplier.status != :pendingDeletion', {
+        pendingDeletion: SupplierStatus.PENDING_DELETION,
+      })
       .andWhere(
         '(offer.energyType = :energyType OR offer.energyType = :dual)',
         { energyType, dual: EnergyType.DUAL },

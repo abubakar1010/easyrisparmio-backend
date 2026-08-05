@@ -53,12 +53,12 @@ export class CreateOfferDto {
   spread?: number;
 
   @ApiProperty({ description: 'Fixed monthly fee', example: 9.9, default: 0 })
-  @IsNumber({ maxDecimalPlaces: 2 })
+  @IsNumber({ maxDecimalPlaces: 6 })
   @Min(0)
   fixedMonthlyFee: number;
 
   @ApiProperty({ description: 'One-time activation cost', example: 0, default: 0 })
-  @IsNumber({ maxDecimalPlaces: 2 })
+  @IsNumber({ maxDecimalPlaces: 6 })
   @Min(0)
   activationCost: number;
 

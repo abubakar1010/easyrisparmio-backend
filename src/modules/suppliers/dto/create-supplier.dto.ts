@@ -38,9 +38,9 @@ export class CreateSupplierDto {
   @IsItalianTaxId()
   taxId: string;
 
-  @ApiPropertyOptional({ description: 'URL of the supplier logo', example: 'https://cdn.easyresparmio.it/logos/enel-energia.png', maxLength: 500 })
+  @ApiPropertyOptional({ description: 'URL or relative path of the supplier logo/icon', example: '/uploads/enel-energia.png', maxLength: 500 })
   @IsOptional()
-  @IsUrl()
+  @IsString()
   @MaxLength(500)
   logoUrl?: string;
 

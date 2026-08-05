@@ -25,6 +25,7 @@ export class SuppliersService {
   async create(dto: CreateSupplierDto, adminId: string): Promise<Supplier> {
     const supplier = this.supplierRepository.create({
       ...dto,
+      country: 'Italy',
       createdBy: adminId,
       updatedBy: adminId,
     });

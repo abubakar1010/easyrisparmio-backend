@@ -155,6 +155,46 @@ export class SuppliersController {
     return this.suppliersService.findAllAdmin(query);
   }
 
+  // ─── Admin: Deletion Management (before :id route) ───────
+
+  @Get(':id/deletion-status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Get supplier deletion status (admin)',
+    description: 'Returns the deletion status for a supplier, including scheduled deletion date and active contracts count.',
+  })
+  @ApiOkResponse({ description: 'Deletion status retrieved' })
+  @ApiNotFoundResponse({ description: 'Supplier not found' })
+  getDeletionStatus(@Param('id', ParseUUIDPipe) id: string) {
+    return this.suppliersService.getDeletionStatus(id);
+  }
+
+  @Post(':id/cancel-deletion')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Cancel scheduled supplier deletion (admin)',
+    description:
+      'Cancels a previously scheduled supplier deletion. The supplier status is set back to inactive.',
+  })
+  @ApiOkResponse({
+    description: 'Deletion cancelled',
+    content: { 'application/json': { example: { success: true, data: { message: 'Supplier deletion cancelled. Status set to inactive.' } } } },
+  })
+  @ApiBadRequestResponse({ description: 'Supplier is not pending deletion' })
+  @ApiNotFoundResponse({ description: 'Supplier not found' })
+  async cancelDeletion(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('id') adminId: string,
+  ) {
+    const result = await this.suppliersService.cancelScheduledDeletion(id, adminId);
+    void this.activityLogService.log(adminId, 'Supplier Deletion Cancelled', 'supplier', id);
+    return result;
+  }
+
   @Get(':id')
   @ApiOperation({
     summary: 'Get supplier by ID (public)',
@@ -409,13 +449,47 @@ export class SuppliersController {
   @ApiBearerAuth()
   @Roles(UserRole.ADMIN)
   @ApiOperation({
-    summary: 'Soft-delete a supplier (admin)',
+    summary: 'Delete a supplier (admin)',
     description:
-      'Marks the supplier as deleted (sets `deleted_at`). The supplier is hidden from all queries but preserved in the database.',
+      'Deletes a supplier. If the supplier has active contracts, deletion is scheduled for when the last contract expires. ' +
+      'During the pending deletion period, no new offers can be created or sent for this supplier.',
   })
   @ApiOkResponse({
-    description: 'Supplier deleted successfully',
-    content: { 'application/json': { example: { success: true, data: { message: 'Supplier deleted successfully' } } } },
+    description: 'Supplier deleted or deletion scheduled',
+    content: {
+      'application/json': {
+        examples: {
+          immediate: {
+            summary: 'Supplier deleted immediately (no active contracts)',
+            value: { success: true, data: { message: 'Supplier deleted successfully' } },
+          },
+          scheduled: {
+            summary: 'Deletion scheduled (active contracts exist)',
+            value: {
+              success: true,
+              data: {
+                message: 'Supplier deletion scheduled for 2027-03-15',
+                scheduledDeletionDate: '2027-03-15',
+                cancelledCases: 2,
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'Active contracts have no expiry date set',
+    content: {
+      'application/json': {
+        example: {
+          success: false,
+          statusCode: 400,
+          message: ['Cannot schedule deletion: the following active contracts have no expiry date set: CTR-001, CTR-002. Please set expiry dates on these contracts first.'],
+          timestamp: '2026-06-10T12:00:00.000Z',
+        },
+      },
+    },
   })
   @ApiNotFoundResponse({
     description: 'Supplier not found',
@@ -433,8 +507,14 @@ export class SuppliersController {
     @CurrentUser('id') adminId: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.suppliersService.softDelete(id);
-    void this.activityLogService.log(adminId, 'Supplier Deleted', 'supplier', id);
-    return { message: 'Supplier deleted successfully' };
+    const result = await this.suppliersService.deleteSupplier(id, adminId);
+    void this.activityLogService.log(
+      adminId,
+      result.scheduledDeletionDate ? 'Supplier Deletion Scheduled' : 'Supplier Deleted',
+      'supplier',
+      id,
+      { scheduledDeletionDate: result.scheduledDeletionDate || null },
+    );
+    return result;
   }
 }

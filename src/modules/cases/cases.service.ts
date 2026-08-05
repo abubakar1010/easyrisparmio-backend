@@ -3,6 +3,7 @@ import {
   Logger,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -24,6 +25,7 @@ import { DocumentType } from '../../common/enums/user.enum';
 import { BillStatus } from '../../common/enums/bill.enum';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../../common/enums/notification.enum';
+import { SupplierStatus } from '../../common/enums/supplier.enum';
 
 @Injectable()
 export class CasesService {
@@ -58,9 +60,15 @@ export class CasesService {
 
     const offer = await this.offerRepository.findOne({
       where: { id: dto.selectedOfferId },
+      relations: ['supplier'],
     });
     if (!offer) {
       throw new NotFoundException('Offer not found');
+    }
+    if (offer.supplier?.status === SupplierStatus.PENDING_DELETION) {
+      throw new BadRequestException(
+        'Cannot create a case for an offer from a supplier that is pending deletion',
+      );
     }
 
     const caseNumber = await this.generateCaseNumber();

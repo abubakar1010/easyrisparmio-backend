@@ -91,6 +91,9 @@ export class Supplier extends BaseEntity {
   @Column({ name: 'updated_by', type: 'uuid', nullable: true })
   updatedBy: string | null;
 
+  @Column({ name: 'scheduled_deletion_date', type: 'date', nullable: true })
+  scheduledDeletionDate: Date | null;
+
   @DeleteDateColumn({ name: 'deleted_at' })
   deletedAt: Date | null;
 

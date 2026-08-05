@@ -24,6 +24,7 @@ import { PaginatedResponseDto } from '../../common/dto/pagination.dto';
 import { BillStatus, BillType, BillSource } from '../../common/enums/bill.enum';
 import { EnergyType, MarketType } from '../../common/enums/offer.enum';
 import { OfferStatus } from '../../common/enums/offer-status.enum';
+import { SupplierStatus } from '../../common/enums/supplier.enum';
 import { NotificationType } from '../../common/enums/notification.enum';
 import { TransitionBillStatusDto, SubmitContractVerificationDto } from './dto/transition-bill-status.dto';
 import { isValidTransition, getAvailableTransitions } from '../../common/utils/bill-status-transitions';
@@ -636,13 +637,24 @@ export class BillsService {
     }
 
     const offerIds = selectedOffers.map((o) => o.offerId);
-    const offers = await this.offerRepository.find({
+    const allOffers = await this.offerRepository.find({
       where: { id: In(offerIds) },
       relations: ['supplier'],
     });
 
-    if (offers.length === 0) {
+    if (allOffers.length === 0) {
       throw new NotFoundException('No valid offers found for the given IDs');
+    }
+
+    // Filter out offers from suppliers pending deletion
+    const offers = allOffers.filter(
+      (o) => o.supplier?.status !== SupplierStatus.PENDING_DELETION,
+    );
+
+    if (offers.length === 0) {
+      throw new BadRequestException(
+        'All selected offers belong to suppliers that are pending deletion',
+      );
     }
 
     // Build a lookup for admin-provided savings overrides

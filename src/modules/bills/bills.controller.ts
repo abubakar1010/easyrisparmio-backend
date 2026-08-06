@@ -514,6 +514,25 @@ export class BillsController {
     return this.billsService.getActiveVerification(id);
   }
 
+  @Get(':id/verification/history')
+  @ApiOperation({
+    summary: 'Get full verification history for a bill',
+    description: 'Returns all verification records (pending, submitted, resolved) with associated files.',
+  })
+  @ApiOkResponse({ description: 'Verification history array' })
+  async getVerificationHistory(
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') userRole: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    if (userRole === UserRole.ADMIN) {
+      await this.billsService.getBillByIdAdmin(id);
+    } else {
+      await this.billsService.getBillById(id, userId);
+    }
+    return this.billsService.getVerificationHistory(id);
+  }
+
   @Post(':id/verification/submit')
   @ApiOperation({
     summary: 'Submit verification response (user)',
@@ -684,6 +703,7 @@ export class BillsController {
     @CurrentUser('role') userRole: string,
     @Param('id', ParseUUIDPipe) id: string,
     @UploadedFile() file: Express.Multer.File,
+    @Query('verificationId') verificationId?: string,
   ) {
     if (!file) {
       throw new BadRequestException('File is required');
@@ -697,6 +717,7 @@ export class BillsController {
       originalName: file.originalname,
       mimeType: file.mimetype,
       fileSize: stats.size,
+      verificationId: verificationId || undefined,
     };
 
     if (userRole === UserRole.ADMIN) {

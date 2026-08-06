@@ -340,7 +340,7 @@ export class BillsService {
   async getBillByIdAdmin(billId: string): Promise<EnergyBill> {
     const bill = await this.billRepository.findOne({
       where: { id: billId },
-      relations: ['supplier', 'user', 'switchCases', 'files', 'verifications'],
+      relations: ['supplier', 'user', 'switchCases', 'files', 'verifications', 'verifications.files'],
     });
 
     if (!bill) {
@@ -353,7 +353,7 @@ export class BillsService {
   async getBillById(billId: string, userId: string): Promise<EnergyBill> {
     const bill = await this.billRepository.findOne({
       where: { id: billId },
-      relations: ['supplier', 'switchCases', 'files', 'verifications'],
+      relations: ['supplier', 'switchCases', 'files', 'verifications', 'verifications.files'],
     });
 
     if (!bill) {
@@ -754,7 +754,7 @@ export class BillsService {
   private async createBillFileRecord(
     billId: string,
     fileUrl: string,
-    meta?: { originalName?: string; mimeType?: string; fileSize?: number },
+    meta?: { originalName?: string; mimeType?: string; fileSize?: number; verificationId?: string },
   ): Promise<BillFile> {
     const billFile = this.billFileRepository.create({
       billId,
@@ -762,6 +762,7 @@ export class BillsService {
       originalName: meta?.originalName || fileUrl.split('/').pop() || null,
       mimeType: meta?.mimeType || null,
       fileSize: meta?.fileSize || null,
+      verificationId: meta?.verificationId || null,
     });
     return this.billFileRepository.save(billFile);
   }
@@ -770,7 +771,7 @@ export class BillsService {
     billId: string,
     fileUrl: string,
     userId: string,
-    meta?: { originalName?: string; mimeType?: string; fileSize?: number },
+    meta?: { originalName?: string; mimeType?: string; fileSize?: number; verificationId?: string },
   ): Promise<BillFile> {
     const bill = await this.billRepository.findOne({ where: { id: billId } });
     if (!bill) {
@@ -785,7 +786,7 @@ export class BillsService {
   async adminAddFileToBill(
     billId: string,
     fileUrl: string,
-    meta?: { originalName?: string; mimeType?: string; fileSize?: number },
+    meta?: { originalName?: string; mimeType?: string; fileSize?: number; verificationId?: string },
   ): Promise<BillFile> {
     const bill = await this.billRepository.findOne({ where: { id: billId } });
     if (!bill) {
@@ -864,6 +865,7 @@ export class BillsService {
   async getActiveVerification(billId: string): Promise<BillVerification | null> {
     return this.verificationRepository.findOne({
       where: { billId, status: VerificationStatus.PENDING },
+      relations: ['files'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -871,7 +873,8 @@ export class BillsService {
   async getVerificationHistory(billId: string): Promise<BillVerification[]> {
     return this.verificationRepository.find({
       where: { billId },
-      order: { createdAt: 'DESC' },
+      relations: ['files'],
+      order: { createdAt: 'ASC' },
     });
   }
 
@@ -929,6 +932,14 @@ export class BillsService {
     verification.userMessage = dto.message || null;
     verification.userData = dto.fieldValues || null;
     await this.verificationRepository.save(verification);
+
+    // Link uploaded files to this verification record
+    if (dto.fileIds?.length) {
+      await this.billFileRepository.update(
+        { id: In(dto.fileIds), billId },
+        { verificationId: verification.id },
+      );
+    }
 
     // Re-run OCR if re-upload was required, otherwise just update status
     if (verification.requireReupload) {
@@ -1165,6 +1176,14 @@ export class BillsService {
       verification.status = VerificationStatus.SUBMITTED;
       verification.userMessage = dto.message || null;
       await this.verificationRepository.save(verification);
+
+      // Link uploaded files to this verification record
+      if (dto.fileIds?.length) {
+        await this.billFileRepository.update(
+          { id: In(dto.fileIds), billId },
+          { verificationId: verification.id },
+        );
+      }
     }
 
     // Update signed document if provided

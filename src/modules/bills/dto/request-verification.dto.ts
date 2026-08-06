@@ -50,4 +50,14 @@ export class SubmitVerificationDto {
   })
   @IsOptional()
   fieldValues?: Record<string, any>;
+
+  @ApiPropertyOptional({
+    description: 'IDs of uploaded files to associate with this verification',
+    example: ['uuid-1', 'uuid-2'],
+    type: [String],
+  })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  fileIds?: string[];
 }

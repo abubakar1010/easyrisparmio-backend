@@ -2,10 +2,12 @@ import {
   Entity,
   Column,
   ManyToOne,
+  OneToMany,
   JoinColumn,
 } from 'typeorm';
 import { BaseEntity } from '../../../common/entities/base.entity';
 import { EnergyBill } from './energy-bill.entity';
+import { BillFile } from './bill-file.entity';
 
 export enum VerificationStatus {
   PENDING = 'pending',
@@ -46,4 +48,7 @@ export class BillVerification extends BaseEntity {
   @ManyToOne(() => EnergyBill, (bill) => bill.verifications, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'bill_id' })
   bill: EnergyBill;
+
+  @OneToMany(() => BillFile, (f) => f.verification)
+  files: BillFile[];
 }

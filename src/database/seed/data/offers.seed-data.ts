@@ -49,6 +49,7 @@ export async function seedOffers(
         'Bolletta digitale inclusa',
         'Gestione completa da app',
       ],
+      compensation: 'Bonus di €50 in bolletta dopo 3 mesi di attivazione',
       supplierCode: 'ENEL',
     },
     {
@@ -74,6 +75,7 @@ export async function seedOffers(
         'Sconto 10% primo bimestre',
         'Nessun costo di attivazione',
       ],
+      compensation: 'Sconto del 10% sul primo bimestre',
       supplierCode: 'ENEL',
     },
     {
@@ -100,6 +102,7 @@ export async function seedOffers(
         'Zero costi di attivazione',
         'Risparmio medio 120€/anno',
       ],
+      compensation: 'Cashback di €30 sulla prima bolletta',
       supplierCode: 'ENEL',
     },
 
@@ -126,6 +129,7 @@ export async function seedOffers(
         'App di monitoraggio consumi',
         'Nessun vincolo di durata',
       ],
+      compensation: 'Bonus fedeltà di €40 dopo 6 mesi',
       supplierCode: 'ENI',
     },
     {
@@ -151,6 +155,7 @@ export async function seedOffers(
         'Assistenza dedicata',
         'Zero costi nascosti',
       ],
+      compensation: 'Sconto €25 sulla prima bolletta gas',
       supplierCode: 'ENI',
     },
     {
@@ -175,6 +180,7 @@ export async function seedOffers(
         'Energia 100% verde certificata GO',
         'Fatturazione personalizzata',
       ],
+      compensation: 'Gift card da €60 per nuovi clienti dual',
       supplierCode: 'ENI',
     },
 
@@ -202,6 +208,7 @@ export async function seedOffers(
         'Zero emissioni CO2',
         'Prezzo fisso 12 mesi',
       ],
+      compensation: 'Bonus di €35 per attivazione online',
       supplierCode: 'A2A',
     },
     {
@@ -227,6 +234,7 @@ export async function seedOffers(
         'Pagamento con RID bancario',
         'Assistenza telefonica dedicata',
       ],
+      compensation: 'Sconto 15% sul primo trimestre',
       supplierCode: 'A2A',
     },
 
@@ -254,6 +262,7 @@ export async function seedOffers(
         'Assistenza elettricista inclusa',
         'Bonus fedeltà al rinnovo',
       ],
+      compensation: "Buono Amazon da €50 all'attivazione",
       supplierCode: 'EDISON',
     },
     {
@@ -278,6 +287,7 @@ export async function seedOffers(
         'Contratto 36 mesi',
         'Fatturazione elettronica',
       ],
+      compensation: 'Rimborso di €20 sulla prima bolletta',
       supplierCode: 'EDISON',
     },
 
@@ -304,6 +314,7 @@ export async function seedOffers(
         'Gestione 100% digitale',
         'Prezzo indicizzato PUN',
       ],
+      compensation: 'Credito di €45 in bolletta verde',
       supplierCode: 'SORGENIA',
     },
     {
@@ -328,6 +339,7 @@ export async function seedOffers(
         'Gestione 100% digitale',
         'Bolletta senza sorprese',
       ],
+      compensation: 'Cashback di €30 sulla prima bolletta gas',
       supplierCode: 'SORGENIA',
     },
 
@@ -355,6 +367,7 @@ export async function seedOffers(
         'Attivazione online',
         'App IrenYou inclusa',
       ],
+      compensation: 'Bonus benvenuto di €25',
       supplierCode: 'IREN',
     },
     {
@@ -380,6 +393,7 @@ export async function seedOffers(
         'Nessun costo di attivazione',
         'Bolletta digitale',
       ],
+      compensation: 'Sconto del 5% per 6 mesi',
       supplierCode: 'IREN',
     },
 
@@ -408,6 +422,7 @@ export async function seedOffers(
         'Un\'unica bolletta',
         'Servizio clienti premium',
       ],
+      compensation: 'Credito di €55 per contratto dual',
       supplierCode: 'EON',
     },
 
@@ -435,6 +450,7 @@ export async function seedOffers(
         'App MyAcea inclusa',
         'Pagamento flessibile',
       ],
+      compensation: 'Sconto di €20 sulla prima bolletta',
       supplierCode: 'ACEA',
     },
 
@@ -462,6 +478,7 @@ export async function seedOffers(
         'Bolletta semplificata',
         'Assistenza multicanale',
       ],
+      compensation: 'Buono da €40 per nuovi clienti',
       supplierCode: 'ENGIE',
     },
 
@@ -489,6 +506,7 @@ export async function seedOffers(
         'Certificazione GO',
         'Basso costo fisso mensile',
       ],
+      compensation: 'Cashback di €35 sulla prima bolletta',
       supplierCode: 'ILLUMIA',
     },
 
@@ -515,6 +533,7 @@ export async function seedOffers(
         'Sconto carica anticipata',
         'App per gestione consumi',
       ],
+      compensation: 'Bonus di €25 per attivazione digitale',
       supplierCode: 'WEKIWI',
     },
 
@@ -542,6 +561,7 @@ export async function seedOffers(
         'Energia a km zero',
         'Certificazione GO rinnovabile',
       ],
+      compensation: 'Sconto €30 per energia verde',
       supplierCode: 'ALPERIA',
     },
 
@@ -569,6 +589,7 @@ export async function seedOffers(
         'Zero emissioni CO2',
         'Certificazione 100% rinnovabile',
       ],
+      compensation: 'Buono da €20 per nuovi clienti',
       supplierCode: 'DOLOMITI',
     },
 
@@ -596,6 +617,7 @@ export async function seedOffers(
         'Costo fisso mensile basso',
         'Prezzo fisso 12 mesi',
       ],
+      compensation: 'Credito di €40 per attivazione app',
       supplierCode: 'PULSEE',
     },
 
@@ -622,6 +644,7 @@ export async function seedOffers(
         '100% energia verde',
         'Conguaglio annuale',
       ],
+      compensation: 'Sconto del 10% per 3 mesi',
       supplierCode: 'NEN',
     },
     {
@@ -646,6 +669,7 @@ export async function seedOffers(
         'Prezzo trasparente',
         'Conguaglio annuale',
       ],
+      compensation: 'Cashback di €50 per dual',
       supplierCode: 'NEN',
     },
 
@@ -673,6 +697,7 @@ export async function seedOffers(
         'Condizioni standard ARERA',
         'Costo fisso mensile minimo',
       ],
+      compensation: 'Bonus verde di €35',
       supplierCode: 'GREENNETWORK',
     },
 
@@ -701,6 +726,7 @@ export async function seedOffers(
         'Rata fissa senza sorprese',
         'Assistenza dedicata',
       ],
+      compensation: 'Sconto €45 sulla prima bolletta',
       supplierCode: 'OPTIMA',
     },
 
@@ -728,6 +754,7 @@ export async function seedOffers(
         'Bolletta digitale',
         'Nessun costo di attivazione',
       ],
+      compensation: 'Credito di €25 per nuovi clienti',
       supplierCode: 'ESTRA',
     },
 
@@ -754,6 +781,7 @@ export async function seedOffers(
         'Prezzo bloccato 24 mesi',
         'Bolletta digitale inclusa',
       ],
+      compensation: 'Bonus test di €15',
       supplierCode: 'ENEL',
     },
   ];

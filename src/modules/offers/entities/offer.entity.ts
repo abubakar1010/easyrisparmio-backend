@@ -20,6 +20,9 @@ export class Offer extends BaseEntity {
   @Column({ type: 'text', nullable: true })
   description: string;
 
+  @Column({ type: 'text' })
+  compensation: string;
+
   @Column({
     name: 'energy_type',
     type: 'enum',

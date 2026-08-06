@@ -27,6 +27,10 @@ export class CreateOfferDto {
   @IsString()
   description?: string;
 
+  @ApiProperty({ description: 'Compensation details for this offer', example: '€50 bonus on first bill' })
+  @IsString()
+  compensation: string;
+
   @ApiProperty({ enum: EnergyType, description: 'Energy type', example: EnergyType.ELECTRICITY })
   @IsEnum(EnergyType)
   energyType: EnergyType;

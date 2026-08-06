@@ -835,8 +835,9 @@ export class BillsService {
 
     const saved = await this.verificationRepository.save(verification);
 
-    bill.status = BillStatus.VERIFICATION_REQUIRED;
-    await this.billRepository.save(bill);
+    await this.billRepository.update(billId, {
+      status: BillStatus.VERIFICATION_REQUIRED,
+    });
 
     try {
       await this.notificationsService.sendNotification({
@@ -1027,8 +1028,9 @@ export class BillsService {
       });
       await this.verificationRepository.save(verification);
 
-      bill.status = BillStatus.CONTRACT_VERIFICATION_REQUIRED;
-      await this.billRepository.save(bill);
+      await this.billRepository.update(billId, {
+        status: BillStatus.CONTRACT_VERIFICATION_REQUIRED,
+      });
 
       // Send notification
       try {

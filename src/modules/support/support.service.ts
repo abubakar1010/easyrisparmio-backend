@@ -237,7 +237,6 @@ export class SupportService {
     }
 
     if (dto.status) {
-      this.validateStatusTransition(ticket.status, dto.status);
       ticket.status = dto.status;
 
       if (dto.status === TicketStatus.RESOLVED) {
@@ -389,21 +388,4 @@ export class SupportService {
     await this.faqRepository.remove(faq);
   }
 
-  private validateStatusTransition(
-    current: TicketStatus,
-    next: TicketStatus,
-  ): void {
-    const validTransitions: Record<TicketStatus, TicketStatus[]> = {
-      [TicketStatus.OPEN]: [TicketStatus.IN_PROGRESS, TicketStatus.CLOSED],
-      [TicketStatus.IN_PROGRESS]: [TicketStatus.RESOLVED, TicketStatus.CLOSED],
-      [TicketStatus.RESOLVED]: [TicketStatus.CLOSED],
-      [TicketStatus.CLOSED]: [],
-    };
-
-    if (!validTransitions[current]?.includes(next)) {
-      throw new BadRequestException(
-        `Cannot transition from ${current} to ${next}`,
-      );
-    }
-  }
 }

@@ -20,7 +20,7 @@ export class Offer extends BaseEntity {
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'text', default: '' })
   compensation: string;
 
   @Column({

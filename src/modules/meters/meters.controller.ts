@@ -45,10 +45,10 @@ export class MetersController {
   @Get('my-services')
   @Roles(UserRole.PERSONAL, UserRole.BUSINESS)
   @ApiOperation({
-    summary: 'List my activated services',
+    summary: 'List my services',
     description:
-      'Returns the authenticated user\'s activated services — offers where the switch case is completed ' +
-      'and the contract is active. Each item includes offer details, supplier info, and contract data.',
+      'Returns the authenticated user\'s services — contracts that are signed (awaiting activation) ' +
+      'or active. Each item includes offer details, supplier info, contract data, and status.',
   })
   @ApiOkResponse({
     description: 'List of user\'s activated services',
@@ -74,6 +74,7 @@ export class MetersController {
               fixedMonthlyFee: '10.00',
               contractDurationDays: 365,
               isGreenEnergy: true,
+              status: 'activated',
             },
           ],
         },

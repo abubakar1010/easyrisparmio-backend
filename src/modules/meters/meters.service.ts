@@ -124,7 +124,9 @@ export class MetersService {
       .leftJoin('offer.supplier', 'supplier')
       .addSelect(['supplier.id', 'supplier.name', 'supplier.logoUrl'])
       .where('c.userId = :userId', { userId })
-      .andWhere('c.status = :contractStatus', { contractStatus: ContractStatus.ACTIVE })
+      .andWhere('c.status IN (:...statuses)', {
+        statuses: [ContractStatus.SIGNED, ContractStatus.ACTIVE],
+      })
       .orderBy('c.createdAt', 'DESC')
       .getMany();
 
@@ -145,6 +147,9 @@ export class MetersService {
       fixedMonthlyFee: contract.offer?.fixedMonthlyFee || null,
       contractDurationDays: contract.offer?.contractDurationDays || null,
       isGreenEnergy: contract.offer?.isGreenEnergy || false,
+      status: contract.status === ContractStatus.ACTIVE
+        ? 'activated'
+        : 'awaiting_activation',
     }));
   }
 }

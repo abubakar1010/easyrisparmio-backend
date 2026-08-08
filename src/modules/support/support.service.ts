@@ -257,14 +257,11 @@ export class SupportService {
 
     // Notify ticket owner on status changes
     if (dto.status === TicketStatus.RESOLVED || dto.status === TicketStatus.CLOSED) {
-      const isResolved = dto.status === TicketStatus.RESOLVED;
+      const msgKey = dto.status === TicketStatus.RESOLVED ? 'ticket_resolved' : 'ticket_closed';
       try {
         await this.notificationsService.sendNotification({
           userId: ticket.userId,
-          title: isResolved ? 'Ticket risolto' : 'Ticket chiuso',
-          body: isResolved
-            ? 'Il tuo ticket di supporto è stato risolto.'
-            : 'Il tuo ticket di supporto è stato chiuso.',
+          messageKey: msgKey,
           type: NotificationType.SUPPORT_REPLY,
           data: { ticketId: ticket.id, status: dto.status },
         });
@@ -311,7 +308,7 @@ export class SupportService {
           : dto.message;
         await this.notificationsService.sendNotification({
           userId: ticket.userId,
-          title: 'Risposta al ticket di supporto',
+          messageKey: 'support_reply',
           body: bodyPreview,
           type: NotificationType.SUPPORT_REPLY,
           data: { ticketId, messageId: saved.id },

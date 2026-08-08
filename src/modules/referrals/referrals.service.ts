@@ -262,18 +262,18 @@ export class ReferralsService {
 
     // Notify the referrer about the status change
     try {
-      const statusMessages: Partial<Record<ReferralStatus, string>> = {
-        [ReferralStatus.REGISTERED]: 'Il tuo referral si è registrato!',
-        [ReferralStatus.QUALIFIED]: 'Il tuo referral è stato qualificato!',
-        [ReferralStatus.REWARDED]: `Il tuo premio referral di €${dto.rewardAmount} è stato accreditato!`,
-        [ReferralStatus.EXPIRED]: 'Un referral è scaduto.',
+      const statusMessageKeys: Partial<Record<ReferralStatus, { key: string; params?: any[] }>> = {
+        [ReferralStatus.REGISTERED]: { key: 'referral_registered' },
+        [ReferralStatus.QUALIFIED]: { key: 'referral_qualified' },
+        [ReferralStatus.REWARDED]: { key: 'referral_rewarded', params: [dto.rewardAmount] },
+        [ReferralStatus.EXPIRED]: { key: 'referral_expired' },
       };
-      const body = statusMessages[dto.status];
-      if (body) {
+      const msg = statusMessageKeys[dto.status];
+      if (msg) {
         await this.notificationsService.sendNotification({
           userId: referral.referrerId,
-          title: 'Aggiornamento Referral',
-          body,
+          messageKey: msg.key,
+          bodyParams: msg.params || [],
           type: NotificationType.REFERRAL_STATUS,
           data: { referralId: referral.id, status: dto.status },
         });

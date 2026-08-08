@@ -107,16 +107,13 @@ export class ContractsService {
 
     // Send notification to user if contract is being sent
     if (dto.deliveryMethod) {
-      const bodyText =
-        dto.deliveryMethod === 'app'
-          ? 'Il tuo contratto è stato caricato. Puoi scaricarlo dalla app.'
-          : `Il tuo contratto ti è stato inviato via ${dto.deliveryMethod}.`;
+      const msgKey = dto.deliveryMethod === 'app' ? 'contract_sent_app' : 'contract_sent_other';
 
       try {
         await this.notificationsService.sendNotification({
           userId: switchCase.userId,
-          title: 'Contratto Inviato',
-          body: bodyText,
+          messageKey: msgKey,
+          bodyParams: dto.deliveryMethod !== 'app' ? [dto.deliveryMethod] : [],
           type: NotificationType.CONTRACT_STATUS,
           data: {
             caseId: switchCase.id,
@@ -210,28 +207,34 @@ export class ContractsService {
 
       if (switchCase) {
         let newCaseStatus: CaseStatus | null = null;
-        let notificationTitle = '';
-        let notificationBody = '';
+        let eventTitle = '';
+        let eventDescription = '';
         let eventType: CaseEventType = CaseEventType.STATUS_CHANGE;
+        let messageKey = '';
+        let messageBodyParams: any[] = [];
 
         let notificationType: NotificationType = NotificationType.CONTRACT_STATUS;
 
         if (dto.status === ContractStatus.SENT) {
           newCaseStatus = CaseStatus.CONTRACT_SENT;
-          notificationTitle = 'Contratto Inviato';
-          notificationBody = contract.deliveryMethod === 'app'
-            ? 'Il tuo contratto è stato caricato. Puoi scaricarlo dalla app.'
-            : `Il tuo contratto ti è stato inviato via ${contract.deliveryMethod || 'email'}.`;
+          eventTitle = 'Contratto Inviato';
+          eventDescription = contract.deliveryMethod === 'app'
+            ? 'Contratto caricato nella app.'
+            : `Contratto inviato via ${contract.deliveryMethod || 'email'}.`;
+          messageKey = contract.deliveryMethod === 'app' ? 'contract_sent_app' : 'contract_sent_other';
+          messageBodyParams = contract.deliveryMethod !== 'app' ? [contract.deliveryMethod || 'email'] : [];
         } else if (dto.status === ContractStatus.SIGNED) {
           newCaseStatus = CaseStatus.CONTRACT_SIGNED;
-          notificationTitle = 'Contratto Firmato';
-          notificationBody = 'Il tuo contratto è stato firmato. È in fase di attivazione.';
+          eventTitle = 'Contratto Firmato';
+          eventDescription = 'Contratto firmato, in fase di attivazione.';
           eventType = CaseEventType.CONTRACT_SIGNED;
+          messageKey = 'contract_signed';
         } else if (dto.status === ContractStatus.ACTIVE) {
           newCaseStatus = CaseStatus.ACTIVATED;
-          notificationTitle = 'Utenza Attivata';
-          notificationBody = 'La tua utenza è stata attivata! Puoi vederla nella sezione Le Mie Utenze.';
+          eventTitle = 'Utenza Attivata';
+          eventDescription = 'Utenza attivata.';
           notificationType = NotificationType.ACTIVATION_COMPLETE;
+          messageKey = 'utility_activated';
         }
 
         if (newCaseStatus) {
@@ -239,36 +242,38 @@ export class ContractsService {
           switchCase.status = newCaseStatus;
           await this.caseRepository.save(switchCase);
 
-          // Log case event
+          // Log case event (admin-facing, Italian)
           await this.eventRepository.save(
             this.eventRepository.create({
               caseId: switchCase.id,
               eventType,
-              title: notificationTitle,
-              description: notificationBody,
+              title: eventTitle,
+              description: eventDescription,
               oldStatus: oldCaseStatus,
               newStatus: newCaseStatus,
             }),
           );
 
-          // Send notification to user
-          try {
-            await this.notificationsService.sendNotification({
-              userId: switchCase.userId,
-              title: notificationTitle,
-              body: notificationBody,
-              type: notificationType,
-              data: {
-                caseId: switchCase.id,
-                billId: switchCase.billId,
-                contractId: saved.id,
-                newStatus: dto.status,
-              },
-            });
-          } catch (error) {
-            this.logger.warn(
-              `Failed to send contract status notification: ${error?.message || error}`,
-            );
+          // Send notification to user (i18n)
+          if (messageKey) {
+            try {
+              await this.notificationsService.sendNotification({
+                userId: switchCase.userId,
+                messageKey,
+                bodyParams: messageBodyParams,
+                type: notificationType,
+                data: {
+                  caseId: switchCase.id,
+                  billId: switchCase.billId,
+                  contractId: saved.id,
+                  newStatus: dto.status,
+                },
+              });
+            } catch (error) {
+              this.logger.warn(
+                `Failed to send contract status notification: ${error?.message || error}`,
+              );
+            }
           }
 
           // Set bill status directly based on contract status

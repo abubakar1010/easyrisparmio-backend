@@ -432,14 +432,10 @@ export class BillsService {
 
     // Send push notification to bill owner
     try {
-      const changedLabels = Object.keys(changes)
-        .map((k) => BillsService.FIELD_LABELS_IT[k] || k)
-        .join(', ');
-
       await this.notificationsService.sendNotification({
         userId: bill.userId,
-        title: 'Dati bolletta aggiornati',
-        body: `I seguenti dati della tua bolletta sono stati aggiornati: ${changedLabels}`,
+        messageKey: 'bill_updated',
+        bodyParams: [Object.keys(changes)],
         type: NotificationType.BILL_UPDATED,
         data: {
           billId: bill.id,
@@ -818,8 +814,8 @@ export class BillsService {
     try {
       await this.notificationsService.sendNotification({
         userId: bill.userId,
-        title: 'Nuove offerte consigliate per te',
-        body: `Abbiamo trovato ${offerSnapshots.length} offerte migliori per la tua bolletta. Risparmio stimato: EUR ${bestSavings.toFixed(2)}`,
+        messageKey: 'offers_recommended',
+        bodyParams: [offerSnapshots.length, bestSavings.toFixed(2)],
         type: NotificationType.OFFER_AVAILABLE,
         data: {
           billId: bill.id,
@@ -947,7 +943,7 @@ export class BillsService {
     try {
       await this.notificationsService.sendNotification({
         userId: bill.userId,
-        title: 'Verifica richiesta per la tua bolletta',
+        messageKey: 'bill_verification_required',
         body: dto.message,
         type: NotificationType.BILL_VERIFICATION,
         data: {
@@ -1151,7 +1147,7 @@ export class BillsService {
       try {
         await this.notificationsService.sendNotification({
           userId: bill.userId,
-          title: 'Verifica contratto richiesta',
+          messageKey: 'contract_verification_required',
           body: dto.message,
           type: NotificationType.CONTRACT_VERIFICATION,
           data: { billId: bill.id },
@@ -1217,25 +1213,21 @@ export class BillsService {
     }
 
     // Send notification for key transitions
-    const notificationMap: Partial<Record<BillStatus, { title: string; body: string; type: NotificationType }>> = {
+    const notificationMap: Partial<Record<BillStatus, { messageKey: string; type: NotificationType }>> = {
       [BillStatus.VERIFIED]: {
-        title: 'Bolletta verificata',
-        body: 'I dati della tua bolletta sono stati verificati. A breve riceverai le offerte.',
+        messageKey: 'bill_verified',
         type: NotificationType.BILL_ANALYZED,
       },
       [BillStatus.CONTRACT_VERIFIED]: {
-        title: 'Contratto approvato',
-        body: 'Il tuo contratto è stato verificato e approvato.',
+        messageKey: 'contract_approved',
         type: NotificationType.CONTRACT_STATUS,
       },
       [BillStatus.AWAITING_ACTIVATION]: {
-        title: 'In attesa di attivazione',
-        body: 'La tua utenza è in fase di attivazione. Ti aggiorneremo appena sarà attiva.',
+        messageKey: 'awaiting_activation',
         type: NotificationType.CONTRACT_STATUS,
       },
       [BillStatus.ACTIVATED]: {
-        title: 'Utenza Attivata',
-        body: 'La tua utenza è stata attivata! Puoi vederla nella sezione Le Mie Utenze.',
+        messageKey: 'utility_activated',
         type: NotificationType.ACTIVATION_COMPLETE,
       },
     };
@@ -1245,8 +1237,7 @@ export class BillsService {
       try {
         await this.notificationsService.sendNotification({
           userId: bill.userId,
-          title: notification.title,
-          body: notification.body,
+          messageKey: notification.messageKey,
           type: notification.type,
           data: { billId: bill.id },
         });

@@ -247,8 +247,8 @@ export class CasesService {
       try {
         await this.notificationsService.sendNotification({
           userId: switchCase.userId,
-          title: 'Aggiornamento Pratica',
-          body: `La tua pratica ${switchCase.caseNumber} è stata aggiornata.`,
+          messageKey: 'case_update',
+          bodyParams: [switchCase.caseNumber],
           type: NotificationType.CASE_UPDATE,
           data: { caseId: id, billId: switchCase.billId, newStatus: dto.status },
         });

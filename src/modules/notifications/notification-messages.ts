@@ -1,0 +1,277 @@
+export type MessageKey =
+  | 'bill_updated'
+  | 'offers_recommended'
+  | 'bill_verification_required'
+  | 'contract_verification_required'
+  | 'bill_verified'
+  | 'contract_approved'
+  | 'awaiting_activation'
+  | 'utility_activated'
+  | 'contract_sent_app'
+  | 'contract_sent_other'
+  | 'contract_signed'
+  | 'case_update'
+  | 'ticket_resolved'
+  | 'ticket_closed'
+  | 'support_reply'
+  | 'referral_registered'
+  | 'referral_qualified'
+  | 'referral_rewarded'
+  | 'referral_expired';
+
+type Lang = 'it' | 'en';
+
+interface MessageDef {
+  title: string;
+  body: string | ((...args: any[]) => string);
+}
+
+const FIELD_LABELS: Record<Lang, Record<string, string>> = {
+  it: {
+    billType: 'Tipo bolletta',
+    podNumber: 'Numero POD',
+    pdrNumber: 'Numero PDR',
+    totalAmount: 'Importo totale',
+    consumptionKwh: 'Consumo (kWh)',
+    consumptionSmc: 'Consumo (Smc)',
+    costPerUnit: 'Costo unitario',
+    fixedCharges: 'Costi fissi',
+    taxes: 'Imposte',
+    billingPeriodStart: 'Inizio periodo',
+    billingPeriodEnd: 'Fine periodo',
+    supplyAddress: 'Indirizzo fornitura',
+    codiceFiscale: 'Codice Fiscale',
+    partitaIva: 'Partita IVA',
+    contractNumber: 'Numero contratto',
+    meterNumber: 'Numero contatore',
+    customerName: 'Nome cliente',
+    supplierName: 'Fornitore',
+    supplierId: 'Fornitore',
+  },
+  en: {
+    billType: 'Bill type',
+    podNumber: 'POD number',
+    pdrNumber: 'PDR number',
+    totalAmount: 'Total amount',
+    consumptionKwh: 'Consumption (kWh)',
+    consumptionSmc: 'Consumption (Smc)',
+    costPerUnit: 'Cost per unit',
+    fixedCharges: 'Fixed charges',
+    taxes: 'Taxes',
+    billingPeriodStart: 'Billing period start',
+    billingPeriodEnd: 'Billing period end',
+    supplyAddress: 'Supply address',
+    codiceFiscale: 'Tax ID (Codice Fiscale)',
+    partitaIva: 'VAT number (Partita IVA)',
+    contractNumber: 'Contract number',
+    meterNumber: 'Meter number',
+    customerName: 'Customer name',
+    supplierName: 'Supplier',
+    supplierId: 'Supplier',
+  },
+};
+
+export function resolveFieldLabels(fieldKeys: string[], lang: Lang): string {
+  const labels = FIELD_LABELS[lang] || FIELD_LABELS.it;
+  return fieldKeys.map((k) => labels[k] || k).join(', ');
+}
+
+const MESSAGES: Record<MessageKey, Record<Lang, MessageDef>> = {
+  bill_updated: {
+    it: {
+      title: 'Dati bolletta aggiornati',
+      body: (fieldKeys: string[]) =>
+        `I seguenti dati della tua bolletta sono stati aggiornati: ${resolveFieldLabels(fieldKeys, 'it')}`,
+    },
+    en: {
+      title: 'Bill data updated',
+      body: (fieldKeys: string[]) =>
+        `The following bill data has been updated: ${resolveFieldLabels(fieldKeys, 'en')}`,
+    },
+  },
+  offers_recommended: {
+    it: {
+      title: 'Nuove offerte consigliate per te',
+      body: (count: number, savings: string) =>
+        `Abbiamo trovato ${count} offerte migliori per la tua bolletta. Risparmio stimato: EUR ${savings}`,
+    },
+    en: {
+      title: 'New recommended offers for you',
+      body: (count: number, savings: string) =>
+        `We found ${count} better offers for your bill. Estimated savings: EUR ${savings}`,
+    },
+  },
+  bill_verification_required: {
+    it: { title: 'Verifica richiesta per la tua bolletta', body: '' },
+    en: { title: 'Verification required for your bill', body: '' },
+  },
+  contract_verification_required: {
+    it: { title: 'Verifica contratto richiesta', body: '' },
+    en: { title: 'Contract verification required', body: '' },
+  },
+  bill_verified: {
+    it: {
+      title: 'Bolletta verificata',
+      body: 'I dati della tua bolletta sono stati verificati. A breve riceverai le offerte.',
+    },
+    en: {
+      title: 'Bill verified',
+      body: 'Your bill data has been verified. You will receive offers shortly.',
+    },
+  },
+  contract_approved: {
+    it: {
+      title: 'Contratto approvato',
+      body: 'Il tuo contratto è stato verificato e approvato.',
+    },
+    en: {
+      title: 'Contract approved',
+      body: 'Your contract has been verified and approved.',
+    },
+  },
+  awaiting_activation: {
+    it: {
+      title: 'In attesa di attivazione',
+      body: 'La tua utenza è in fase di attivazione. Ti aggiorneremo appena sarà attiva.',
+    },
+    en: {
+      title: 'Awaiting activation',
+      body: 'Your utility is being activated. We will update you once it is active.',
+    },
+  },
+  utility_activated: {
+    it: {
+      title: 'Utenza Attivata',
+      body: 'La tua utenza è stata attivata! Puoi vederla nella sezione Le Mie Utenze.',
+    },
+    en: {
+      title: 'Utility Activated',
+      body: 'Your utility has been activated! You can view it in the My Utilities section.',
+    },
+  },
+  contract_sent_app: {
+    it: {
+      title: 'Contratto Inviato',
+      body: 'Il tuo contratto è stato caricato. Puoi scaricarlo dalla app.',
+    },
+    en: {
+      title: 'Contract Sent',
+      body: 'Your contract has been uploaded. You can download it from the app.',
+    },
+  },
+  contract_sent_other: {
+    it: {
+      title: 'Contratto Inviato',
+      body: (method: string) =>
+        `Il tuo contratto ti è stato inviato via ${method}.`,
+    },
+    en: {
+      title: 'Contract Sent',
+      body: (method: string) =>
+        `Your contract has been sent to you via ${method}.`,
+    },
+  },
+  contract_signed: {
+    it: {
+      title: 'Contratto Firmato',
+      body: 'Il tuo contratto è stato firmato. È in fase di attivazione.',
+    },
+    en: {
+      title: 'Contract Signed',
+      body: 'Your contract has been signed. It is being activated.',
+    },
+  },
+  case_update: {
+    it: {
+      title: 'Aggiornamento Pratica',
+      body: (caseNumber: string) =>
+        `La tua pratica ${caseNumber} è stata aggiornata.`,
+    },
+    en: {
+      title: 'Case Update',
+      body: (caseNumber: string) =>
+        `Your case ${caseNumber} has been updated.`,
+    },
+  },
+  ticket_resolved: {
+    it: {
+      title: 'Ticket risolto',
+      body: 'Il tuo ticket di supporto è stato risolto.',
+    },
+    en: {
+      title: 'Ticket Resolved',
+      body: 'Your support ticket has been resolved.',
+    },
+  },
+  ticket_closed: {
+    it: {
+      title: 'Ticket chiuso',
+      body: 'Il tuo ticket di supporto è stato chiuso.',
+    },
+    en: {
+      title: 'Ticket Closed',
+      body: 'Your support ticket has been closed.',
+    },
+  },
+  support_reply: {
+    it: { title: 'Risposta al ticket di supporto', body: '' },
+    en: { title: 'Support ticket reply', body: '' },
+  },
+  referral_registered: {
+    it: {
+      title: 'Aggiornamento Referral',
+      body: 'Il tuo referral si è registrato!',
+    },
+    en: {
+      title: 'Referral Update',
+      body: 'Your referral has registered!',
+    },
+  },
+  referral_qualified: {
+    it: {
+      title: 'Aggiornamento Referral',
+      body: 'Il tuo referral è stato qualificato!',
+    },
+    en: {
+      title: 'Referral Update',
+      body: 'Your referral has been qualified!',
+    },
+  },
+  referral_rewarded: {
+    it: {
+      title: 'Aggiornamento Referral',
+      body: (amount: number | string) =>
+        `Il tuo premio referral di \u20AC${amount} è stato accreditato!`,
+    },
+    en: {
+      title: 'Referral Update',
+      body: (amount: number | string) =>
+        `Your referral reward of \u20AC${amount} has been credited!`,
+    },
+  },
+  referral_expired: {
+    it: {
+      title: 'Aggiornamento Referral',
+      body: 'Un referral è scaduto.',
+    },
+    en: {
+      title: 'Referral Update',
+      body: 'A referral has expired.',
+    },
+  },
+};
+
+export function getNotificationText(
+  key: MessageKey,
+  lang: Lang,
+  params: any[] = [],
+): { title: string; body: string } {
+  const msg = MESSAGES[key]?.[lang] || MESSAGES[key]?.['it'];
+  if (!msg) {
+    return { title: key, body: '' };
+  }
+  return {
+    title: msg.title,
+    body: typeof msg.body === 'function' ? msg.body(...params) : msg.body,
+  };
+}

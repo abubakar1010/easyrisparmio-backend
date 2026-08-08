@@ -26,16 +26,18 @@ export class SendNotificationDto {
   @IsUUID('4', { each: true })
   userIds?: string[];
 
-  @ApiProperty({ description: 'Notification title' })
+  @ApiPropertyOptional({ description: 'Notification title (required if messageKey is not set)' })
+  @ValidateIf((o) => !o.messageKey)
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)
-  title: string;
+  title?: string;
 
-  @ApiProperty({ description: 'Notification body' })
+  @ApiPropertyOptional({ description: 'Notification body (required if messageKey is not set)' })
+  @ValidateIf((o) => !o.messageKey)
   @IsString()
   @IsNotEmpty()
-  body: string;
+  body?: string;
 
   @ApiProperty({ enum: NotificationType })
   @IsEnum(NotificationType)
@@ -45,4 +47,14 @@ export class SendNotificationDto {
   @IsOptional()
   @IsObject()
   data?: Record<string, any>;
+
+  @ApiPropertyOptional({ description: 'Message key for i18n resolution (internal use)' })
+  @IsOptional()
+  @IsString()
+  messageKey?: string;
+
+  @ApiPropertyOptional({ description: 'Parameters for message template interpolation' })
+  @IsOptional()
+  @IsArray()
+  bodyParams?: any[];
 }

@@ -214,6 +214,8 @@ export class ContractsService {
         let notificationBody = '';
         let eventType: CaseEventType = CaseEventType.STATUS_CHANGE;
 
+        let notificationType: NotificationType = NotificationType.CONTRACT_STATUS;
+
         if (dto.status === ContractStatus.SENT) {
           newCaseStatus = CaseStatus.CONTRACT_SENT;
           notificationTitle = 'Contratto Inviato';
@@ -229,6 +231,7 @@ export class ContractsService {
           newCaseStatus = CaseStatus.ACTIVATED;
           notificationTitle = 'Utenza Attivata';
           notificationBody = 'La tua utenza è stata attivata! Puoi vederla nella sezione Le Mie Utenze.';
+          notificationType = NotificationType.ACTIVATION_COMPLETE;
         }
 
         if (newCaseStatus) {
@@ -254,7 +257,7 @@ export class ContractsService {
               userId: switchCase.userId,
               title: notificationTitle,
               body: notificationBody,
-              type: NotificationType.CONTRACT_STATUS,
+              type: notificationType,
               data: {
                 caseId: switchCase.id,
                 billId: switchCase.billId,

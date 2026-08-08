@@ -1049,7 +1049,7 @@ export class BillsService {
           userId: bill.userId,
           title: 'Verifica contratto richiesta',
           body: dto.message,
-          type: NotificationType.BILL_VERIFICATION,
+          type: NotificationType.CONTRACT_VERIFICATION,
           data: { billId: bill.id },
         });
       } catch (error) {
@@ -1132,7 +1132,7 @@ export class BillsService {
       [BillStatus.ACTIVATED]: {
         title: 'Utenza Attivata',
         body: 'La tua utenza è stata attivata! Puoi vederla nella sezione Le Mie Utenze.',
-        type: NotificationType.CONTRACT_STATUS,
+        type: NotificationType.ACTIVATION_COMPLETE,
       },
     };
 

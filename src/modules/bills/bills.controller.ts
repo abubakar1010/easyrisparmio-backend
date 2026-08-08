@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Param,
   Body,
   Query,
@@ -45,6 +46,7 @@ import { QueryBillsDto } from './dto/query-bills.dto';
 import { SendOffersDto } from './dto/send-offers.dto';
 import { RequestVerificationDto, SubmitVerificationDto } from './dto/request-verification.dto';
 import { TransitionBillStatusDto, SubmitContractVerificationDto } from './dto/transition-bill-status.dto';
+import { UpdateBillDto } from './dto/update-bill.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -440,6 +442,43 @@ export class BillsController {
   @ApiForbiddenResponse({ description: 'User does not have admin role', content: { 'application/json': { example: ERROR_403 } } })
   getBillByIdAdmin(@Param('id', ParseUUIDPipe) id: string) {
     return this.billsService.getBillByIdAdmin(id);
+  }
+
+  @Patch('admin/:id')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Update bill data (admin)',
+    description: 'Admin can update any editable bill field. Changes are logged and the bill owner is notified.',
+  })
+  @ApiOkResponse({
+    description: 'Bill updated successfully',
+    content: {
+      'application/json': {
+        example: { success: true, data: BILL_EXAMPLE },
+      },
+    },
+  })
+  @ApiNotFoundResponse({ description: 'Bill not found' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT', content: { 'application/json': { example: ERROR_401 } } })
+  @ApiForbiddenResponse({ description: 'User does not have admin role', content: { 'application/json': { example: ERROR_403 } } })
+  async updateBillAdmin(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateBillDto,
+    @CurrentUser('id') adminId: string,
+  ) {
+    const { bill, changes } = await this.billsService.adminUpdateBill(id, dto, adminId);
+
+    if (Object.keys(changes).length > 0) {
+      void this.activityLogService.log(
+        adminId,
+        'Bill Data Updated',
+        'bill',
+        id,
+        { changes },
+      );
+    }
+
+    return bill;
   }
 
   @Get('admin/:id/all-offers')

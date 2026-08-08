@@ -350,6 +350,110 @@ export class BillsService {
     return bill;
   }
 
+  // ─── Admin Update Bill ────────────────────────────────────
+
+  private static readonly FIELD_LABELS_IT: Record<string, string> = {
+    billType: 'Tipo bolletta',
+    podNumber: 'Numero POD',
+    pdrNumber: 'Numero PDR',
+    totalAmount: 'Importo totale',
+    consumptionKwh: 'Consumo (kWh)',
+    consumptionSmc: 'Consumo (Smc)',
+    costPerUnit: 'Costo unitario',
+    fixedCharges: 'Costi fissi',
+    taxes: 'Imposte',
+    billingPeriodStart: 'Inizio periodo',
+    billingPeriodEnd: 'Fine periodo',
+    supplyAddress: 'Indirizzo fornitura',
+    codiceFiscale: 'Codice Fiscale',
+    partitaIva: 'Partita IVA',
+    contractNumber: 'Numero contratto',
+    meterNumber: 'Numero contatore',
+    customerName: 'Nome cliente',
+    supplierName: 'Fornitore',
+    supplierId: 'Fornitore',
+  };
+
+  async adminUpdateBill(
+    billId: string,
+    dto: Record<string, any>,
+    adminId: string,
+  ): Promise<{ bill: EnergyBill; changes: Record<string, { old: any; new: any }> }> {
+    const bill = await this.getBillByIdAdmin(billId);
+
+    const dateFields = ['billingPeriodStart', 'billingPeriodEnd'];
+    const decimalFields = [
+      'totalAmount', 'consumptionKwh', 'consumptionSmc',
+      'costPerUnit', 'fixedCharges', 'taxes',
+    ];
+
+    const changes: Record<string, { old: any; new: any }> = {};
+
+    for (const key of Object.keys(dto)) {
+      if (dto[key] === undefined) continue;
+
+      const oldVal = (bill as any)[key];
+      let newVal = dto[key];
+
+      if (dateFields.includes(key)) {
+        const oldNorm = oldVal ? new Date(oldVal).toISOString().split('T')[0] : null;
+        const newNorm = newVal ? new Date(newVal).toISOString().split('T')[0] : null;
+        if (oldNorm === newNorm) continue;
+        changes[key] = { old: oldNorm, new: newNorm };
+        (bill as any)[key] = newVal ? new Date(newVal) : null;
+      } else if (decimalFields.includes(key)) {
+        const oldNum = oldVal != null ? Number(oldVal) : null;
+        const newNum = newVal != null ? Number(newVal) : null;
+        if (oldNum === newNum) continue;
+        changes[key] = { old: oldNum, new: newNum };
+        (bill as any)[key] = newVal;
+      } else {
+        const oldStr = oldVal ?? null;
+        const newStr = newVal ?? null;
+        if (oldStr === newStr) continue;
+        changes[key] = { old: oldStr, new: newStr };
+        (bill as any)[key] = newVal;
+      }
+    }
+
+    if (Object.keys(changes).length === 0) {
+      return { bill, changes };
+    }
+
+    // Validate supplier if changed
+    if (changes.supplierId && dto.supplierId) {
+      const supplier = await this.supplierRepository.findOne({ where: { id: dto.supplierId } });
+      if (!supplier) {
+        throw new NotFoundException('Supplier not found');
+      }
+    }
+
+    await this.billRepository.save(bill);
+
+    // Send push notification to bill owner
+    try {
+      const changedLabels = Object.keys(changes)
+        .map((k) => BillsService.FIELD_LABELS_IT[k] || k)
+        .join(', ');
+
+      await this.notificationsService.sendNotification({
+        userId: bill.userId,
+        title: 'Dati bolletta aggiornati',
+        body: `I seguenti dati della tua bolletta sono stati aggiornati: ${changedLabels}`,
+        type: NotificationType.BILL_UPDATED,
+        data: {
+          billId: bill.id,
+          changedFields: Object.keys(changes),
+        },
+      });
+    } catch (error) {
+      this.logger.warn(`Failed to send bill update notification: ${error?.message || error}`);
+    }
+
+    const updated = await this.getBillByIdAdmin(billId);
+    return { bill: updated, changes };
+  }
+
   async getBillById(billId: string, userId: string): Promise<EnergyBill> {
     const bill = await this.billRepository.findOne({
       where: { id: billId },

@@ -7,6 +7,7 @@ export enum NotificationType {
   CONTRACT_VERIFICATION = 'contract_verification',
   ACTIVATION_COMPLETE = 'activation_complete',
   REFERRAL_STATUS = 'referral_status',
+  SUPPORT_REPLY = 'support_reply',
   GENERAL = 'general',
 }
 

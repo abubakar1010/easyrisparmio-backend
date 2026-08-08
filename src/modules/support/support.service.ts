@@ -1,11 +1,14 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '../../common/enums/notification.enum';
 import { SupportTicket } from './entities/support-ticket.entity';
 import { TicketMessage } from './entities/ticket-message.entity';
 import { Faq } from './entities/faq.entity';
@@ -26,6 +29,8 @@ import { UserRole } from '../../common/enums/role.enum';
 
 @Injectable()
 export class SupportService {
+  private readonly logger = new Logger(SupportService.name);
+
   constructor(
     @InjectRepository(SupportTicket)
     private readonly ticketRepository: Repository<SupportTicket>,
@@ -35,6 +40,7 @@ export class SupportService {
     private readonly faqRepository: Repository<Faq>,
     @InjectRepository(SupportTopic)
     private readonly topicRepository: Repository<SupportTopic>,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   // ─── Topic Methods ──────────────────────────────────────────
@@ -247,7 +253,27 @@ export class SupportService {
       }
     }
 
-    return this.ticketRepository.save(ticket);
+    const saved = await this.ticketRepository.save(ticket);
+
+    // Notify ticket owner on status changes
+    if (dto.status === TicketStatus.RESOLVED || dto.status === TicketStatus.CLOSED) {
+      const isResolved = dto.status === TicketStatus.RESOLVED;
+      try {
+        await this.notificationsService.sendNotification({
+          userId: ticket.userId,
+          title: isResolved ? 'Ticket risolto' : 'Ticket chiuso',
+          body: isResolved
+            ? 'Il tuo ticket di supporto è stato risolto.'
+            : 'Il tuo ticket di supporto è stato chiuso.',
+          type: NotificationType.SUPPORT_REPLY,
+          data: { ticketId: ticket.id, status: dto.status },
+        });
+      } catch (error) {
+        this.logger.warn(`Failed to send ticket status notification: ${error?.message || error}`);
+      }
+    }
+
+    return saved;
   }
 
   async addMessage(
@@ -275,7 +301,27 @@ export class SupportService {
       attachments: dto.attachments || null,
     });
 
-    return this.messageRepository.save(message);
+    const saved = await this.messageRepository.save(message);
+
+    // Notify ticket owner when admin replies
+    if (userRole === UserRole.ADMIN && ticket.userId !== senderId) {
+      try {
+        const bodyPreview = dto.message.length > 100
+          ? dto.message.substring(0, 100) + '...'
+          : dto.message;
+        await this.notificationsService.sendNotification({
+          userId: ticket.userId,
+          title: 'Risposta al ticket di supporto',
+          body: bodyPreview,
+          type: NotificationType.SUPPORT_REPLY,
+          data: { ticketId, messageId: saved.id },
+        });
+      } catch (error) {
+        this.logger.warn(`Failed to send support reply notification: ${error?.message || error}`);
+      }
+    }
+
+    return saved;
   }
 
   async getMessages(

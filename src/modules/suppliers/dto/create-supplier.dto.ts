@@ -10,6 +10,7 @@ import {
   Min,
   Max,
   IsNotEmpty,
+  Matches,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { SupplierStatus, Commodity } from '../../../common/enums/supplier.enum';

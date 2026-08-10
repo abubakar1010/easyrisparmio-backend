@@ -879,6 +879,22 @@ export class BillsController {
     return this.billsService.addBillNote(billId, dto.content, userId);
   }
 
+  @Patch(':id/notes/:noteId')
+  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Update a note on a bill (admin)' })
+  @ApiBearerAuth()
+  @ApiBody({ type: CreateBillNoteDto })
+  @ApiOkResponse({ description: 'Note updated' })
+  @ApiNotFoundResponse({ description: 'Note not found' })
+  updateBillNote(
+    @Param('id', ParseUUIDPipe) billId: string,
+    @Param('noteId', ParseUUIDPipe) noteId: string,
+    @Body() dto: CreateBillNoteDto,
+  ) {
+    return this.billsService.updateBillNote(billId, noteId, dto.content);
+  }
+
   @Delete(':id/notes/:noteId')
   @Roles(UserRole.ADMIN)
   @UseGuards(JwtAuthGuard, RolesGuard)

@@ -1461,6 +1461,28 @@ export class BillsService {
     });
   }
 
+  async updateBillNote(
+    billId: string,
+    noteId: string,
+    content: string,
+  ): Promise<BillNote> {
+    const note = await this.billNoteRepository.findOne({
+      where: { id: noteId, billId },
+    });
+
+    if (!note) {
+      throw new NotFoundException('Note not found');
+    }
+
+    note.content = content;
+    await this.billNoteRepository.save(note);
+
+    return this.billNoteRepository.findOneOrFail({
+      where: { id: noteId },
+      relations: ['createdBy'],
+    });
+  }
+
   async deleteBillNote(
     billId: string,
     noteId: string,

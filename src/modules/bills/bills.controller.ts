@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   Body,
   Query,
@@ -14,6 +15,8 @@ import {
   BadRequestException,
   NotFoundException,
   BadGatewayException,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { statSync } from 'fs';
@@ -47,6 +50,7 @@ import { SendOffersDto } from './dto/send-offers.dto';
 import { RequestVerificationDto, SubmitVerificationDto } from './dto/request-verification.dto';
 import { TransitionBillStatusDto, SubmitContractVerificationDto } from './dto/transition-bill-status.dto';
 import { UpdateBillDto } from './dto/update-bill.dto';
+import { CreateBillNoteDto } from './dto/create-bill-note.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -846,5 +850,46 @@ export class BillsController {
     @Body() dto: SubmitContractVerificationDto,
   ) {
     return this.billsService.submitContractVerification(id, userId, dto);
+  }
+
+  @Get(':id/notes')
+  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'List notes for a bill (admin)' })
+  @ApiBearerAuth()
+  @ApiOkResponse({ description: 'List of bill notes' })
+  @ApiNotFoundResponse({ description: 'Bill not found' })
+  getBillNotes(@Param('id', ParseUUIDPipe) billId: string) {
+    return this.billsService.getBillNotes(billId);
+  }
+
+  @Post(':id/notes')
+  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Add a note to a bill (admin)' })
+  @ApiBearerAuth()
+  @ApiBody({ type: CreateBillNoteDto })
+  @ApiCreatedResponse({ description: 'Note created' })
+  @ApiNotFoundResponse({ description: 'Bill not found' })
+  addBillNote(
+    @Param('id', ParseUUIDPipe) billId: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: CreateBillNoteDto,
+  ) {
+    return this.billsService.addBillNote(billId, dto.content, userId);
+  }
+
+  @Delete(':id/notes/:noteId')
+  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete a note from a bill (admin)' })
+  @ApiBearerAuth()
+  @ApiNotFoundResponse({ description: 'Note not found' })
+  deleteBillNote(
+    @Param('id', ParseUUIDPipe) billId: string,
+    @Param('noteId', ParseUUIDPipe) noteId: string,
+  ) {
+    return this.billsService.deleteBillNote(billId, noteId);
   }
 }

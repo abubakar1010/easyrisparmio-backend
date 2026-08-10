@@ -5,13 +5,13 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { BaseEntity } from '../../../common/entities/base.entity';
-import { SwitchCase } from './switch-case.entity';
+import { EnergyBill } from './energy-bill.entity';
 import { User } from '../../users/entities/user.entity';
 
-@Entity('case_notes')
-export class CaseNote extends BaseEntity {
-  @Column({ name: 'case_id', type: 'uuid' })
-  caseId: string;
+@Entity('bill_notes')
+export class BillNote extends BaseEntity {
+  @Column({ name: 'bill_id', type: 'uuid' })
+  billId: string;
 
   @Column({ type: 'text' })
   content: string;
@@ -19,11 +19,11 @@ export class CaseNote extends BaseEntity {
   @Column({ name: 'created_by_id', type: 'uuid' })
   createdById: string;
 
-  @ManyToOne(() => SwitchCase, (switchCase) => switchCase.notes, {
+  @ManyToOne(() => EnergyBill, (bill) => bill.notes, {
     onDelete: 'CASCADE',
   })
-  @JoinColumn({ name: 'case_id' })
-  switchCase: SwitchCase;
+  @JoinColumn({ name: 'bill_id' })
+  bill: EnergyBill;
 
   @ManyToOne(() => User, { eager: false })
   @JoinColumn({ name: 'created_by_id' })

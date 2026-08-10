@@ -3,7 +3,6 @@ import {
   Get,
   Post,
   Patch,
-  Delete,
   Param,
   Body,
   Query,
@@ -11,8 +10,6 @@ import {
   UseGuards,
   ParseUUIDPipe,
   NotFoundException,
-  HttpCode,
-  HttpStatus,
 } from '@nestjs/common';
 import { existsSync } from 'fs';
 import { join, extname } from 'path';
@@ -34,7 +31,6 @@ import { CreateCaseDto } from './dto/create-case.dto';
 import { UpdateCaseDto } from './dto/update-case.dto';
 import { QueryCasesDto } from './dto/query-cases.dto';
 import { UploadDocumentDto } from './dto/upload-document.dto';
-import { CreateCaseNoteDto } from './dto/create-case-note.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -359,53 +355,4 @@ export class CasesController {
     return result;
   }
 
-  @Get(':id/notes')
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({
-    summary: 'List notes for a case (admin)',
-    description: 'Returns all admin notes attached to a case, ordered by newest first.',
-  })
-  @ApiOkResponse({ description: 'List of case notes' })
-  @ApiNotFoundResponse({ description: 'Case not found' })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT', content: { 'application/json': { example: ERROR_401 } } })
-  @ApiForbiddenResponse({ description: 'User does not have admin role', content: { 'application/json': { example: ERROR_403 } } })
-  getCaseNotes(@Param('id', ParseUUIDPipe) caseId: string) {
-    return this.casesService.getCaseNotes(caseId);
-  }
-
-  @Post(':id/notes')
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({
-    summary: 'Add a note to a case (admin)',
-    description: 'Creates a new admin note on a case. Notes are logged as case events.',
-  })
-  @ApiBody({ type: CreateCaseNoteDto })
-  @ApiCreatedResponse({ description: 'Note created' })
-  @ApiNotFoundResponse({ description: 'Case not found' })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT', content: { 'application/json': { example: ERROR_401 } } })
-  @ApiForbiddenResponse({ description: 'User does not have admin role', content: { 'application/json': { example: ERROR_403 } } })
-  addCaseNote(
-    @Param('id', ParseUUIDPipe) caseId: string,
-    @CurrentUser('id') userId: string,
-    @Body() dto: CreateCaseNoteDto,
-  ) {
-    return this.casesService.addCaseNote(caseId, dto.content, userId);
-  }
-
-  @Delete(':id/notes/:noteId')
-  @Roles(UserRole.ADMIN)
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({
-    summary: 'Delete a note from a case (admin)',
-    description: 'Removes a note from a case.',
-  })
-  @ApiNotFoundResponse({ description: 'Note not found' })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT', content: { 'application/json': { example: ERROR_401 } } })
-  @ApiForbiddenResponse({ description: 'User does not have admin role', content: { 'application/json': { example: ERROR_403 } } })
-  deleteCaseNote(
-    @Param('id', ParseUUIDPipe) caseId: string,
-    @Param('noteId', ParseUUIDPipe) noteId: string,
-  ) {
-    return this.casesService.deleteCaseNote(caseId, noteId);
-  }
 }

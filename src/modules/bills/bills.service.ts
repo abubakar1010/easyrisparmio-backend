@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { EnergyBill } from './entities/energy-bill.entity';
 import { BillFile } from './entities/bill-file.entity';
+import { BillNote } from './entities/bill-note.entity';
 import { BillVerification, VerificationStatus } from './entities/bill-verification.entity';
 import { RequestVerificationDto, SubmitVerificationDto } from './dto/request-verification.dto';
 import { Offer } from '../offers/entities/offer.entity';
@@ -61,6 +62,8 @@ export class BillsService {
     private readonly eventRepository: Repository<CaseEvent>,
     @InjectRepository(Contract)
     private readonly contractRepository: Repository<Contract>,
+    @InjectRepository(BillNote)
+    private readonly billNoteRepository: Repository<BillNote>,
     private readonly notificationsService: NotificationsService,
     private readonly visionOcrService: VisionOcrService,
   ) {}
@@ -1354,5 +1357,57 @@ export class BillsService {
     await this.billRepository.save(bill);
 
     return this.getBillById(bill.id, userId);
+  }
+
+  async getBillNotes(billId: string): Promise<BillNote[]> {
+    const bill = await this.billRepository.findOne({ where: { id: billId } });
+    if (!bill) {
+      throw new NotFoundException('Bill not found');
+    }
+
+    return this.billNoteRepository.find({
+      where: { billId },
+      relations: ['createdBy'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async addBillNote(
+    billId: string,
+    content: string,
+    createdById: string,
+  ): Promise<BillNote> {
+    const bill = await this.billRepository.findOne({ where: { id: billId } });
+    if (!bill) {
+      throw new NotFoundException('Bill not found');
+    }
+
+    const note = this.billNoteRepository.create({
+      billId,
+      content,
+      createdById,
+    });
+
+    const saved = await this.billNoteRepository.save(note);
+
+    return this.billNoteRepository.findOne({
+      where: { id: saved.id },
+      relations: ['createdBy'],
+    });
+  }
+
+  async deleteBillNote(
+    billId: string,
+    noteId: string,
+  ): Promise<void> {
+    const note = await this.billNoteRepository.findOne({
+      where: { id: noteId, billId },
+    });
+
+    if (!note) {
+      throw new NotFoundException('Note not found');
+    }
+
+    await this.billNoteRepository.remove(note);
   }
 }

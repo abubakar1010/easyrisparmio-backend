@@ -5,7 +5,6 @@ import { CasesController } from './cases.controller';
 import { SwitchCase } from './entities/switch-case.entity';
 import { CaseDocument } from './entities/case-document.entity';
 import { CaseEvent } from './entities/case-event.entity';
-import { CaseNote } from './entities/case-note.entity';
 import { EnergyBill } from '../bills/entities/energy-bill.entity';
 import { Offer } from '../offers/entities/offer.entity';
 import { Contract } from '../contracts/entities/contract.entity';
@@ -18,7 +17,6 @@ import { ActivityLogModule } from '../activity-log/activity-log.module';
       SwitchCase,
       CaseDocument,
       CaseEvent,
-      CaseNote,
       EnergyBill,
       Offer,
       Contract,

@@ -18,7 +18,6 @@ import { EnergyBill } from '../../bills/entities/energy-bill.entity';
 import { Offer } from '../../offers/entities/offer.entity';
 import { CaseDocument } from './case-document.entity';
 import { CaseEvent } from './case-event.entity';
-import { CaseNote } from './case-note.entity';
 import { Contract } from '../../contracts/entities/contract.entity';
 
 @Entity('switch_cases')
@@ -146,7 +145,4 @@ export class SwitchCase extends BaseEntity {
 
   @OneToMany(() => CaseEvent, (event) => event.switchCase)
   events: CaseEvent[];
-
-  @OneToMany(() => CaseNote, (note) => note.switchCase)
-  notes: CaseNote[];
 }

@@ -12,6 +12,7 @@ import { BillType, BillStatus, BillSource } from '../../../common/enums/bill.enu
 import { User } from '../../users/entities/user.entity';
 import { Supplier } from '../../suppliers/entities/supplier.entity';
 import { BillFile } from './bill-file.entity';
+import { BillNote } from './bill-note.entity';
 import { BillVerification } from './bill-verification.entity';
 import { SwitchCase } from '../../cases/entities/switch-case.entity';
 
@@ -160,6 +161,9 @@ export class EnergyBill extends BaseEntity {
 
   @OneToMany(() => BillVerification, (v) => v.bill)
   verifications: BillVerification[];
+
+  @OneToMany(() => BillNote, (n) => n.bill)
+  notes: BillNote[];
 
   @OneToMany(() => SwitchCase, (sc) => sc.bill)
   switchCases: SwitchCase[];

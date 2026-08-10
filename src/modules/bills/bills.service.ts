@@ -31,6 +31,7 @@ import { TransitionBillStatusDto, SubmitContractVerificationDto } from './dto/tr
 import { isValidTransition, getAvailableTransitions } from '../../common/utils/bill-status-transitions';
 import { CaseEvent } from '../cases/entities/case-event.entity';
 import { CaseEventType } from '../../common/enums/case-event.enum';
+import { CaseStatus } from '../../common/enums/case.enum';
 import { ContractStatus } from '../../common/enums/contract.enum';
 import { SwitchCase } from '../cases/entities/switch-case.entity';
 import { Contract } from '../contracts/entities/contract.entity';
@@ -1311,6 +1312,12 @@ export class BillsService {
             contract.activationDate = new Date();
           }
           await this.contractRepository.save(contract);
+        }
+
+        // Sync case status to ACTIVATED so potential savings query picks it up
+        if (activeCase.status !== CaseStatus.ACTIVATED) {
+          activeCase.status = CaseStatus.ACTIVATED;
+          await this.caseRepository.save(activeCase);
         }
       }
     }

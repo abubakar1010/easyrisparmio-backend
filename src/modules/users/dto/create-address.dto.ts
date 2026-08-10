@@ -28,10 +28,10 @@ export class CreateAddressDto {
   @MaxLength(10)
   postalCode: string;
 
-  @ApiPropertyOptional({ example: 'MI' })
+  @ApiPropertyOptional({ example: 'Milano' })
   @IsOptional()
   @IsString()
-  @MaxLength(2)
+  @MaxLength(100)
   province?: string;
 
   @ApiPropertyOptional({ example: 'IT', default: 'IT' })

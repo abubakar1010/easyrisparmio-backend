@@ -994,6 +994,58 @@ export class BillsService {
       throw new NotFoundException('No pending verification request found');
     }
 
+    // Validate that all missing fields are provided with non-empty values
+    if (verification.missingFields?.length) {
+      const missingFieldNames = verification.missingFields;
+      const providedFields = dto.fieldValues || {};
+      const stillMissing = missingFieldNames.filter((field) => {
+        const value = providedFields[field];
+        return value == null || value === '' || (typeof value === 'string' && value.trim() === '');
+      });
+
+      if (stillMissing.length > 0) {
+        throw new BadRequestException(
+          `The following required fields are missing: ${stillMissing.join(', ')}`,
+        );
+      }
+
+      // Validate numeric fields are valid numbers
+      const numericFields = [
+        'totalAmount', 'consumptionKwh', 'consumptionSmc',
+        'costPerUnit', 'fixedCharges', 'taxes',
+      ];
+      for (const field of missingFieldNames) {
+        if (numericFields.includes(field) && providedFields[field] != null) {
+          const numValue = Number(providedFields[field]);
+          if (isNaN(numValue) || numValue < 0) {
+            throw new BadRequestException(
+              `${field} must be a valid non-negative number`,
+            );
+          }
+        }
+      }
+
+      // Validate date fields are valid dates
+      const dateFields = ['billingPeriodStart', 'billingPeriodEnd'];
+      for (const field of missingFieldNames) {
+        if (dateFields.includes(field) && providedFields[field] != null) {
+          const dateValue = new Date(providedFields[field]);
+          if (isNaN(dateValue.getTime())) {
+            throw new BadRequestException(
+              `${field} must be a valid date`,
+            );
+          }
+        }
+      }
+    }
+
+    // Validate file upload when re-upload is required
+    if (verification.requireReupload && (!dto.fileIds || dto.fileIds.length === 0)) {
+      throw new BadRequestException(
+        'Document re-upload is required. Please upload at least one file.',
+      );
+    }
+
     // Apply user-submitted field values to the bill
     if (dto.fieldValues) {
       const fieldMap: Record<string, string> = {

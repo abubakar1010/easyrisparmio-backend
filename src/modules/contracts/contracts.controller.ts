@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   Body,
   Query,
@@ -26,7 +27,9 @@ import {
 import { ContractsService } from './contracts.service';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { UpdateContractDto } from './dto/update-contract.dto';
+import { AddContractDocumentsDto } from './dto/add-contract-documents.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
+import { ContractDocumentType } from '../../common/enums/contract.enum';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -78,12 +81,13 @@ export class ContractsController {
   @Patch('my-contracts/:id/upload-signed')
   @Roles(UserRole.PERSONAL, UserRole.BUSINESS)
   @ApiOperation({
-    summary: 'Upload signed contract document',
+    summary: 'Upload signed contract documents',
     description:
-      'Allows the user to upload the signed contract. Sets contract status to SIGNED, ' +
+      'Allows the user to upload one or more signed contract documents. Sets contract status to SIGNED, ' +
       'records the signing timestamp, and syncs the case status to CONTRACT_SIGNED.',
   })
-  @ApiOkResponse({ description: 'Signed contract uploaded' })
+  @ApiBody({ type: AddContractDocumentsDto })
+  @ApiOkResponse({ description: 'Signed contract documents uploaded' })
   @ApiNotFoundResponse({ description: 'Contract not found' })
   @ApiForbiddenResponse({ description: 'User does not own this contract' })
   @ApiBadRequestResponse({ description: 'Contract must be in SENT status' })
@@ -91,9 +95,26 @@ export class ContractsController {
   uploadSignedContract(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser('id') userId: string,
-    @Body() body: { signedDocumentUrl: string },
+    @Body() dto: AddContractDocumentsDto,
   ) {
-    return this.contractsService.uploadSignedContract(id, userId, body.signedDocumentUrl);
+    return this.contractsService.uploadSignedContract(id, userId, dto);
+  }
+
+  @Get('my-contracts/:id/documents')
+  @Roles(UserRole.PERSONAL, UserRole.BUSINESS)
+  @ApiOperation({
+    summary: 'Get my contract documents',
+    description: 'Returns all documents (contract and signed) for the authenticated user\'s contract.',
+  })
+  @ApiOkResponse({ description: 'List of contract documents' })
+  @ApiNotFoundResponse({ description: 'Contract not found' })
+  @ApiForbiddenResponse({ description: 'User does not own this contract' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT' })
+  getMyContractDocuments(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.contractsService.getUserContractDocuments(id, userId);
   }
 
   // ─── Admin Endpoints ──────────────────────────────────────
@@ -522,5 +543,77 @@ export class ContractsController {
   })
   findByCase(@Param('caseId', ParseUUIDPipe) caseId: string) {
     return this.contractsService.getContractByCase(caseId);
+  }
+
+  // ─── Admin Document Endpoints ─────────────────────────────
+
+  @Post(':id/documents')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Upload contract documents',
+    description:
+      'Attach one or more documents to a contract. Upload files first via POST /api/v1/upload, ' +
+      'then submit the returned metadata here. Admin only.',
+  })
+  @ApiParam({ name: 'id', type: String, description: 'Contract UUID' })
+  @ApiBody({ type: AddContractDocumentsDto })
+  @ApiCreatedResponse({ description: 'Documents attached successfully' })
+  @ApiNotFoundResponse({ description: 'Contract not found' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT' })
+  @ApiForbiddenResponse({ description: 'User does not have admin role' })
+  async addDocuments(
+    @CurrentUser('id') adminId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AddContractDocumentsDto,
+  ) {
+    const docs = await this.contractsService.addContractDocuments(
+      id,
+      adminId,
+      dto,
+      ContractDocumentType.CONTRACT,
+    );
+    void this.activityLogService.log(adminId, 'Contract Documents Uploaded', 'contract', id, {
+      count: docs.length,
+    });
+    return docs;
+  }
+
+  @Get(':id/documents')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Get contract documents',
+    description: 'Returns all documents (contract and signed) for a given contract. Admin only.',
+  })
+  @ApiParam({ name: 'id', type: String, description: 'Contract UUID' })
+  @ApiOkResponse({ description: 'List of contract documents' })
+  @ApiNotFoundResponse({ description: 'Contract not found' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT' })
+  @ApiForbiddenResponse({ description: 'User does not have admin role' })
+  getDocuments(@Param('id', ParseUUIDPipe) id: string) {
+    return this.contractsService.getContractDocuments(id);
+  }
+
+  @Delete(':id/documents/:docId')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Delete a contract document',
+    description: 'Remove a specific document from a contract. Admin only.',
+  })
+  @ApiParam({ name: 'id', type: String, description: 'Contract UUID' })
+  @ApiParam({ name: 'docId', type: String, description: 'Document UUID' })
+  @ApiOkResponse({ description: 'Document deleted' })
+  @ApiNotFoundResponse({ description: 'Document not found' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT' })
+  @ApiForbiddenResponse({ description: 'User does not have admin role' })
+  async deleteDocument(
+    @CurrentUser('id') adminId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('docId', ParseUUIDPipe) docId: string,
+  ) {
+    await this.contractsService.deleteContractDocument(id, docId);
+    void this.activityLogService.log(adminId, 'Contract Document Deleted', 'contract', id, {
+      documentId: docId,
+    });
+    return { message: 'Document deleted' };
   }
 }

@@ -13,3 +13,8 @@ export enum ContractDeliveryMethod {
   MAIL = 'mail',
   PHONE = 'phone',
 }
+
+export enum ContractDocumentType {
+  CONTRACT = 'contract',
+  SIGNED = 'signed',
+}

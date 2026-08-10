@@ -71,20 +71,22 @@ async function loadContext(ds: DataSource): Promise<SeedContext> {
   if (admin) ctx.users.admin = admin;
   ctx.users.personal = await userRepo.find({
     where: { role: UserRole.PERSONAL },
+    order: { createdAt: 'ASC' },
   });
   ctx.users.business = await userRepo.find({
     where: { role: UserRole.BUSINESS },
+    order: { createdAt: 'ASC' },
   });
 
-  ctx.suppliers = await ds.getRepository(Supplier).find({ withDeleted: true });
-  ctx.offers = await ds.getRepository(Offer).find({ withDeleted: true });
-  ctx.meters = await ds.getRepository(Meter).find({ withDeleted: true });
-  ctx.bills = await ds.getRepository(EnergyBill).find({ withDeleted: true });
-  ctx.cases = await ds.getRepository(SwitchCase).find({ withDeleted: true });
-  ctx.tickets = await ds.getRepository(SupportTicket).find();
-  ctx.addresses = await ds.getRepository(UserAddress).find();
-  ctx.reconciliations = await ds.getRepository(CsvReconciliation).find();
-  ctx.contracts = await ds.getRepository(Contract).find({ withDeleted: true });
+  ctx.suppliers = await ds.getRepository(Supplier).find({ withDeleted: true, order: { createdAt: 'ASC' } });
+  ctx.offers = await ds.getRepository(Offer).find({ withDeleted: true, order: { createdAt: 'ASC' } });
+  ctx.meters = await ds.getRepository(Meter).find({ withDeleted: true, order: { createdAt: 'ASC' } });
+  ctx.bills = await ds.getRepository(EnergyBill).find({ withDeleted: true, order: { createdAt: 'ASC' } });
+  ctx.cases = await ds.getRepository(SwitchCase).find({ withDeleted: true, order: { createdAt: 'ASC' } });
+  ctx.tickets = await ds.getRepository(SupportTicket).find({ order: { createdAt: 'ASC' } });
+  ctx.addresses = await ds.getRepository(UserAddress).find({ order: { createdAt: 'ASC' } });
+  ctx.reconciliations = await ds.getRepository(CsvReconciliation).find({ order: { createdAt: 'ASC' } });
+  ctx.contracts = await ds.getRepository(Contract).find({ withDeleted: true, order: { createdAt: 'ASC' } });
 
   return ctx;
 }
@@ -120,9 +122,11 @@ const SEEDERS: Record<
     await seedCaseEvents(ds, ctx);
     await seedContracts(ds, ctx);
   },
+  faqs: async (ds) => {
+    await seedFaqs(ds);
+  },
   support: async (ds, ctx) => {
     await seedSupportTopics(ds);
-    await seedFaqs(ds);
     await seedSupportTickets(ds, ctx);
     await seedTicketMessages(ds, ctx);
   },

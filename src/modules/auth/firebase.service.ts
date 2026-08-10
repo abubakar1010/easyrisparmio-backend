@@ -1,4 +1,9 @@
-import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleInit,
+  Logger,
+  BadRequestException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
 import { getAuth, DecodedIdToken } from 'firebase-admin/auth';
@@ -34,8 +39,22 @@ export class FirebaseService implements OnModuleInit {
 
   async verifyIdToken(idToken: string): Promise<DecodedIdToken> {
     if (!this.firebaseApp) {
-      throw new Error('Firebase is not configured');
+      throw new BadRequestException(
+        'Firebase is not configured. Social login is unavailable.',
+      );
     }
-    return getAuth(this.firebaseApp).verifyIdToken(idToken);
+    try {
+      return await getAuth(this.firebaseApp).verifyIdToken(idToken);
+    } catch (error) {
+      const code = (error as any)?.code;
+      if (code === 'auth/id-token-expired') {
+        throw new BadRequestException(
+          'Firebase ID token has expired. Please try again.',
+        );
+      }
+      throw new BadRequestException(
+        'Firebase token verification failed. Please try again.',
+      );
+    }
   }
 }

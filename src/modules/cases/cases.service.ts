@@ -10,6 +10,7 @@ import { Repository } from 'typeorm';
 import { SwitchCase } from './entities/switch-case.entity';
 import { CaseDocument } from './entities/case-document.entity';
 import { CaseEvent } from './entities/case-event.entity';
+import { CaseNote } from './entities/case-note.entity';
 import { EnergyBill } from '../bills/entities/energy-bill.entity';
 import { Offer } from '../offers/entities/offer.entity';
 import { CreateCaseDto } from './dto/create-case.dto';
@@ -38,6 +39,8 @@ export class CasesService {
     private readonly documentRepository: Repository<CaseDocument>,
     @InjectRepository(CaseEvent)
     private readonly eventRepository: Repository<CaseEvent>,
+    @InjectRepository(CaseNote)
+    private readonly noteRepository: Repository<CaseNote>,
     @InjectRepository(EnergyBill)
     private readonly billRepository: Repository<EnergyBill>,
     @InjectRepository(Offer)
@@ -345,6 +348,68 @@ export class CasesService {
     });
 
     return saved;
+  }
+
+  async getCaseNotes(caseId: string): Promise<CaseNote[]> {
+    const switchCase = await this.caseRepository.findOne({
+      where: { id: caseId },
+    });
+
+    if (!switchCase) {
+      throw new NotFoundException('Case not found');
+    }
+
+    return this.noteRepository.find({
+      where: { caseId },
+      relations: ['createdBy'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async addCaseNote(
+    caseId: string,
+    content: string,
+    createdById: string,
+  ): Promise<CaseNote> {
+    const switchCase = await this.caseRepository.findOne({
+      where: { id: caseId },
+    });
+
+    if (!switchCase) {
+      throw new NotFoundException('Case not found');
+    }
+
+    const note = this.noteRepository.create({
+      caseId,
+      content,
+      createdById,
+    });
+
+    const saved = await this.noteRepository.save(note);
+
+    await this.logEvent(caseId, CaseEventType.NOTE_ADDED, 'Note added', {
+      actorId: createdById,
+    });
+
+    return this.noteRepository.findOne({
+      where: { id: saved.id },
+      relations: ['createdBy'],
+    });
+  }
+
+  async deleteCaseNote(
+    caseId: string,
+    noteId: string,
+  ): Promise<void> {
+    const note = await this.noteRepository.findOne({
+      where: { id: noteId, caseId },
+    });
+
+    if (!note) {
+      throw new NotFoundException('Note not found');
+    }
+
+    await this.noteRepository.remove(note);
   }
 
   private async generateCaseNumber(): Promise<string> {

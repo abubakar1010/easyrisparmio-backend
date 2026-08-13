@@ -216,7 +216,7 @@ export async function seedCaseDocuments(
     },
     {
       caseId: ctx.cases[0].id,
-      documentType: DocumentType.ID_CARD,
+      documentType: DocumentType.IDENTITY_VERIFICATION,
       fileUrl: '/uploads/documents/seed-case001-id.pdf',
       fileName: 'carta_identita_rossi.pdf',
       uploadedById: marco.id,

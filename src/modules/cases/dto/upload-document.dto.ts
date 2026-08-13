@@ -3,7 +3,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { DocumentType } from '../../../common/enums/user.enum';
 
 export class UploadDocumentDto {
-  @ApiProperty({ enum: DocumentType, description: 'Type of document', example: DocumentType.ID_CARD })
+  @ApiProperty({ enum: DocumentType, description: 'Type of document', example: DocumentType.IDENTITY_VERIFICATION })
   @IsNotEmpty()
   @IsEnum(DocumentType)
   documentType: DocumentType;

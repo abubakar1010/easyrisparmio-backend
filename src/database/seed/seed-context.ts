@@ -28,7 +28,7 @@ export interface SeedContext {
 
 export function createEmptyContext(): SeedContext {
   return {
-    users: { admin: null as any, personal: [], business: [] },
+    users: { admin: null as unknown as User, personal: [], business: [] },
     suppliers: [],
     offers: [],
     meters: [],

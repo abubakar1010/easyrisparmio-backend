@@ -29,6 +29,7 @@
     "seed:meters": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts meters",
     "seed:bills": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts bills",
     "seed:cases": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts cases",
+    "seed:faqs": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts faqs",
     "seed:support": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts support",
     "seed:notifications": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts notifications",
     "seed:referrals": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts referrals",

@@ -1,3 +1,6 @@
+import { BillStatus } from '../../common/enums/bill.enum';
+import { NotificationType } from '../../common/enums/notification.enum';
+
 export type MessageKey =
   | 'bill_updated'
   | 'offers_recommended'
@@ -17,7 +20,19 @@ export type MessageKey =
   | 'referral_registered'
   | 'referral_qualified'
   | 'referral_rewarded'
-  | 'referral_expired';
+  | 'referral_expired'
+  // Case status changes driven by the admin status dropdown
+  | 'status_pending_email'
+  | 'status_uploaded'
+  | 'status_analyzing'
+  | 'status_analyzed'
+  | 'status_error'
+  | 'status_verification_review'
+  | 'status_offer_sent'
+  | 'status_offer_accepted'
+  | 'status_contract_sent'
+  | 'status_contract_review'
+  | 'status_cancelled';
 
 type Lang = 'it' | 'en';
 
@@ -258,6 +273,205 @@ const MESSAGES: Record<MessageKey, Record<Lang, MessageDef>> = {
       title: 'Referral Update',
       body: 'A referral has expired.',
     },
+  },
+
+  // ─── Case status changes ────────────────────────────────────
+  // One entry per pipeline status so the customer always receives a
+  // meaningful push when an admin moves the case — forward or backward.
+  status_pending_email: {
+    it: {
+      title: 'Pratica in attesa',
+      body: 'La tua pratica è in attesa di essere elaborata.',
+    },
+    en: {
+      title: 'Case pending',
+      body: 'Your case is waiting to be processed.',
+    },
+  },
+  status_uploaded: {
+    it: {
+      title: 'Bolletta ricevuta',
+      body: 'Abbiamo ricevuto la tua bolletta. La analizzeremo a breve.',
+    },
+    en: {
+      title: 'Bill received',
+      body: 'We have received your bill. We will analyse it shortly.',
+    },
+  },
+  status_analyzing: {
+    it: {
+      title: 'Analisi in corso',
+      body: 'Stiamo analizzando la tua bolletta. Ti aggiorneremo appena sarà pronta.',
+    },
+    en: {
+      title: 'Analysis in progress',
+      body: 'We are analysing your bill. We will update you as soon as it is ready.',
+    },
+  },
+  status_analyzed: {
+    it: {
+      title: 'Analisi completata',
+      body: "L'analisi della tua bolletta è completata ed è in fase di controllo.",
+    },
+    en: {
+      title: 'Analysis complete',
+      body: 'The analysis of your bill is complete and is now being reviewed.',
+    },
+  },
+  status_error: {
+    it: {
+      title: 'Problema con la bolletta',
+      body: 'Si è verificato un problema con la tua bolletta. Il nostro team sta verificando.',
+    },
+    en: {
+      title: 'Problem with your bill',
+      body: 'There was a problem with your bill. Our team is looking into it.',
+    },
+  },
+  status_verification_review: {
+    it: {
+      title: 'Bolletta in verifica',
+      body: 'Un nostro operatore sta verificando i dati della tua bolletta.',
+    },
+    en: {
+      title: 'Bill under review',
+      body: 'One of our operators is verifying the data on your bill.',
+    },
+  },
+  status_offer_sent: {
+    it: {
+      title: 'Offerte disponibili',
+      body: 'Abbiamo selezionato delle offerte per te. Aprile nella app per sceglierne una.',
+    },
+    en: {
+      title: 'Offers available',
+      body: 'We have selected offers for you. Open the app to choose one.',
+    },
+  },
+  status_offer_accepted: {
+    it: {
+      title: 'Offerta confermata',
+      body: 'La tua offerta è stata confermata. Stiamo preparando il contratto.',
+    },
+    en: {
+      title: 'Offer confirmed',
+      body: 'Your offer has been confirmed. We are preparing the contract.',
+    },
+  },
+  status_contract_sent: {
+    it: {
+      title: 'Contratto inviato',
+      body: 'Il tuo contratto è pronto. Aprilo nella app per firmarlo.',
+    },
+    en: {
+      title: 'Contract sent',
+      body: 'Your contract is ready. Open the app to sign it.',
+    },
+  },
+  status_contract_review: {
+    it: {
+      title: 'Contratto in verifica',
+      body: 'Stiamo verificando il contratto firmato. Ti aggiorneremo a breve.',
+    },
+    en: {
+      title: 'Contract under review',
+      body: 'We are reviewing your signed contract. We will update you shortly.',
+    },
+  },
+  status_cancelled: {
+    it: {
+      title: 'Pratica annullata',
+      body: 'La tua pratica è stata annullata. Contattaci per maggiori informazioni.',
+    },
+    en: {
+      title: 'Case cancelled',
+      body: 'Your case has been cancelled. Contact us for more information.',
+    },
+  },
+};
+
+/**
+ * Notification sent to the customer for each case/bill status.
+ *
+ * Every status maps to an entry so a push is always delivered when an admin
+ * changes the status from the dashboard dropdown — including when the case is
+ * moved back to a previous status.
+ */
+export const BILL_STATUS_NOTIFICATIONS: Record<
+  BillStatus,
+  { messageKey: MessageKey; type: NotificationType }
+> = {
+  [BillStatus.PENDING_EMAIL]: {
+    messageKey: 'status_pending_email',
+    type: NotificationType.GENERAL,
+  },
+  [BillStatus.UPLOADED]: {
+    messageKey: 'status_uploaded',
+    type: NotificationType.GENERAL,
+  },
+  [BillStatus.ANALYZING]: {
+    messageKey: 'status_analyzing',
+    type: NotificationType.GENERAL,
+  },
+  [BillStatus.ANALYZED]: {
+    messageKey: 'status_analyzed',
+    type: NotificationType.BILL_ANALYZED,
+  },
+  [BillStatus.ERROR]: {
+    messageKey: 'status_error',
+    type: NotificationType.GENERAL,
+  },
+  [BillStatus.VERIFICATION_REVIEW]: {
+    messageKey: 'status_verification_review',
+    type: NotificationType.BILL_VERIFICATION,
+  },
+  [BillStatus.VERIFICATION_REQUIRED]: {
+    messageKey: 'bill_verification_required',
+    type: NotificationType.BILL_VERIFICATION,
+  },
+  [BillStatus.VERIFIED]: {
+    messageKey: 'bill_verified',
+    type: NotificationType.BILL_ANALYZED,
+  },
+  [BillStatus.OFFER_SENT]: {
+    messageKey: 'status_offer_sent',
+    type: NotificationType.OFFER_AVAILABLE,
+  },
+  [BillStatus.OFFER_ACCEPTED]: {
+    messageKey: 'status_offer_accepted',
+    type: NotificationType.CASE_UPDATE,
+  },
+  [BillStatus.CONTRACT_SENT]: {
+    messageKey: 'status_contract_sent',
+    type: NotificationType.CONTRACT_STATUS,
+  },
+  [BillStatus.CONTRACT_SIGNED]: {
+    messageKey: 'contract_signed',
+    type: NotificationType.CONTRACT_STATUS,
+  },
+  [BillStatus.CONTRACT_REVIEW]: {
+    messageKey: 'status_contract_review',
+    type: NotificationType.CONTRACT_STATUS,
+  },
+  [BillStatus.CONTRACT_VERIFICATION_REQUIRED]: {
+    messageKey: 'contract_verification_required',
+    type: NotificationType.CONTRACT_VERIFICATION,
+  },
+  [BillStatus.CONTRACT_VERIFIED]: {
+    messageKey: 'contract_approved',
+    type: NotificationType.CONTRACT_STATUS,
+  },
+  [BillStatus.AWAITING_ACTIVATION]: {
+    messageKey: 'awaiting_activation',
+    type: NotificationType.CONTRACT_STATUS,
+  },
+  [BillStatus.ACTIVATED]: {
+    messageKey: 'utility_activated',
+    type: NotificationType.ACTIVATION_COMPLETE,
+  },
+  [BillStatus.CANCELLED]: {
+    messageKey: 'status_cancelled',
+    type: NotificationType.CASE_UPDATE,
   },
 };
 

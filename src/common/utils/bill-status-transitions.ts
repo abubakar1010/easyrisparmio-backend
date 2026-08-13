@@ -29,8 +29,12 @@ const TERMINAL_STATUSES: BillStatus[] = [
 ];
 
 /**
- * Checks whether a status transition is valid.
+ * Checks whether a status transition follows the standard pipeline order.
  * Any non-terminal status can also transition to CANCELLED.
+ *
+ * NOTE: this is advisory only — administrators are allowed to set any status
+ * directly from the case status dropdown (see `ADMIN_SELECTABLE_STATUSES`).
+ * It is used to flag the *recommended* next steps in the admin UI.
  */
 export function isValidTransition(from: BillStatus, to: BillStatus): boolean {
   if (TERMINAL_STATUSES.includes(from)) return false;
@@ -40,7 +44,8 @@ export function isValidTransition(from: BillStatus, to: BillStatus): boolean {
 }
 
 /**
- * Returns the list of statuses a bill can transition to from its current status.
+ * Returns the statuses that follow the standard pipeline order from `status`.
+ * These are surfaced as "recommended next steps" in the admin UI.
  */
 export function getAvailableTransitions(status: BillStatus): BillStatus[] {
   if (TERMINAL_STATUSES.includes(status)) return [];
@@ -99,3 +104,56 @@ export const PIPELINE_STATUS_ORDER: BillStatus[] = [
   BillStatus.AWAITING_ACTIVATION,
   BillStatus.ACTIVATED,
 ];
+
+/**
+ * Statuses an administrator may set directly from the case status dropdown.
+ * The admin is NOT bound to the pipeline order — any of these can be selected
+ * at any time, both forward and backward.
+ *
+ * `PENDING_EMAIL` and `ERROR` are excluded: they are system-managed states
+ * (a bill that has no owner yet / an OCR failure) and are never a meaningful
+ * destination for a manual move. A bill sitting in one of them can still be
+ * moved *out* to any status below.
+ */
+export const ADMIN_SELECTABLE_STATUSES: BillStatus[] = [
+  ...PIPELINE_STATUS_ORDER,
+  BillStatus.CANCELLED,
+];
+
+export type TransitionDirection = 'forward' | 'backward' | 'lateral';
+
+/**
+ * Where a status change sits relative to the pipeline order. Statuses outside
+ * the pipeline (cancelled / error / pending_email) resolve to 'lateral'.
+ */
+export function getTransitionDirection(
+  from: BillStatus,
+  to: BillStatus,
+): TransitionDirection {
+  const fromIdx = PIPELINE_STATUS_ORDER.indexOf(from);
+  const toIdx = PIPELINE_STATUS_ORDER.indexOf(to);
+  if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return 'lateral';
+  return toIdx > fromIdx ? 'forward' : 'backward';
+}
+
+/** Human-readable status names, used for timeline entries and log messages. */
+export const BILL_STATUS_LABELS: Record<BillStatus, string> = {
+  [BillStatus.PENDING_EMAIL]: 'Pending (Email)',
+  [BillStatus.UPLOADED]: 'Uploaded',
+  [BillStatus.ANALYZING]: 'Analyzing',
+  [BillStatus.ANALYZED]: 'Analyzed',
+  [BillStatus.ERROR]: 'Error',
+  [BillStatus.VERIFICATION_REVIEW]: 'Verification Review',
+  [BillStatus.VERIFICATION_REQUIRED]: 'Verification Required',
+  [BillStatus.VERIFIED]: 'Verified',
+  [BillStatus.OFFER_SENT]: 'Offer Sent',
+  [BillStatus.OFFER_ACCEPTED]: 'Offer Accepted',
+  [BillStatus.CONTRACT_SENT]: 'Contract Sent',
+  [BillStatus.CONTRACT_SIGNED]: 'Contract Signed',
+  [BillStatus.CONTRACT_REVIEW]: 'Contract Review',
+  [BillStatus.CONTRACT_VERIFICATION_REQUIRED]: 'Contract Verification Required',
+  [BillStatus.CONTRACT_VERIFIED]: 'Contract Verified',
+  [BillStatus.AWAITING_ACTIVATION]: 'In Activation',
+  [BillStatus.ACTIVATED]: 'Activated',
+  [BillStatus.CANCELLED]: 'Cancelled',
+};

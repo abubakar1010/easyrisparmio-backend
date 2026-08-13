@@ -23,12 +23,6 @@ export class BillVerification extends BaseEntity {
   @Column({ name: 'admin_message', type: 'text' })
   adminMessage: string;
 
-  @Column({ name: 'missing_fields', type: 'jsonb', default: '[]' })
-  missingFields: string[];
-
-  @Column({ name: 'require_reupload', type: 'boolean', default: false })
-  requireReupload: boolean;
-
   @Column({
     type: 'enum',
     enum: VerificationStatus,
@@ -38,9 +32,6 @@ export class BillVerification extends BaseEntity {
 
   @Column({ name: 'user_message', type: 'text', nullable: true })
   userMessage: string | null;
-
-  @Column({ name: 'user_data', type: 'jsonb', nullable: true })
-  userData: Record<string, any> | null;
 
   @Column({ name: 'resolved_at', type: 'timestamptz', nullable: true })
   resolvedAt: Date | null;

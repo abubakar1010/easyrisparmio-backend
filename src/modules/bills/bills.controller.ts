@@ -53,6 +53,12 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserRole } from '../../common/enums/role.enum';
 import { BillType } from '../../common/enums/bill.enum';
+import {
+  ADMIN_SELECTABLE_STATUSES,
+  BILL_STATUS_LABELS,
+  getTransitionDirection,
+  isValidTransition,
+} from '../../common/utils/bill-status-transitions';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 
 const BILL_EXAMPLE = {
@@ -518,8 +524,9 @@ export class BillsController {
   @ApiOperation({
     summary: 'Send bill back to user for verification (admin)',
     description:
-      'Marks a bill as requiring verification. Admin can specify missing fields, ' +
-      'request document re-upload, and include a message. User receives a notification.',
+      'Marks a bill as requiring verification. The admin writes a message explaining ' +
+      'what the user needs to provide. The user receives a notification and responds ' +
+      'by uploading documents.',
   })
   @ApiBody({ type: RequestVerificationDto })
   @ApiCreatedResponse({ description: 'Verification request sent' })
@@ -576,11 +583,13 @@ export class BillsController {
   @ApiOperation({
     summary: 'Submit verification response (user)',
     description:
-      'User submits corrected field values and/or an optional message. ' +
-      'The bill is re-analyzed with the updated data.',
+      'User submits the uploaded documents and an optional message. The documents ' +
+      'are never re-analysed and never overwrite the existing bill data — the bill ' +
+      'moves to verification review so an admin can inspect the files and update the ' +
+      'bill fields manually.',
   })
   @ApiBody({ type: SubmitVerificationDto })
-  @ApiOkResponse({ description: 'Verification submitted, bill re-analyzing' })
+  @ApiOkResponse({ description: 'Verification submitted, bill moved to verification review' })
   @ApiNotFoundResponse({ description: 'Bill or verification not found' })
   submitVerification(
     @CurrentUser('id') userId: string,
@@ -814,7 +823,13 @@ export class BillsController {
   @Post('admin/:id/transition')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Transition bill status (admin)' })
+  @ApiOperation({
+    summary: 'Set bill/case status (admin)',
+    description:
+      'Sets the case to any status. The admin is not bound to the pipeline ' +
+      'order — the case can be moved forward or backward. Every change updates ' +
+      'the case timeline and sends a push notification to the customer.',
+  })
   @ApiBearerAuth()
   async transitionBillStatus(
     @CurrentUser('id') adminId: string,
@@ -827,13 +842,29 @@ export class BillsController {
   @Get('admin/:id/available-transitions')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Get available status transitions for a bill (admin)' })
+  @ApiOperation({
+    summary: 'Get selectable statuses for a bill (admin)',
+    description:
+      'Returns every status the admin can select for this case, flagging the ' +
+      'current one and the ones that follow the standard pipeline order.',
+  })
   @ApiBearerAuth()
-  async getAvailableTransitions(
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async getAvailableTransitions(@Param('id', ParseUUIDPipe) id: string) {
     const bill = await this.billsService.getBillByIdAdmin(id);
-    return this.billsService.getAvailableTransitionsForBill(bill.status);
+    const current = bill.status;
+
+    return {
+      current,
+      currentLabel: BILL_STATUS_LABELS[current] || current,
+      recommended: this.billsService.getAvailableTransitionsForBill(current),
+      statuses: ADMIN_SELECTABLE_STATUSES.map((status) => ({
+        status,
+        label: BILL_STATUS_LABELS[status] || status,
+        isCurrent: status === current,
+        isRecommended: isValidTransition(current, status),
+        direction: getTransitionDirection(current, status),
+      })),
+    };
   }
 
   @Post(':id/contract-verification/submit')

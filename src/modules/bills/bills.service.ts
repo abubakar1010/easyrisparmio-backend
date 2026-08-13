@@ -27,9 +27,16 @@ import { OfferStatus } from '../../common/enums/offer-status.enum';
 import { SupplierStatus } from '../../common/enums/supplier.enum';
 import { NotificationType } from '../../common/enums/notification.enum';
 import { TransitionBillStatusDto, SubmitContractVerificationDto } from './dto/transition-bill-status.dto';
-import { isValidTransition, getAvailableTransitions } from '../../common/utils/bill-status-transitions';
+import {
+  getAvailableTransitions,
+  getTransitionDirection,
+  BILL_STATUS_LABELS,
+  type TransitionDirection,
+} from '../../common/utils/bill-status-transitions';
+import { BILL_STATUS_NOTIFICATIONS } from '../notifications/notification-messages';
 import { CaseEvent } from '../cases/entities/case-event.entity';
 import { CaseEventType } from '../../common/enums/case-event.enum';
+import { CaseStatus } from '../../common/enums/case.enum';
 import { ContractStatus } from '../../common/enums/contract.enum';
 import { SwitchCase } from '../cases/entities/switch-case.entity';
 import { Contract } from '../contracts/entities/contract.entity';
@@ -929,8 +936,6 @@ export class BillsService {
     const verification = this.verificationRepository.create({
       billId,
       adminMessage: dto.message,
-      missingFields: dto.missingFields,
-      requireReupload: dto.requireReupload ?? false,
       status: VerificationStatus.PENDING,
     });
 
@@ -949,8 +954,6 @@ export class BillsService {
         data: {
           billId: bill.id,
           verificationId: saved.id,
-          missingFields: dto.missingFields,
-          requireReupload: dto.requireReupload ?? false,
         },
       });
     } catch (error) {
@@ -994,43 +997,8 @@ export class BillsService {
       throw new NotFoundException('No pending verification request found');
     }
 
-    // Apply user-submitted field values to the bill
-    if (dto.fieldValues) {
-      const fieldMap: Record<string, string> = {
-        podNumber: 'podNumber',
-        pdrNumber: 'pdrNumber',
-        totalAmount: 'totalAmount',
-        consumptionKwh: 'consumptionKwh',
-        consumptionSmc: 'consumptionSmc',
-        costPerUnit: 'costPerUnit',
-        fixedCharges: 'fixedCharges',
-        taxes: 'taxes',
-        billingPeriodStart: 'billingPeriodStart',
-        billingPeriodEnd: 'billingPeriodEnd',
-        supplyAddress: 'supplyAddress',
-        codiceFiscale: 'codiceFiscale',
-        partitaIva: 'partitaIva',
-        contractNumber: 'contractNumber',
-        meterNumber: 'meterNumber',
-        customerName: 'customerName',
-        supplierName: 'supplierName',
-      };
-
-      for (const [key, value] of Object.entries(dto.fieldValues)) {
-        if (fieldMap[key] && value != null && value !== '') {
-          const entityField = fieldMap[key];
-          if (['billingPeriodStart', 'billingPeriodEnd'].includes(entityField)) {
-            (bill as any)[entityField] = new Date(value);
-          } else {
-            (bill as any)[entityField] = value;
-          }
-        }
-      }
-    }
-
     verification.status = VerificationStatus.SUBMITTED;
     verification.userMessage = dto.message || null;
-    verification.userData = dto.fieldValues || null;
     await this.verificationRepository.save(verification);
 
     // Link uploaded files to this verification record
@@ -1041,17 +1009,10 @@ export class BillsService {
       );
     }
 
-    // Re-run OCR if re-upload was required, otherwise just update status
-    if (verification.requireReupload) {
-      bill.status = BillStatus.ANALYZING;
-      await this.billRepository.save(bill);
-      this.processOcrInBackground(bill).catch((err) =>
-        this.logger.error(`Re-OCR failed for bill ${bill.id}: ${err.message}`),
-      );
-    } else {
-      bill.status = BillStatus.VERIFICATION_REVIEW;
-      await this.billRepository.save(bill);
-    }
+    // The uploaded documents are never re-analysed and never overwrite the bill
+    // data. The admin reviews the files and updates the bill fields manually.
+    bill.status = BillStatus.VERIFICATION_REVIEW;
+    await this.billRepository.save(bill);
 
     return this.getBillById(bill.id, userId);
   }
@@ -1089,40 +1050,53 @@ export class BillsService {
     return getAvailableTransitions(status);
   }
 
+  /**
+   * Sets a bill/case to any status the admin picks from the status dropdown.
+   *
+   * The admin is deliberately NOT restricted to the pipeline order — a case can
+   * be moved forward, backward or sideways. Whatever the direction, this always:
+   *   1. updates the bill status (drives the progress bar and the app),
+   *   2. keeps the linked case + contract in sync,
+   *   3. writes a case timeline entry,
+   *   4. sends a push notification to the customer.
+   */
   async transitionBillStatus(
     billId: string,
     dto: TransitionBillStatusDto,
     adminId: string,
   ): Promise<EnergyBill> {
     const bill = await this.getBillByIdAdmin(billId);
+    const oldStatus = bill.status;
+    const targetStatus = dto.targetStatus;
 
-    if (!isValidTransition(bill.status, dto.targetStatus)) {
+    if (oldStatus === targetStatus) {
       throw new BadRequestException(
-        `Cannot transition from "${bill.status}" to "${dto.targetStatus}"`,
+        `Bill is already in status "${BILL_STATUS_LABELS[targetStatus] || targetStatus}"`,
       );
     }
 
-    const oldStatus = bill.status;
+    // These two statuses carry an admin-written message to the customer,
+    // so they cannot be set without one.
+    const isVerificationRequest =
+      targetStatus === BillStatus.VERIFICATION_REQUIRED ||
+      targetStatus === BillStatus.CONTRACT_VERIFICATION_REQUIRED;
 
-    // Handle verification_required — create verification record
-    if (dto.targetStatus === BillStatus.VERIFICATION_REQUIRED) {
-      if (!dto.message) {
-        throw new BadRequestException('Message is required when requesting verification');
-      }
-      await this.requestVerification(billId, {
-        message: dto.message,
-        missingFields: dto.missingFields || [],
-        requireReupload: dto.requireReupload,
-      });
-      return this.getBillByIdAdmin(billId);
+    if (isVerificationRequest && !dto.message) {
+      throw new BadRequestException(
+        `Message is required when moving the case to "${BILL_STATUS_LABELS[targetStatus]}"`,
+      );
     }
 
-    // Handle contract_verification_required — create verification record for contract
-    if (dto.targetStatus === BillStatus.CONTRACT_VERIFICATION_REQUIRED) {
-      if (!dto.message) {
-        throw new BadRequestException('Message is required when requesting contract verification');
-      }
+    const direction = getTransitionDirection(oldStatus, targetStatus);
 
+    // The verification branches send their own push (it carries the admin's
+    // message as the body), so they opt out of the shared notification below.
+    let notificationHandled = false;
+
+    if (targetStatus === BillStatus.VERIFICATION_REQUIRED) {
+      await this.requestVerification(billId, { message: dto.message! });
+      notificationHandled = true;
+    } else if (targetStatus === BillStatus.CONTRACT_VERIFICATION_REQUIRED) {
       // Mark any previous pending verifications as resolved
       await this.verificationRepository.update(
         { billId, status: VerificationStatus.PENDING },
@@ -1132,122 +1106,171 @@ export class BillsService {
       // Create a contract verification record
       const verification = this.verificationRepository.create({
         billId,
-        adminMessage: dto.message,
-        missingFields: dto.missingFields || [],
-        requireReupload: dto.requireReupload ?? false,
+        adminMessage: dto.message!,
         status: VerificationStatus.PENDING,
       });
       await this.verificationRepository.save(verification);
 
-      await this.billRepository.update(billId, {
-        status: BillStatus.CONTRACT_VERIFICATION_REQUIRED,
-      });
+      await this.billRepository.update(billId, { status: targetStatus });
 
-      // Send notification
       try {
         await this.notificationsService.sendNotification({
           userId: bill.userId,
           messageKey: 'contract_verification_required',
           body: dto.message,
           type: NotificationType.CONTRACT_VERIFICATION,
-          data: { billId: bill.id },
+          data: { billId: bill.id, oldStatus, newStatus: targetStatus },
         });
       } catch (error) {
         this.logger.warn(`Failed to send contract verification notification: ${error?.message || error}`);
       }
-
-      return this.getBillByIdAdmin(billId);
-    }
-
-    // Handle verified — resolve pending verifications
-    if (dto.targetStatus === BillStatus.VERIFIED) {
+      notificationHandled = true;
+    } else {
+      // Moving anywhere other than a "waiting on the customer" status means we
+      // are no longer waiting — close out any request still open.
       await this.verificationRepository.update(
         { billId, status: VerificationStatus.PENDING },
         { status: VerificationStatus.RESOLVED, resolvedAt: new Date() },
       );
+
+      bill.status = targetStatus;
+      await this.billRepository.save(bill);
     }
 
-    // Update bill status
-    bill.status = dto.targetStatus;
-    await this.billRepository.save(bill);
-
-    // When bill reaches awaiting_activation or activated, sync the contract
-    // to ACTIVE so the utility appears in the user's my-services list
-    if (
-      dto.targetStatus === BillStatus.AWAITING_ACTIVATION ||
-      dto.targetStatus === BillStatus.ACTIVATED
-    ) {
-      const activeCase = bill.switchCases?.length
-        ? bill.switchCases.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
-        : null;
-
-      if (activeCase) {
-        const contract = await this.contractRepository.findOne({
-          where: { caseId: activeCase.id },
-        });
-        if (contract && contract.status !== ContractStatus.ACTIVE) {
-          contract.status = ContractStatus.ACTIVE;
-          if (!contract.activationDate) {
-            contract.activationDate = new Date();
-          }
-          await this.contractRepository.save(contract);
-        }
-      }
-    }
-
-    // Log case event if a case exists
     const activeCase = bill.switchCases?.length
-      ? bill.switchCases.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
+      ? bill.switchCases.sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        )[0]
       : null;
 
     if (activeCase) {
-      await this.eventRepository.save(
-        this.eventRepository.create({
-          caseId: activeCase.id,
-          eventType: CaseEventType.STATUS_CHANGE,
-          title: `Status: ${oldStatus} → ${dto.targetStatus}`,
-          description: dto.message || `Bill status transitioned to ${dto.targetStatus}`,
-          actorId: adminId,
-        }),
-      );
+      await this.syncContractWithBillStatus(activeCase.id, targetStatus);
+      await this.logStatusChangeOnCase(activeCase, oldStatus, targetStatus, direction, adminId, dto.message);
     }
 
-    // Send notification for key transitions
-    const notificationMap: Partial<Record<BillStatus, { messageKey: string; type: NotificationType }>> = {
-      [BillStatus.VERIFIED]: {
-        messageKey: 'bill_verified',
-        type: NotificationType.BILL_ANALYZED,
-      },
-      [BillStatus.CONTRACT_VERIFIED]: {
-        messageKey: 'contract_approved',
-        type: NotificationType.CONTRACT_STATUS,
-      },
-      [BillStatus.AWAITING_ACTIVATION]: {
-        messageKey: 'awaiting_activation',
-        type: NotificationType.CONTRACT_STATUS,
-      },
-      [BillStatus.ACTIVATED]: {
-        messageKey: 'utility_activated',
-        type: NotificationType.ACTIVATION_COMPLETE,
-      },
-    };
-
-    const notification = notificationMap[dto.targetStatus];
-    if (notification) {
-      try {
-        await this.notificationsService.sendNotification({
-          userId: bill.userId,
-          messageKey: notification.messageKey,
-          type: notification.type,
-          data: { billId: bill.id },
-        });
-      } catch (error) {
-        this.logger.warn(`Failed to send transition notification: ${error?.message || error}`);
+    // The customer is always notified of a status change — including when the
+    // case is moved back to a previous status.
+    if (!notificationHandled) {
+      const notification = BILL_STATUS_NOTIFICATIONS[targetStatus];
+      if (notification) {
+        try {
+          await this.notificationsService.sendNotification({
+            userId: bill.userId,
+            messageKey: notification.messageKey,
+            type: notification.type,
+            data: {
+              billId: bill.id,
+              caseId: activeCase?.id,
+              oldStatus,
+              newStatus: targetStatus,
+            },
+          });
+        } catch (error) {
+          this.logger.warn(`Failed to send transition notification: ${error?.message || error}`);
+        }
       }
     }
 
     return this.getBillByIdAdmin(billId);
   }
+
+  /**
+   * Keeps the utility contract aligned with the pipeline status in both
+   * directions, so the customer's "My Utilities" list never shows a utility as
+   * active after the case has been moved back before activation.
+   */
+  private async syncContractWithBillStatus(
+    caseId: string,
+    status: BillStatus,
+  ): Promise<void> {
+    const contract = await this.contractRepository.findOne({ where: { caseId } });
+    if (!contract) return;
+
+    const shouldBeActive =
+      status === BillStatus.AWAITING_ACTIVATION || status === BillStatus.ACTIVATED;
+
+    if (shouldBeActive && contract.status !== ContractStatus.ACTIVE) {
+      contract.status = ContractStatus.ACTIVE;
+      if (!contract.activationDate) {
+        contract.activationDate = new Date();
+      }
+      await this.contractRepository.save(contract);
+    } else if (!shouldBeActive && contract.status === ContractStatus.ACTIVE) {
+      contract.status = ContractStatus.SIGNED;
+      await this.contractRepository.save(contract);
+    }
+  }
+
+  /**
+   * Mirrors the pipeline status onto the linked case and appends the change to
+   * the case timeline.
+   */
+  private async logStatusChangeOnCase(
+    activeCase: SwitchCase,
+    oldStatus: BillStatus,
+    newStatus: BillStatus,
+    direction: TransitionDirection,
+    adminId: string,
+    message?: string,
+  ): Promise<void> {
+    const oldCaseStatus = activeCase.status;
+    const newCaseStatus = BillsService.CASE_STATUS_BY_BILL_STATUS[newStatus];
+
+    if (newCaseStatus && newCaseStatus !== oldCaseStatus) {
+      await this.caseRepository.update(activeCase.id, { status: newCaseStatus });
+    }
+
+    const verb =
+      direction === 'backward'
+        ? 'Status moved back'
+        : direction === 'forward'
+          ? 'Status advanced'
+          : 'Status changed';
+
+    const oldLabel = BILL_STATUS_LABELS[oldStatus] || oldStatus;
+    const newLabel = BILL_STATUS_LABELS[newStatus] || newStatus;
+
+    await this.eventRepository.save(
+      this.eventRepository.create({
+        caseId: activeCase.id,
+        eventType: CaseEventType.STATUS_CHANGE,
+        title: `${verb}: ${oldLabel} → ${newLabel}`,
+        description: message || `Case status set to ${newLabel} by an administrator.`,
+        actorId: adminId,
+        actorLabel: 'Admin',
+        oldStatus: oldCaseStatus ?? null,
+        newStatus: newCaseStatus ?? oldCaseStatus ?? null,
+        metadata: {
+          billOldStatus: oldStatus,
+          billNewStatus: newStatus,
+          direction,
+        },
+      }),
+    );
+  }
+
+  /** Maps a pipeline (bill) status onto the coarser case status. */
+  private static readonly CASE_STATUS_BY_BILL_STATUS: Partial<
+    Record<BillStatus, CaseStatus>
+  > = {
+    [BillStatus.PENDING_EMAIL]: CaseStatus.NEW,
+    [BillStatus.UPLOADED]: CaseStatus.NEW,
+    [BillStatus.ANALYZING]: CaseStatus.NEW,
+    [BillStatus.ANALYZED]: CaseStatus.NEW,
+    [BillStatus.VERIFICATION_REVIEW]: CaseStatus.IN_PROGRESS,
+    [BillStatus.VERIFICATION_REQUIRED]: CaseStatus.DOCUMENTS_PENDING,
+    [BillStatus.VERIFIED]: CaseStatus.IN_PROGRESS,
+    [BillStatus.OFFER_SENT]: CaseStatus.IN_PROGRESS,
+    [BillStatus.OFFER_ACCEPTED]: CaseStatus.IN_PROGRESS,
+    [BillStatus.CONTRACT_SENT]: CaseStatus.CONTRACT_SENT,
+    [BillStatus.CONTRACT_SIGNED]: CaseStatus.CONTRACT_SIGNED,
+    [BillStatus.CONTRACT_REVIEW]: CaseStatus.CONTRACT_SIGNED,
+    [BillStatus.CONTRACT_VERIFICATION_REQUIRED]: CaseStatus.CONTRACT_SENT,
+    [BillStatus.CONTRACT_VERIFIED]: CaseStatus.CONTRACT_SIGNED,
+    [BillStatus.AWAITING_ACTIVATION]: CaseStatus.CONTRACT_SIGNED,
+    [BillStatus.ACTIVATED]: CaseStatus.ACTIVATED,
+    [BillStatus.CANCELLED]: CaseStatus.CANCELLED,
+  };
 
   async submitContractVerification(
     billId: string,

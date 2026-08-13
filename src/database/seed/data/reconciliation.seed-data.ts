@@ -21,8 +21,8 @@ export async function seedCsvReconciliations(
     fileName: 'enel_reconciliation_202602.csv',
     status: ReconciliationStatus.COMPLETED,
     totalRows: 3,
-    successfulMatches: 2,
-    notFoundCount: 1,
+    successfulMatches: 1,
+    notFoundCount: 2,
     errorCount: 0,
     totalValue: 4685.5,
     processingStartedAt: new Date('2026-06-20T08:00:00Z'),
@@ -90,7 +90,9 @@ export async function seedCsvReconciliationRows(
         stato: 'ATTIVO',
         consumo_kwh: 12500,
       },
-      status: ReconRowStatus.MATCHED,
+      status: ReconRowStatus.NOT_FOUND,
+      possibleMatchInfo:
+        'POD presente nelle bollette ma nessun contratto attivo associato. Pratica ancora in fase di apertura.',
     },
   ];
 

@@ -13,8 +13,26 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const configService = app.get(ConfigService);
 
+  // CORS (must be before helmet)
+  const corsOrigins = configService.get<string>('CORS_ORIGINS');
+  app.enableCors({
+    origin: corsOrigins
+      ? corsOrigins.split(',').map((o) => o.trim())
+      : configService.get('app.env') === 'production'
+        ? false
+        : true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: 'Content-Type,Authorization,Accept-Language',
+    exposedHeaders: 'Content-Disposition',
+    credentials: true,
+  });
+
   // Security headers
-  app.use(helmet());
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
 
   // Global prefix (exclude deep link routes served at root)
   app.setGlobalPrefix('api/v1', {
@@ -23,20 +41,6 @@ async function bootstrap() {
       { path: '.well-known/apple-app-site-association', method: RequestMethod.GET },
       { path: 'r/:code', method: RequestMethod.GET },
     ],
-  });
-
-  // CORS
-  const corsOrigins = configService.get<string>('CORS_ORIGINS');
-  app.enableCors({
-    origin: corsOrigins
-      ? corsOrigins.split(',').map((o) => o.trim())
-      : configService.get('app.env') === 'production'
-        ? false
-        : '*',
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    allowedHeaders: 'Content-Type,Authorization,Accept-Language',
-    exposedHeaders: 'Content-Disposition',
-    credentials: true,
   });
 
   // Serve uploaded files (bills, documents, contracts)

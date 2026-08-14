@@ -5,9 +5,6 @@ import { PaymentMethod, InvoiceDelivery } from '../../../common/enums/payment.en
 /** Italian CAP — exactly five digits. */
 const POSTAL_CODE_PATTERN = /^\d{5}$/;
 
-/** Italian province sigla, e.g. MI, RM, TO. */
-const PROVINCE_PATTERN = /^[A-Za-z]{2}$/;
-
 export class CreateCaseDto {
   @ApiProperty({ description: 'ID of the energy bill for this switch case', example: 'bl1a2b3c-d5e6-7890-abcd-ef1234567890' })
   @IsNotEmpty()
@@ -21,7 +18,7 @@ export class CreateCaseDto {
 
   // ── Addresses ──
   // Supply, residential and shipping addresses all carry the same five fields:
-  // street, civic number, city, postal code (CAP) and province sigla.
+  // street, civic number, city, postal code (CAP) and province.
 
   @ApiPropertyOptional({ description: 'Supply address street', example: 'Via Roma' })
   @IsOptional()
@@ -47,10 +44,10 @@ export class CreateCaseDto {
   @Matches(POSTAL_CODE_PATTERN, { message: 'supplyPostalCode must be a 5-digit CAP' })
   supplyPostalCode?: string;
 
-  @ApiPropertyOptional({ description: 'Supply address province sigla', example: 'MI' })
+  @ApiPropertyOptional({ description: 'Supply address province (free text)', example: 'MI' })
   @IsOptional()
   @IsString()
-  @Matches(PROVINCE_PATTERN, { message: 'supplyProvince must be a two-letter province code' })
+  @MaxLength(100)
   supplyProvince?: string;
 
   @ApiPropertyOptional({ description: 'Whether the residence address is the same as the supply address', example: true })
@@ -82,10 +79,10 @@ export class CreateCaseDto {
   @Matches(POSTAL_CODE_PATTERN, { message: 'residentialPostalCode must be a 5-digit CAP' })
   residentialPostalCode?: string;
 
-  @ApiPropertyOptional({ description: 'Residence address province sigla', example: 'MI' })
+  @ApiPropertyOptional({ description: 'Residence address province (free text)', example: 'MI' })
   @IsOptional()
   @IsString()
-  @Matches(PROVINCE_PATTERN, { message: 'residentialProvince must be a two-letter province code' })
+  @MaxLength(100)
   residentialProvince?: string;
 
   @ApiPropertyOptional({ description: 'Whether paper invoices go to the supply address', example: true })
@@ -117,10 +114,10 @@ export class CreateCaseDto {
   @Matches(POSTAL_CODE_PATTERN, { message: 'shippingPostalCode must be a 5-digit CAP' })
   shippingPostalCode?: string;
 
-  @ApiPropertyOptional({ description: 'Shipping address province sigla', example: 'TO' })
+  @ApiPropertyOptional({ description: 'Shipping address province (free text)', example: 'TO' })
   @IsOptional()
   @IsString()
-  @Matches(PROVINCE_PATTERN, { message: 'shippingProvince must be a two-letter province code' })
+  @MaxLength(100)
   shippingProvince?: string;
 
   @ApiPropertyOptional({ enum: PaymentMethod, description: 'Payment method for this switch', example: PaymentMethod.RID_BANCARIO })

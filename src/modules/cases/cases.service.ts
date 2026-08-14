@@ -28,12 +28,12 @@ import { NotificationType } from '../../common/enums/notification.enum';
 import { SupplierStatus } from '../../common/enums/supplier.enum';
 
 /**
- * Province sigle are stored uppercase so a case is never filed under both
- * `mi` and `MI`.
+ * Province is free text — it is stored exactly as the user typed it, with only
+ * surrounding whitespace removed and blanks collapsed to null.
  */
 function normalizeProvince(value?: string): string | null {
-  const sigla = value?.trim().toUpperCase();
-  return sigla ? sigla : null;
+  const province = value?.trim();
+  return province ? province : null;
 }
 
 @Injectable()

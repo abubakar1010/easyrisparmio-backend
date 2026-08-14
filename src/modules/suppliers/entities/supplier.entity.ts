@@ -82,6 +82,25 @@ export class Supplier extends BaseEntity {
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
+  @Column({ name: 'contract_signing_instructions', type: 'text', nullable: true })
+  contractSigningInstructions: string | null;
+
+  @Column({
+    name: 'contract_signing_document_url',
+    type: 'varchar',
+    length: 500,
+    nullable: true,
+  })
+  contractSigningDocumentUrl: string | null;
+
+  @Column({
+    name: 'contract_signing_document_name',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
+  contractSigningDocumentName: string | null;
+
   @Column({ name: 'supplier_code', type: 'varchar', length: 50, nullable: true, unique: true })
   supplierCode: string | null;
 

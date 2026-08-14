@@ -135,4 +135,32 @@ export class CreateSupplierDto {
   @IsString()
   @MaxLength(50)
   supplierCode?: string;
+
+  @ApiPropertyOptional({
+    description: 'Instructions shown to the user for signing this supplier\'s contract',
+    example: 'Print the attached form, sign every page, then upload it back here.',
+  })
+  @IsOptional()
+  @IsString()
+  contractSigningInstructions?: string;
+
+  @ApiPropertyOptional({
+    description: 'URL or relative path of the contract signing guideline document',
+    example: '/uploads/enel-signing-guide.pdf',
+    maxLength: 500,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  contractSigningDocumentUrl?: string;
+
+  @ApiPropertyOptional({
+    description: 'Original display name of the contract signing guideline document',
+    example: 'enel-signing-guide.pdf',
+    maxLength: 255,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  contractSigningDocumentName?: string;
 }

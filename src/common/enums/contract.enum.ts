@@ -10,8 +10,6 @@ export enum ContractStatus {
 export enum ContractDeliveryMethod {
   APP = 'app',
   EMAIL = 'email',
-  MAIL = 'mail',
-  PHONE = 'phone',
 }
 
 export enum ContractDocumentType {

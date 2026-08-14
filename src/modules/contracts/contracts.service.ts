@@ -9,14 +9,16 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Contract } from './entities/contract.entity';
+import { ContractDocument } from './entities/contract-document.entity';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { UpdateContractDto } from './dto/update-contract.dto';
+import { AddContractDocumentsDto } from './dto/add-contract-documents.dto';
 import { PaginationDto, PaginatedResponseDto } from '../../common/dto/pagination.dto';
 import { SwitchCase } from '../cases/entities/switch-case.entity';
 import { CaseEvent } from '../cases/entities/case-event.entity';
 import { SentOffer } from '../offers/entities/sent-offer.entity';
 import { EnergyBill } from '../bills/entities/energy-bill.entity';
-import { ContractStatus } from '../../common/enums/contract.enum';
+import { ContractStatus, ContractDocumentType } from '../../common/enums/contract.enum';
 import { CaseStatus } from '../../common/enums/case.enum';
 import { CaseEventType } from '../../common/enums/case-event.enum';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -30,6 +32,8 @@ export class ContractsService {
   constructor(
     @InjectRepository(Contract)
     private readonly contractRepository: Repository<Contract>,
+    @InjectRepository(ContractDocument)
+    private readonly contractDocumentRepository: Repository<ContractDocument>,
     @InjectRepository(SwitchCase)
     private readonly caseRepository: Repository<SwitchCase>,
     @InjectRepository(CaseEvent)
@@ -145,7 +149,8 @@ export class ContractsService {
     const qb = this.contractRepository.createQueryBuilder('c')
       .leftJoinAndSelect('c.user', 'user')
       .leftJoinAndSelect('c.offer', 'offer')
-      .leftJoinAndSelect('c.switchCase', 'switchCase');
+      .leftJoinAndSelect('c.switchCase', 'switchCase')
+      .leftJoinAndSelect('c.documents', 'documents');
 
     if (query.search) {
       qb.andWhere(
@@ -166,7 +171,7 @@ export class ContractsService {
   async getContractById(id: string): Promise<Contract> {
     const contract = await this.contractRepository.findOne({
       where: { id },
-      relations: ['user', 'offer', 'switchCase'],
+      relations: ['user', 'offer', 'switchCase', 'documents'],
     });
 
     if (!contract) {
@@ -298,7 +303,7 @@ export class ContractsService {
   async getContractByCase(caseId: string): Promise<Contract> {
     const contract = await this.contractRepository.findOne({
       where: { caseId },
-      relations: ['user', 'offer', 'switchCase'],
+      relations: ['user', 'offer', 'switchCase', 'documents'],
     });
 
     if (!contract) {
@@ -313,7 +318,7 @@ export class ContractsService {
   async getUserContracts(userId: string): Promise<Contract[]> {
     return this.contractRepository.find({
       where: { userId },
-      relations: ['offer', 'offer.supplier'],
+      relations: ['offer', 'offer.supplier', 'documents'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -321,7 +326,7 @@ export class ContractsService {
   async getUserContractById(id: string, userId: string): Promise<Contract> {
     const contract = await this.contractRepository.findOne({
       where: { id },
-      relations: ['offer', 'offer.supplier'],
+      relations: ['offer', 'offer.supplier', 'documents'],
     });
 
     if (!contract) {
@@ -338,7 +343,7 @@ export class ContractsService {
   async uploadSignedContract(
     id: string,
     userId: string,
-    signedDocumentUrl: string,
+    dto: AddContractDocumentsDto,
   ): Promise<Contract> {
     const contract = await this.contractRepository.findOne({
       where: { id },
@@ -358,7 +363,23 @@ export class ContractsService {
       );
     }
 
-    contract.signedDocumentUrl = signedDocumentUrl;
+    // Save signed documents
+    const docs = dto.documents.map((doc) =>
+      this.contractDocumentRepository.create({
+        contractId: contract.id,
+        documentType: ContractDocumentType.SIGNED,
+        fileUrl: doc.fileUrl,
+        fileName: doc.fileName,
+        originalName: doc.originalName || null,
+        mimeType: doc.mimeType || null,
+        fileSizeBytes: doc.fileSizeBytes || null,
+        uploadedById: userId,
+      }),
+    );
+    await this.contractDocumentRepository.save(docs);
+
+    // Keep legacy field pointing to the first document
+    contract.signedDocumentUrl = dto.documents[0].fileUrl;
     contract.status = ContractStatus.SIGNED;
     contract.signedAt = new Date();
 
@@ -380,7 +401,7 @@ export class ContractsService {
           caseId: switchCase.id,
           eventType: CaseEventType.CONTRACT_SIGNED,
           title: 'Contratto firmato dal cliente',
-          description: 'Il cliente ha caricato il contratto firmato.',
+          description: `Il cliente ha caricato ${docs.length} documento/i firmato/i.`,
           oldStatus: oldCaseStatus,
           newStatus: CaseStatus.CONTRACT_SIGNED,
           actorId: userId,
@@ -396,5 +417,97 @@ export class ContractsService {
     }
 
     return saved;
+  }
+
+  // ─── Contract Document methods ──────────────────────────
+
+  async addContractDocuments(
+    contractId: string,
+    uploadedById: string,
+    dto: AddContractDocumentsDto,
+    documentType: ContractDocumentType,
+  ): Promise<ContractDocument[]> {
+    const contract = await this.contractRepository.findOne({
+      where: { id: contractId },
+    });
+
+    if (!contract) {
+      throw new NotFoundException('Contract not found');
+    }
+
+    const docs = dto.documents.map((doc) =>
+      this.contractDocumentRepository.create({
+        contractId,
+        documentType,
+        fileUrl: doc.fileUrl,
+        fileName: doc.fileName,
+        originalName: doc.originalName || null,
+        mimeType: doc.mimeType || null,
+        fileSizeBytes: doc.fileSizeBytes || null,
+        uploadedById,
+      }),
+    );
+
+    const saved = await this.contractDocumentRepository.save(docs);
+
+    // Keep legacy field in sync with the first document
+    if (documentType === ContractDocumentType.CONTRACT && !contract.documentUrl) {
+      contract.documentUrl = dto.documents[0].fileUrl;
+      await this.contractRepository.save(contract);
+    }
+
+    return saved;
+  }
+
+  async getContractDocuments(contractId: string): Promise<ContractDocument[]> {
+    const contract = await this.contractRepository.findOne({
+      where: { id: contractId },
+    });
+
+    if (!contract) {
+      throw new NotFoundException('Contract not found');
+    }
+
+    return this.contractDocumentRepository.find({
+      where: { contractId },
+      order: { createdAt: 'ASC' },
+    });
+  }
+
+  async getUserContractDocuments(
+    contractId: string,
+    userId: string,
+  ): Promise<ContractDocument[]> {
+    const contract = await this.contractRepository.findOne({
+      where: { id: contractId },
+    });
+
+    if (!contract) {
+      throw new NotFoundException('Contract not found');
+    }
+
+    if (contract.userId !== userId) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    return this.contractDocumentRepository.find({
+      where: { contractId },
+      order: { createdAt: 'ASC' },
+    });
+  }
+
+  async deleteContractDocument(
+    contractId: string,
+    documentId: string,
+  ): Promise<void> {
+    const doc = await this.contractDocumentRepository.findOne({
+      where: { id: documentId, contractId },
+    });
+
+    if (!doc) {
+      throw new NotFoundException('Document not found');
+    }
+
+    await this.contractDocumentRepository.remove(doc);
   }
 }

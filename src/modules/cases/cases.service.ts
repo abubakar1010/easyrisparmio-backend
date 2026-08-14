@@ -167,6 +167,8 @@ export class CasesService {
         'assignedAgent',
         'selectedOffer',
         'selectedOffer.supplier',
+        'fromSupplier',
+        'toSupplier',
         'bill',
         'documents',
         'contract',

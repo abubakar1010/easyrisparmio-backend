@@ -101,10 +101,10 @@ export class CreateSupplierDto {
   @MaxLength(100)
   city: string;
 
-  @ApiProperty({ description: 'Province (2-letter Italian code)', example: 'RM', maxLength: 2 })
+  @ApiProperty({ description: 'Province', example: 'Roma', maxLength: 100 })
   @IsString()
   @IsNotEmpty({ message: 'Province is required' })
-  @Matches(/^[A-Z]{2}$/, { message: 'Province must be a 2-letter Italian province code (e.g., RM, MI)' })
+  @MaxLength(100)
   province: string;
 
   @ApiProperty({ description: 'Italian ZIP / CAP code (5 digits)', example: '00198', maxLength: 5 })

@@ -354,4 +354,5 @@ export class CasesController {
     void this.activityLogService.log(userId, 'Document Verified', 'case', caseId, { documentId: docId });
     return result;
   }
+
 }

@@ -12,6 +12,7 @@ import { BillType, BillStatus, BillSource } from '../../../common/enums/bill.enu
 import { User } from '../../users/entities/user.entity';
 import { Supplier } from '../../suppliers/entities/supplier.entity';
 import { BillFile } from './bill-file.entity';
+import { BillNote } from './bill-note.entity';
 import { BillVerification } from './bill-verification.entity';
 import { SwitchCase } from '../../cases/entities/switch-case.entity';
 
@@ -44,16 +45,16 @@ export class EnergyBill extends BaseEntity {
   source: BillSource;
 
   @Column({ name: 'pod_number', type: 'varchar', length: 50, nullable: true })
-  podNumber: string;
+  podNumber: string | null;
 
   @Column({ name: 'pdr_number', type: 'varchar', length: 50, nullable: true })
-  pdrNumber: string;
+  pdrNumber: string | null;
 
   @Column({ name: 'billing_period_start', type: 'date', nullable: true })
-  billingPeriodStart: Date;
+  billingPeriodStart: Date | null;
 
   @Column({ name: 'billing_period_end', type: 'date', nullable: true })
-  billingPeriodEnd: Date;
+  billingPeriodEnd: Date | null;
 
   @Column({
     name: 'total_amount',
@@ -62,7 +63,7 @@ export class EnergyBill extends BaseEntity {
     scale: 2,
     nullable: true,
   })
-  totalAmount: number;
+  totalAmount: number | null;
 
   @Column({
     name: 'consumption_kwh',
@@ -71,7 +72,7 @@ export class EnergyBill extends BaseEntity {
     scale: 2,
     nullable: true,
   })
-  consumptionKwh: number;
+  consumptionKwh: number | null;
 
   @Column({
     name: 'consumption_smc',
@@ -80,7 +81,7 @@ export class EnergyBill extends BaseEntity {
     scale: 2,
     nullable: true,
   })
-  consumptionSmc: number;
+  consumptionSmc: number | null;
 
   @Column({
     name: 'cost_per_unit',
@@ -89,7 +90,7 @@ export class EnergyBill extends BaseEntity {
     scale: 6,
     nullable: true,
   })
-  costPerUnit: number;
+  costPerUnit: number | null;
 
   @Column({
     name: 'fixed_charges',
@@ -98,7 +99,7 @@ export class EnergyBill extends BaseEntity {
     scale: 2,
     nullable: true,
   })
-  fixedCharges: number;
+  fixedCharges: number | null;
 
   @Column({
     type: 'decimal',
@@ -106,7 +107,7 @@ export class EnergyBill extends BaseEntity {
     scale: 2,
     nullable: true,
   })
-  taxes: number;
+  taxes: number | null;
 
   @Column({ name: 'supply_address', type: 'varchar', length: 500, nullable: true })
   supplyAddress: string | null;
@@ -130,7 +131,7 @@ export class EnergyBill extends BaseEntity {
   supplierName: string | null;
 
   @Column({ name: 'raw_analysis_data', type: 'jsonb', nullable: true })
-  rawAnalysisData: Record<string, any>;
+  rawAnalysisData: Record<string, any> | null;
 
   @ManyToOne(() => User, (user) => user.bills, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
@@ -160,6 +161,9 @@ export class EnergyBill extends BaseEntity {
 
   @OneToMany(() => BillVerification, (v) => v.bill)
   verifications: BillVerification[];
+
+  @OneToMany(() => BillNote, (n) => n.bill)
+  notes: BillNote[];
 
   @OneToMany(() => SwitchCase, (sc) => sc.bill)
   switchCases: SwitchCase[];

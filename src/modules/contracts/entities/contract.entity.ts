@@ -2,6 +2,7 @@ import {
   Entity,
   Column,
   OneToOne,
+  OneToMany,
   ManyToOne,
   JoinColumn,
   Index,
@@ -12,6 +13,7 @@ import { ContractStatus, ContractDeliveryMethod } from '../../../common/enums/co
 import { SwitchCase } from '../../cases/entities/switch-case.entity';
 import { User } from '../../users/entities/user.entity';
 import { Offer } from '../../offers/entities/offer.entity';
+import { ContractDocument } from './contract-document.entity';
 
 @Entity('contracts')
 export class Contract extends BaseEntity {
@@ -101,4 +103,7 @@ export class Contract extends BaseEntity {
   @ManyToOne(() => Offer, { eager: false })
   @JoinColumn({ name: 'offer_id' })
   offer: Offer;
+
+  @OneToMany(() => ContractDocument, (doc) => doc.contract)
+  documents: ContractDocument[];
 }

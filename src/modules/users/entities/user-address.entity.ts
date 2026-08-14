@@ -17,7 +17,7 @@ export class UserAddress extends BaseEntity {
   @Column({ type: 'varchar', length: 100 })
   city: string;
 
-  @Column({ type: 'varchar', length: 2, nullable: true })
+  @Column({ type: 'varchar', length: 100, nullable: true })
   province: string | null;
 
   @Column({ name: 'postal_code', type: 'varchar', length: 10 })

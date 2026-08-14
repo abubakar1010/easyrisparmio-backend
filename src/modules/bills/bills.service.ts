@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { EnergyBill } from './entities/energy-bill.entity';
 import { BillFile } from './entities/bill-file.entity';
+import { BillNote } from './entities/bill-note.entity';
 import { BillVerification, VerificationStatus } from './entities/bill-verification.entity';
 import { RequestVerificationDto, SubmitVerificationDto } from './dto/request-verification.dto';
 import { Offer } from '../offers/entities/offer.entity';
@@ -68,6 +69,8 @@ export class BillsService {
     private readonly eventRepository: Repository<CaseEvent>,
     @InjectRepository(Contract)
     private readonly contractRepository: Repository<Contract>,
+    @InjectRepository(BillNote)
+    private readonly billNoteRepository: Repository<BillNote>,
     private readonly notificationsService: NotificationsService,
     private readonly visionOcrService: VisionOcrService,
   ) {}
@@ -141,14 +144,27 @@ export class BillsService {
    * Collects images from ALL bill files and extracts data across them.
    * Saves whatever data was found — never sets ERROR for partial extraction.
    */
-  private async processOcrInBackground(bill: EnergyBill): Promise<void> {
+  private async processOcrInBackground(
+    bill: EnergyBill,
+    options?: { fileIds?: string[]; clearFirst?: boolean },
+  ): Promise<void> {
     try {
       bill.status = BillStatus.ANALYZING;
       await this.billRepository.save(bill);
 
-      // Collect images from ALL bill files (not just the primary fileUrl)
+      // When re-uploading, clear all previously extracted data first
+      if (options?.clearFirst) {
+        this.clearExtractedData(bill);
+        await this.billRepository.save(bill);
+      }
+
+      // Collect images from bill files — filter to specific files if provided
+      const fileWhere: any = { billId: bill.id };
+      if (options?.fileIds?.length) {
+        fileWhere.id = In(options.fileIds);
+      }
       const billFiles = await this.billFileRepository.find({
-        where: { billId: bill.id },
+        where: fileWhere,
         order: { createdAt: 'ASC' },
       });
 
@@ -201,28 +217,52 @@ export class BillsService {
         bill.billType,
       );
 
-      // Populate bill fields from extraction — save whatever was found
-      if (result.podNumber) bill.podNumber = result.podNumber;
-      if (result.pdrNumber) bill.pdrNumber = result.pdrNumber;
-      if (result.totalAmount != null) bill.totalAmount = result.totalAmount;
-      if (result.consumptionKwh != null) bill.consumptionKwh = result.consumptionKwh;
-      if (result.consumptionSmc != null) bill.consumptionSmc = result.consumptionSmc;
-      if (result.costPerUnit != null) bill.costPerUnit = result.costPerUnit;
-      if (result.fixedCharges != null) bill.fixedCharges = result.fixedCharges;
-      if (result.taxes != null) bill.taxes = result.taxes;
-      if (result.billingPeriodStart) {
-        bill.billingPeriodStart = new Date(result.billingPeriodStart);
+      // Populate bill fields from extraction
+      if (options?.clearFirst) {
+        // Re-upload: new document is the sole source of truth — assign unconditionally
+        bill.podNumber = result.podNumber ?? null;
+        bill.pdrNumber = result.pdrNumber ?? null;
+        bill.totalAmount = result.totalAmount ?? null;
+        bill.consumptionKwh = result.consumptionKwh ?? null;
+        bill.consumptionSmc = result.consumptionSmc ?? null;
+        bill.costPerUnit = result.costPerUnit ?? null;
+        bill.fixedCharges = result.fixedCharges ?? null;
+        bill.taxes = result.taxes ?? null;
+        bill.billingPeriodStart = result.billingPeriodStart
+          ? new Date(result.billingPeriodStart) : null;
+        bill.billingPeriodEnd = result.billingPeriodEnd
+          ? new Date(result.billingPeriodEnd) : null;
+        bill.supplyAddress = result.supplyAddress ?? null;
+        bill.codiceFiscale = result.codiceFiscale ?? null;
+        bill.partitaIva = result.partitaIva ?? null;
+        bill.contractNumber = result.contractNumber ?? null;
+        bill.meterNumber = result.meterNumber ?? null;
+        bill.customerName = result.customerName ?? null;
+        bill.supplierName = result.supplierName ?? null;
+      } else {
+        // First upload: preserve existing data, only overwrite non-null results
+        if (result.podNumber) bill.podNumber = result.podNumber;
+        if (result.pdrNumber) bill.pdrNumber = result.pdrNumber;
+        if (result.totalAmount != null) bill.totalAmount = result.totalAmount;
+        if (result.consumptionKwh != null) bill.consumptionKwh = result.consumptionKwh;
+        if (result.consumptionSmc != null) bill.consumptionSmc = result.consumptionSmc;
+        if (result.costPerUnit != null) bill.costPerUnit = result.costPerUnit;
+        if (result.fixedCharges != null) bill.fixedCharges = result.fixedCharges;
+        if (result.taxes != null) bill.taxes = result.taxes;
+        if (result.billingPeriodStart) {
+          bill.billingPeriodStart = new Date(result.billingPeriodStart);
+        }
+        if (result.billingPeriodEnd) {
+          bill.billingPeriodEnd = new Date(result.billingPeriodEnd);
+        }
+        if (result.supplyAddress) bill.supplyAddress = result.supplyAddress;
+        if (result.codiceFiscale) bill.codiceFiscale = result.codiceFiscale;
+        if (result.partitaIva) bill.partitaIva = result.partitaIva;
+        if (result.contractNumber) bill.contractNumber = result.contractNumber;
+        if (result.meterNumber) bill.meterNumber = result.meterNumber;
+        if (result.customerName) bill.customerName = result.customerName;
+        if (result.supplierName) bill.supplierName = result.supplierName;
       }
-      if (result.billingPeriodEnd) {
-        bill.billingPeriodEnd = new Date(result.billingPeriodEnd);
-      }
-      if (result.supplyAddress) bill.supplyAddress = result.supplyAddress;
-      if (result.codiceFiscale) bill.codiceFiscale = result.codiceFiscale;
-      if (result.partitaIva) bill.partitaIva = result.partitaIva;
-      if (result.contractNumber) bill.contractNumber = result.contractNumber;
-      if (result.meterNumber) bill.meterNumber = result.meterNumber;
-      if (result.customerName) bill.customerName = result.customerName;
-      if (result.supplierName) bill.supplierName = result.supplierName;
 
       // Store OCR metadata
       bill.rawAnalysisData = {
@@ -255,6 +295,30 @@ export class BillsService {
       bill.status = BillStatus.VERIFICATION_REVIEW;
       await this.billRepository.save(bill);
     }
+  }
+
+  /**
+   * Resets all OCR-extractable fields to null so a re-upload starts fresh.
+   */
+  private clearExtractedData(bill: EnergyBill): void {
+    bill.podNumber = null;
+    bill.pdrNumber = null;
+    bill.totalAmount = null;
+    bill.consumptionKwh = null;
+    bill.consumptionSmc = null;
+    bill.costPerUnit = null;
+    bill.fixedCharges = null;
+    bill.taxes = null;
+    bill.billingPeriodStart = null;
+    bill.billingPeriodEnd = null;
+    bill.supplyAddress = null;
+    bill.codiceFiscale = null;
+    bill.partitaIva = null;
+    bill.contractNumber = null;
+    bill.meterNumber = null;
+    bill.customerName = null;
+    bill.supplierName = null;
+    bill.rawAnalysisData = null;
   }
 
   // ─── User Queries ─────────────────────────────────────────
@@ -1325,5 +1389,79 @@ export class BillsService {
     await this.billRepository.save(bill);
 
     return this.getBillById(bill.id, userId);
+  }
+
+  async getBillNotes(billId: string): Promise<BillNote[]> {
+    const bill = await this.billRepository.findOne({ where: { id: billId } });
+    if (!bill) {
+      throw new NotFoundException('Bill not found');
+    }
+
+    return this.billNoteRepository.find({
+      where: { billId },
+      relations: ['createdBy'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async addBillNote(
+    billId: string,
+    content: string,
+    createdById: string,
+  ): Promise<BillNote> {
+    const bill = await this.billRepository.findOne({ where: { id: billId } });
+    if (!bill) {
+      throw new NotFoundException('Bill not found');
+    }
+
+    const note = this.billNoteRepository.create({
+      billId,
+      content,
+      createdById,
+    });
+
+    const saved = await this.billNoteRepository.save(note);
+
+    return this.billNoteRepository.findOneOrFail({
+      where: { id: saved.id },
+      relations: ['createdBy'],
+    });
+  }
+
+  async updateBillNote(
+    billId: string,
+    noteId: string,
+    content: string,
+  ): Promise<BillNote> {
+    const note = await this.billNoteRepository.findOne({
+      where: { id: noteId, billId },
+    });
+
+    if (!note) {
+      throw new NotFoundException('Note not found');
+    }
+
+    note.content = content;
+    await this.billNoteRepository.save(note);
+
+    return this.billNoteRepository.findOneOrFail({
+      where: { id: noteId },
+      relations: ['createdBy'],
+    });
+  }
+
+  async deleteBillNote(
+    billId: string,
+    noteId: string,
+  ): Promise<void> {
+    const note = await this.billNoteRepository.findOne({
+      where: { id: noteId, billId },
+    });
+
+    if (!note) {
+      throw new NotFoundException('Note not found');
+    }
+
+    await this.billNoteRepository.remove(note);
   }
 }

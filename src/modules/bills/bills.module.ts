@@ -6,6 +6,7 @@ import { BillsController } from './bills.controller';
 import { BillsService } from './bills.service';
 import { EnergyBill } from './entities/energy-bill.entity';
 import { BillFile } from './entities/bill-file.entity';
+import { BillNote } from './entities/bill-note.entity';
 import { BillVerification } from './entities/bill-verification.entity';
 import { Offer } from '../offers/entities/offer.entity';
 import { Supplier } from '../suppliers/entities/supplier.entity';
@@ -21,7 +22,7 @@ import { ActivityLogModule } from '../activity-log/activity-log.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([EnergyBill, BillFile, BillVerification, Offer, Supplier, SentOffer, SwitchCase, CaseEvent, Contract, User]),
+    TypeOrmModule.forFeature([EnergyBill, BillFile, BillNote, BillVerification, Offer, Supplier, SentOffer, SwitchCase, CaseEvent, Contract, User]),
     NotificationsModule,
     ConfigModule,
     ActivityLogModule,

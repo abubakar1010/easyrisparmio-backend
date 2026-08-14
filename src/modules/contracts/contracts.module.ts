@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ContractsService } from './contracts.service';
 import { ContractsController } from './contracts.controller';
 import { Contract } from './entities/contract.entity';
+import { ContractDocument } from './entities/contract-document.entity';
 import { SwitchCase } from '../cases/entities/switch-case.entity';
 import { CaseEvent } from '../cases/entities/case-event.entity';
 import { SentOffer } from '../offers/entities/sent-offer.entity';
@@ -12,7 +13,7 @@ import { ActivityLogModule } from '../activity-log/activity-log.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Contract, SwitchCase, CaseEvent, SentOffer, EnergyBill]),
+    TypeOrmModule.forFeature([Contract, ContractDocument, SwitchCase, CaseEvent, SentOffer, EnergyBill]),
     NotificationsModule,
     ActivityLogModule,
   ],

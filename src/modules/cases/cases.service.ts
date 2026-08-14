@@ -27,6 +27,15 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../../common/enums/notification.enum';
 import { SupplierStatus } from '../../common/enums/supplier.enum';
 
+/**
+ * Province sigle are stored uppercase so a case is never filed under both
+ * `mi` and `MI`.
+ */
+function normalizeProvince(value?: string): string | null {
+  const sigla = value?.trim().toUpperCase();
+  return sigla ? sigla : null;
+}
+
 @Injectable()
 export class CasesService {
   private readonly logger = new Logger(CasesService.name);
@@ -81,10 +90,23 @@ export class CasesService {
       caseNumber,
       fromSupplierId: bill.supplierId || null,
       toSupplierId: offer.supplierId,
+      supplyStreet: dto.supplyStreet || null,
+      supplyStreetNumber: dto.supplyStreetNumber || null,
+      supplyCity: dto.supplyCity || null,
+      supplyPostalCode: dto.supplyPostalCode || null,
+      supplyProvince: normalizeProvince(dto.supplyProvince),
+      residentialSameAsSupply: dto.residentialSameAsSupply ?? false,
       residentialStreet: dto.residentialStreet || null,
+      residentialStreetNumber: dto.residentialStreetNumber || null,
       residentialCity: dto.residentialCity || null,
-      residentialZip: dto.residentialZip || null,
-      residentialProvince: dto.residentialProvince || null,
+      residentialPostalCode: dto.residentialPostalCode || null,
+      residentialProvince: normalizeProvince(dto.residentialProvince),
+      shippingSameAsSupply: dto.shippingSameAsSupply ?? false,
+      shippingStreet: dto.shippingStreet || null,
+      shippingStreetNumber: dto.shippingStreetNumber || null,
+      shippingCity: dto.shippingCity || null,
+      shippingPostalCode: dto.shippingPostalCode || null,
+      shippingProvince: normalizeProvince(dto.shippingProvince),
       paymentMethod: dto.paymentMethod || null,
       invoiceDelivery: dto.invoiceDelivery || null,
       iban: dto.iban || null,

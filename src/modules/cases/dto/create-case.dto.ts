@@ -1,6 +1,12 @@
-import { IsUUID, IsNotEmpty, IsOptional, IsString, IsEnum, MaxLength } from 'class-validator';
+import { IsUUID, IsNotEmpty, IsOptional, IsString, IsEnum, IsBoolean, MaxLength, Matches } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PaymentMethod, InvoiceDelivery } from '../../../common/enums/payment.enum';
+
+/** Italian CAP — exactly five digits. */
+const POSTAL_CODE_PATTERN = /^\d{5}$/;
+
+/** Italian province sigla, e.g. MI, RM, TO. */
+const PROVINCE_PATTERN = /^[A-Za-z]{2}$/;
 
 export class CreateCaseDto {
   @ApiProperty({ description: 'ID of the energy bill for this switch case', example: 'bl1a2b3c-d5e6-7890-abcd-ef1234567890' })
@@ -13,29 +19,109 @@ export class CreateCaseDto {
   @IsUUID()
   selectedOfferId: string;
 
-  @ApiPropertyOptional({ description: 'Residential street address (when different from delivery)', example: 'Via Roma 10' })
+  // ── Addresses ──
+  // Supply, residential and shipping addresses all carry the same five fields:
+  // street, civic number, city, postal code (CAP) and province sigla.
+
+  @ApiPropertyOptional({ description: 'Supply address street', example: 'Via Roma' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  supplyStreet?: string;
+
+  @ApiPropertyOptional({ description: 'Supply address street number', example: '10' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  supplyStreetNumber?: string;
+
+  @ApiPropertyOptional({ description: 'Supply address city', example: 'Milano' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  supplyCity?: string;
+
+  @ApiPropertyOptional({ description: 'Supply address postal code (CAP)', example: '20100' })
+  @IsOptional()
+  @IsString()
+  @Matches(POSTAL_CODE_PATTERN, { message: 'supplyPostalCode must be a 5-digit CAP' })
+  supplyPostalCode?: string;
+
+  @ApiPropertyOptional({ description: 'Supply address province sigla', example: 'MI' })
+  @IsOptional()
+  @IsString()
+  @Matches(PROVINCE_PATTERN, { message: 'supplyProvince must be a two-letter province code' })
+  supplyProvince?: string;
+
+  @ApiPropertyOptional({ description: 'Whether the residence address is the same as the supply address', example: true })
+  @IsOptional()
+  @IsBoolean()
+  residentialSameAsSupply?: boolean;
+
+  @ApiPropertyOptional({ description: 'Residence address street', example: 'Via Verdi' })
   @IsOptional()
   @IsString()
   @MaxLength(255)
   residentialStreet?: string;
 
-  @ApiPropertyOptional({ description: 'Residential city', example: 'Milano' })
+  @ApiPropertyOptional({ description: 'Residence address street number', example: '25' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  residentialStreetNumber?: string;
+
+  @ApiPropertyOptional({ description: 'Residence address city', example: 'Milano' })
   @IsOptional()
   @IsString()
   @MaxLength(100)
   residentialCity?: string;
 
-  @ApiPropertyOptional({ description: 'Residential ZIP code', example: '20100' })
+  @ApiPropertyOptional({ description: 'Residence address postal code (CAP)', example: '20100' })
   @IsOptional()
   @IsString()
-  @MaxLength(10)
-  residentialZip?: string;
+  @Matches(POSTAL_CODE_PATTERN, { message: 'residentialPostalCode must be a 5-digit CAP' })
+  residentialPostalCode?: string;
 
-  @ApiPropertyOptional({ description: 'Residential province', example: 'Milano' })
+  @ApiPropertyOptional({ description: 'Residence address province sigla', example: 'MI' })
+  @IsOptional()
+  @IsString()
+  @Matches(PROVINCE_PATTERN, { message: 'residentialProvince must be a two-letter province code' })
+  residentialProvince?: string;
+
+  @ApiPropertyOptional({ description: 'Whether paper invoices go to the supply address', example: true })
+  @IsOptional()
+  @IsBoolean()
+  shippingSameAsSupply?: boolean;
+
+  @ApiPropertyOptional({ description: 'Shipping address street (paper invoices)', example: 'Via Dante' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  shippingStreet?: string;
+
+  @ApiPropertyOptional({ description: 'Shipping address street number', example: '3/A' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  shippingStreetNumber?: string;
+
+  @ApiPropertyOptional({ description: 'Shipping address city', example: 'Torino' })
   @IsOptional()
   @IsString()
   @MaxLength(100)
-  residentialProvince?: string;
+  shippingCity?: string;
+
+  @ApiPropertyOptional({ description: 'Shipping address postal code (CAP)', example: '10121' })
+  @IsOptional()
+  @IsString()
+  @Matches(POSTAL_CODE_PATTERN, { message: 'shippingPostalCode must be a 5-digit CAP' })
+  shippingPostalCode?: string;
+
+  @ApiPropertyOptional({ description: 'Shipping address province sigla', example: 'TO' })
+  @IsOptional()
+  @IsString()
+  @Matches(PROVINCE_PATTERN, { message: 'shippingProvince must be a two-letter province code' })
+  shippingProvince?: string;
 
   @ApiPropertyOptional({ enum: PaymentMethod, description: 'Payment method for this switch', example: PaymentMethod.RID_BANCARIO })
   @IsOptional()

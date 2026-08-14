@@ -80,17 +80,65 @@ export class SwitchCase extends BaseEntity {
   @Column({ name: 'meter_id', type: 'uuid', nullable: true })
   meterId: string | null;
 
+  // ── Addresses ──
+  // Supply, residential and shipping addresses all carry the same five fields
+  // (street, civic number, city, CAP, province) so downstream consumers read
+  // every address the same way.
+
+  // Where the energy is delivered — taken from the bill and confirmed by the user.
+  @Column({ name: 'supply_street', type: 'varchar', length: 255, nullable: true })
+  supplyStreet: string | null;
+
+  @Column({ name: 'supply_street_number', type: 'varchar', length: 20, nullable: true })
+  supplyStreetNumber: string | null;
+
+  @Column({ name: 'supply_city', type: 'varchar', length: 100, nullable: true })
+  supplyCity: string | null;
+
+  @Column({ name: 'supply_postal_code', type: 'varchar', length: 10, nullable: true })
+  supplyPostalCode: string | null;
+
+  @Column({ name: 'supply_province', type: 'varchar', length: 100, nullable: true })
+  supplyProvince: string | null;
+
+  // Where the customer resides. Always populated; the flag records whether the
+  // user declared it identical to the supply address.
+  @Column({ name: 'residential_same_as_supply', type: 'boolean', default: false })
+  residentialSameAsSupply: boolean;
+
   @Column({ name: 'residential_street', type: 'varchar', length: 255, nullable: true })
   residentialStreet: string | null;
+
+  @Column({ name: 'residential_street_number', type: 'varchar', length: 20, nullable: true })
+  residentialStreetNumber: string | null;
 
   @Column({ name: 'residential_city', type: 'varchar', length: 100, nullable: true })
   residentialCity: string | null;
 
-  @Column({ name: 'residential_zip', type: 'varchar', length: 10, nullable: true })
-  residentialZip: string | null;
+  @Column({ name: 'residential_postal_code', type: 'varchar', length: 10, nullable: true })
+  residentialPostalCode: string | null;
 
   @Column({ name: 'residential_province', type: 'varchar', length: 100, nullable: true })
   residentialProvince: string | null;
+
+  // Where paper invoices are posted — only set when invoiceDelivery is PAPER.
+  @Column({ name: 'shipping_same_as_supply', type: 'boolean', default: false })
+  shippingSameAsSupply: boolean;
+
+  @Column({ name: 'shipping_street', type: 'varchar', length: 255, nullable: true })
+  shippingStreet: string | null;
+
+  @Column({ name: 'shipping_street_number', type: 'varchar', length: 20, nullable: true })
+  shippingStreetNumber: string | null;
+
+  @Column({ name: 'shipping_city', type: 'varchar', length: 100, nullable: true })
+  shippingCity: string | null;
+
+  @Column({ name: 'shipping_postal_code', type: 'varchar', length: 10, nullable: true })
+  shippingPostalCode: string | null;
+
+  @Column({ name: 'shipping_province', type: 'varchar', length: 100, nullable: true })
+  shippingProvince: string | null;
 
   @Column({ name: 'payment_method', type: 'enum', enum: PaymentMethod, nullable: true })
   paymentMethod: PaymentMethod | null;

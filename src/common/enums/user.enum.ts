@@ -13,13 +13,13 @@ export enum OtpType {
 
 export enum DocumentType {
   BILL = 'bill',
-  /** @deprecated Legacy identity sub-type — use IDENTITY_VERIFICATION. Kept so existing rows still read. */
+  /** @deprecated Legacy identity sub-type — use IDENTITY_DOCUMENT. Kept so existing rows still read. */
   ID_CARD = 'id_card',
-  /** @deprecated Legacy identity sub-type — use IDENTITY_VERIFICATION. Kept so existing rows still read. */
+  /** @deprecated Legacy identity sub-type — use IDENTITY_DOCUMENT. Kept so existing rows still read. */
   CODICE_FISCALE = 'codice_fiscale',
   CONTRACT = 'contract',
   SIGNED_CONTRACT = 'signed_contract',
-  /** @deprecated Legacy identity sub-type — use IDENTITY_VERIFICATION. Kept so existing rows still read. */
+  /** @deprecated Legacy identity sub-type — use IDENTITY_DOCUMENT. Kept so existing rows still read. */
   PARTITA_IVA = 'partita_iva',
   /**
    * Every file uploaded in the identity verification section, flat and
@@ -27,7 +27,7 @@ export enum DocumentType {
    * files, or as several photos, so the individual files carry no sub-type.
    * Appended last on purpose: reordering rewrites the Postgres enum type.
    */
-  IDENTITY_VERIFICATION = 'identity_verification',
+  IDENTITY_DOCUMENT = 'identity_document',
 }
 
 export enum AuthProvider {

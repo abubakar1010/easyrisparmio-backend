@@ -2,7 +2,12 @@ import { IsEnum, IsOptional, IsBoolean, IsUUID } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { PaginationDto } from '../../../common/dto/pagination.dto';
-import { EnergyType, MarketType, UserTarget } from '../../../common/enums/offer.enum';
+import {
+  EnergyType,
+  MarketType,
+  OfferPaymentMethod,
+  UserTarget,
+} from '../../../common/enums/offer.enum';
 import { OfferStatus } from '../../../common/enums/offer-status.enum';
 
 export class QueryOffersDto extends PaginationDto {
@@ -20,6 +25,16 @@ export class QueryOffersDto extends PaginationDto {
   @IsOptional()
   @IsEnum(UserTarget)
   target?: UserTarget;
+
+  @ApiPropertyOptional({
+    enum: OfferPaymentMethod,
+    description:
+      'Filter by accepted payment method. direct_debit and postal_order also ' +
+      'match offers accepting both; both matches only offers accepting both.',
+  })
+  @IsOptional()
+  @IsEnum(OfferPaymentMethod)
+  paymentMethod?: OfferPaymentMethod;
 
   @ApiPropertyOptional({ description: 'Filter by active status' })
   @IsOptional()

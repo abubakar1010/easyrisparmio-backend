@@ -848,6 +848,7 @@ export class BillsService {
       fixedMonthlyFee: offer.fixedMonthlyFee,
       energyType: offer.energyType,
       marketType: offer.marketType,
+      paymentMethod: offer.paymentMethod,
       contractDurationDays: offer.contractDurationDays,
       isGreenEnergy: offer.isGreenEnergy,
       estimatedSavings: savingsMap.has(offer.id)

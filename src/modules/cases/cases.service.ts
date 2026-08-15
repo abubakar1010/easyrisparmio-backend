@@ -26,6 +26,8 @@ import { BillStatus } from '../../common/enums/bill.enum';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../../common/enums/notification.enum';
 import { SupplierStatus } from '../../common/enums/supplier.enum';
+import { OfferPaymentMethod } from '../../common/enums/offer.enum';
+import { PaymentMethod } from '../../common/enums/payment.enum';
 
 /**
  * Province is free text — it is stored exactly as the user typed it, with only
@@ -79,6 +81,7 @@ export class CasesService {
         'Cannot create a case for an offer from a supplier that is pending deletion',
       );
     }
+    this.assertPaymentMethodAcceptedBy(offer, dto.paymentMethod);
 
     const caseNumber = await this.generateCaseNumber();
 
@@ -369,6 +372,35 @@ export class CasesService {
     });
 
     return saved;
+  }
+
+  /**
+   * The mobile form only shows the payment methods an offer accepts, but the
+   * endpoint is public to any authenticated client — so enforce it here too.
+   * Offers accepting both methods never reject.
+   */
+  private assertPaymentMethodAcceptedBy(
+    offer: Offer,
+    chosen?: PaymentMethod,
+  ): void {
+    if (!chosen) return;
+    if (
+      !offer.paymentMethod ||
+      offer.paymentMethod === OfferPaymentMethod.BOTH
+    ) {
+      return;
+    }
+
+    const required =
+      offer.paymentMethod === OfferPaymentMethod.DIRECT_DEBIT
+        ? PaymentMethod.RID_BANCARIO
+        : PaymentMethod.POSTAL_ORDER;
+
+    if (chosen !== required) {
+      throw new BadRequestException(
+        `Offer "${offer.name}" only accepts ${offer.paymentMethod.replace('_', ' ')} as payment method`,
+      );
+    }
   }
 
   private async generateCaseNumber(): Promise<string> {

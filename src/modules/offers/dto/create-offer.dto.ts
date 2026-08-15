@@ -13,7 +13,12 @@ import {
   Max,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { EnergyType, MarketType, UserTarget } from '../../../common/enums/offer.enum';
+import {
+  EnergyType,
+  MarketType,
+  OfferPaymentMethod,
+  UserTarget,
+} from '../../../common/enums/offer.enum';
 import { OfferStatus } from '../../../common/enums/offer-status.enum';
 
 export class CreateOfferDto {
@@ -107,6 +112,14 @@ export class CreateOfferDto {
   @IsOptional()
   @IsEnum(UserTarget)
   target?: UserTarget;
+
+  @ApiProperty({
+    enum: OfferPaymentMethod,
+    description: 'Payment method(s) the supplier accepts for this offer',
+    example: OfferPaymentMethod.BOTH,
+  })
+  @IsEnum(OfferPaymentMethod)
+  paymentMethod: OfferPaymentMethod;
 
   @ApiPropertyOptional({ description: 'Highlight bullet points', example: ['Fixed price for 12 months', 'No activation fee', '100% green energy'], type: [String] })
   @IsOptional()

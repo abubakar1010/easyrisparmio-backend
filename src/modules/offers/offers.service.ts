@@ -18,7 +18,11 @@ import { QueryOffersDto } from './dto/query-offers.dto';
 import { PaginationDto, PaginatedResponseDto } from '../../common/dto/pagination.dto';
 import { EnergyBill } from '../bills/entities/energy-bill.entity';
 import { BillType } from '../../common/enums/bill.enum';
-import { EnergyType, UserTarget } from '../../common/enums/offer.enum';
+import {
+  EnergyType,
+  OfferPaymentMethod,
+  UserTarget,
+} from '../../common/enums/offer.enum';
 import { OfferStatus } from '../../common/enums/offer-status.enum';
 import { SupplierStatus } from '../../common/enums/supplier.enum';
 import { ContractStatus } from '../../common/enums/contract.enum';
@@ -173,6 +177,18 @@ export class OffersService {
         target: query.target,
         both: UserTarget.BOTH,
       });
+    }
+
+    // An offer accepting both methods matches either single-method filter; a
+    // "both" filter degenerates to an exact match, which is what admins expect.
+    if (query.paymentMethod) {
+      qb.andWhere(
+        '(offer.paymentMethod = :paymentMethod OR offer.paymentMethod = :bothPayment)',
+        {
+          paymentMethod: query.paymentMethod,
+          bothPayment: OfferPaymentMethod.BOTH,
+        },
+      );
     }
 
     if (query.isActive !== undefined) {

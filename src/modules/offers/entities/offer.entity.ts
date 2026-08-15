@@ -7,7 +7,12 @@ import {
   Index,
 } from 'typeorm';
 import { BaseEntity } from '../../../common/entities/base.entity';
-import { EnergyType, MarketType, UserTarget } from '../../../common/enums/offer.enum';
+import {
+  EnergyType,
+  MarketType,
+  OfferPaymentMethod,
+  UserTarget,
+} from '../../../common/enums/offer.enum';
 import { OfferStatus } from '../../../common/enums/offer-status.enum';
 import { Supplier } from '../../suppliers/entities/supplier.entity';
 
@@ -109,6 +114,16 @@ export class Offer extends BaseEntity {
     default: UserTarget.BOTH,
   })
   target: UserTarget;
+
+  // Defaulted rather than nullable so the column backfills cleanly on existing
+  // rows — this project has no migrations, the schema comes from synchronize.
+  @Column({
+    name: 'payment_method',
+    type: 'enum',
+    enum: OfferPaymentMethod,
+    default: OfferPaymentMethod.BOTH,
+  })
+  paymentMethod: OfferPaymentMethod;
 
   @Column({ type: 'jsonb', nullable: true })
   highlights: string[];

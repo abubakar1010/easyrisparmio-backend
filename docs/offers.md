@@ -88,6 +88,7 @@ ARCHIVED ARCHIVED  ARCHIVED  ARCHIVED
 | `validUntil` | date | No | Offer validity end (ISO 8601) |
 | `termsUrl` | string | No | Terms & conditions URL (max 500) |
 | `target` | enum | No | `personal`, `business`, `both` (default: both) |
+| `paymentMethod` | enum | **Yes** | `direct_debit`, `postal_order`, `both` — payment method(s) the supplier accepts |
 | `highlights` | string[] | No | Bullet-point highlights (JSONB) |
 | `offerCode` | string | No | Unique offer code (max 50) |
 | `offerStatus` | enum | No | `draft`, `active`, `expiring`, `expired`, `archived` (default: draft) |
@@ -138,6 +139,7 @@ Returns only offers with `offerStatus = active` and `isActive = true`, with supp
         "isGreenEnergy": true,
         "offerStatus": "active",
         "target": "personal",
+        "paymentMethod": "both",
         "highlights": ["Fixed price for 12 months", "No activation fee"],
         "supplier": {
           "id": "s1a2b3c4...",
@@ -203,6 +205,7 @@ Authorization: Bearer <admin_access_token>
 | `energyType` | enum | No | Filter: `electricity`, `gas`, `dual` |
 | `marketType` | enum | No | Filter: `fixed`, `variable`, `indexed` |
 | `target` | enum | No | Filter: `personal`, `business`, `both` |
+| `paymentMethod` | enum | No | Filter: `direct_debit`, `postal_order` (both match offers accepting `both`), or `both` for offers accepting both only |
 | `isActive` | boolean | No | Filter by active flag |
 | `offerStatus` | enum | No | Filter: `draft`, `active`, `expiring`, `expired`, `archived` |
 | `supplierId` | UUID | No | Filter by supplier |
@@ -230,6 +233,7 @@ Content-Type: application/json
   "validFrom": "2026-01-01",
   "validUntil": "2026-12-31",
   "target": "personal",
+  "paymentMethod": "both",
   "highlights": ["Fixed price for 12 months", "No activation fee", "100% green energy"],
   "supplierId": "s1a2b3c4-d5e6-7890-abcd-ef1234567890",
   "offerCode": "CLF-12-2026"

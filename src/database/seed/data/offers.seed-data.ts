@@ -4,6 +4,7 @@ import { OfferPriceVersion } from '../../../modules/offers/entities/offer-price-
 import {
   EnergyType,
   MarketType,
+  OfferPaymentMethod,
   UserTarget,
 } from '../../../common/enums/offer.enum';
 import { OfferStatus } from '../../../common/enums/offer-status.enum';
@@ -41,6 +42,7 @@ export async function seedOffers(
       validFrom: new Date('2026-01-01'),
       validUntil: new Date('2026-12-31'),
       target: UserTarget.BOTH,
+      paymentMethod: OfferPaymentMethod.BOTH,
       offerCode: 'SEED-ENEL-LF24',
       offerStatus: OfferStatus.ACTIVE,
       highlights: [
@@ -67,6 +69,7 @@ export async function seedOffers(
       validFrom: new Date('2026-01-01'),
       validUntil: new Date('2026-12-31'),
       target: UserTarget.PERSONAL,
+      paymentMethod: OfferPaymentMethod.DIRECT_DEBIT,
       offerCode: 'SEED-ENEL-GCS',
       offerStatus: OfferStatus.ACTIVE,
       highlights: [
@@ -94,6 +97,7 @@ export async function seedOffers(
       validFrom: new Date('2026-03-01'),
       validUntil: new Date('2027-02-28'),
       target: UserTarget.PERSONAL,
+      paymentMethod: OfferPaymentMethod.POSTAL_ORDER,
       offerCode: 'SEED-ENEL-DC',
       offerStatus: OfferStatus.ACTIVE,
       highlights: [
@@ -121,6 +125,7 @@ export async function seedOffers(
       isActive: true,
       validFrom: new Date('2026-02-01'),
       target: UserTarget.PERSONAL,
+      paymentMethod: OfferPaymentMethod.BOTH,
       offerCode: 'SEED-ENI-TCL',
       offerStatus: OfferStatus.ACTIVE,
       highlights: [
@@ -147,6 +152,7 @@ export async function seedOffers(
       validFrom: new Date('2026-01-15'),
       validUntil: new Date('2026-12-31'),
       target: UserTarget.PERSONAL,
+      paymentMethod: OfferPaymentMethod.DIRECT_DEBIT,
       offerCode: 'SEED-ENI-GR',
       offerStatus: OfferStatus.ACTIVE,
       highlights: [
@@ -172,6 +178,7 @@ export async function seedOffers(
       isActive: true,
       validFrom: new Date('2026-01-15'),
       target: UserTarget.BUSINESS,
+      paymentMethod: OfferPaymentMethod.POSTAL_ORDER,
       offerCode: 'SEED-ENI-BDP',
       offerStatus: OfferStatus.ACTIVE,
       highlights: [
@@ -200,6 +207,7 @@ export async function seedOffers(
       validFrom: new Date('2026-01-01'),
       validUntil: new Date('2026-12-31'),
       target: UserTarget.BOTH,
+      paymentMethod: OfferPaymentMethod.BOTH,
       offerCode: 'SEED-A2A-CLV',
       offerStatus: OfferStatus.ACTIVE,
       highlights: [
@@ -226,6 +234,7 @@ export async function seedOffers(
       validFrom: new Date('2026-02-01'),
       validUntil: new Date('2027-01-31'),
       target: UserTarget.PERSONAL,
+      paymentMethod: OfferPaymentMethod.DIRECT_DEBIT,
       offerCode: 'SEED-A2A-GNC',
       offerStatus: OfferStatus.ACTIVE,
       highlights: [
@@ -254,6 +263,7 @@ export async function seedOffers(
       validFrom: new Date('2026-01-01'),
       validUntil: new Date('2026-12-31'),
       target: UserTarget.PERSONAL,
+      paymentMethod: OfferPaymentMethod.POSTAL_ORDER,
       offerCode: 'SEED-EDISON-WL',
       offerStatus: OfferStatus.ACTIVE,
       highlights: [
@@ -279,6 +289,7 @@ export async function seedOffers(
       isActive: true,
       validFrom: new Date('2026-01-01'),
       target: UserTarget.BUSINESS,
+      paymentMethod: OfferPaymentMethod.BOTH,
       offerCode: 'SEED-EDISON-BE',
       offerStatus: OfferStatus.ACTIVE,
       highlights: [
@@ -306,6 +317,7 @@ export async function seedOffers(
       isActive: true,
       validFrom: new Date('2026-01-01'),
       target: UserTarget.BOTH,
+      paymentMethod: OfferPaymentMethod.DIRECT_DEBIT,
       offerCode: 'SEED-SORG-NEL',
       offerStatus: OfferStatus.ACTIVE,
       highlights: [
@@ -331,6 +343,7 @@ export async function seedOffers(
       isActive: true,
       validFrom: new Date('2026-01-01'),
       target: UserTarget.BOTH,
+      paymentMethod: OfferPaymentMethod.POSTAL_ORDER,
       offerCode: 'SEED-SORG-NEG',
       offerStatus: OfferStatus.ACTIVE,
       highlights: [
@@ -359,6 +372,7 @@ export async function seedOffers(
       validFrom: new Date('2026-02-01'),
       validUntil: new Date('2027-01-31'),
       target: UserTarget.PERSONAL,
+      paymentMethod: OfferPaymentMethod.BOTH,
       offerCode: 'SEED-IREN-10L',
       offerStatus: OfferStatus.ACTIVE,
       highlights: [
@@ -385,6 +399,7 @@ export async function seedOffers(
       validFrom: new Date('2026-02-01'),
       validUntil: new Date('2027-01-31'),
       target: UserTarget.PERSONAL,
+      paymentMethod: OfferPaymentMethod.DIRECT_DEBIT,
       offerCode: 'SEED-IREN-GS',
       offerStatus: OfferStatus.ACTIVE,
       highlights: [
@@ -414,6 +429,7 @@ export async function seedOffers(
       validFrom: new Date('2026-01-01'),
       validUntil: new Date('2026-12-31'),
       target: UserTarget.PERSONAL,
+      paymentMethod: OfferPaymentMethod.POSTAL_ORDER,
       offerCode: 'SEED-EON-LGT',
       offerStatus: OfferStatus.ACTIVE,
       highlights: [
@@ -442,6 +458,7 @@ export async function seedOffers(
       validFrom: new Date('2026-03-01'),
       validUntil: new Date('2027-02-28'),
       target: UserTarget.PERSONAL,
+      paymentMethod: OfferPaymentMethod.BOTH,
       offerCode: 'SEED-ACEA-UL',
       offerStatus: OfferStatus.ACTIVE,
       highlights: [
@@ -470,6 +487,7 @@ export async function seedOffers(
       validFrom: new Date('2026-01-01'),
       validUntil: new Date('2026-12-31'),
       target: UserTarget.BOTH,
+      paymentMethod: OfferPaymentMethod.DIRECT_DEBIT,
       offerCode: 'SEED-ENGIE-SG',
       offerStatus: OfferStatus.ACTIVE,
       highlights: [
@@ -498,6 +516,7 @@ export async function seedOffers(
       validFrom: new Date('2026-02-01'),
       validUntil: new Date('2027-01-31'),
       target: UserTarget.PERSONAL,
+      paymentMethod: OfferPaymentMethod.POSTAL_ORDER,
       offerCode: 'SEED-ILL-LW',
       offerStatus: OfferStatus.ACTIVE,
       highlights: [
@@ -525,6 +544,7 @@ export async function seedOffers(
       isActive: true,
       validFrom: new Date('2026-01-01'),
       target: UserTarget.PERSONAL,
+      paymentMethod: OfferPaymentMethod.BOTH,
       offerCode: 'SEED-WEK-EC',
       offerStatus: OfferStatus.ACTIVE,
       highlights: [
@@ -553,6 +573,7 @@ export async function seedOffers(
       validFrom: new Date('2026-01-01'),
       validUntil: new Date('2026-12-31'),
       target: UserTarget.BOTH,
+      paymentMethod: OfferPaymentMethod.DIRECT_DEBIT,
       offerCode: 'SEED-ALP-SS',
       offerStatus: OfferStatus.ACTIVE,
       highlights: [
@@ -581,6 +602,7 @@ export async function seedOffers(
       validFrom: new Date('2026-01-01'),
       validUntil: new Date('2026-12-31'),
       target: UserTarget.BOTH,
+      paymentMethod: OfferPaymentMethod.POSTAL_ORDER,
       offerCode: 'SEED-DOL-L100',
       offerStatus: OfferStatus.ACTIVE,
       highlights: [
@@ -609,6 +631,7 @@ export async function seedOffers(
       validFrom: new Date('2026-03-01'),
       validUntil: new Date('2027-02-28'),
       target: UserTarget.PERSONAL,
+      paymentMethod: OfferPaymentMethod.BOTH,
       offerCode: 'SEED-PUL-LFC',
       offerStatus: OfferStatus.ACTIVE,
       highlights: [
@@ -636,6 +659,7 @@ export async function seedOffers(
       isActive: true,
       validFrom: new Date('2026-01-01'),
       target: UserTarget.PERSONAL,
+      paymentMethod: OfferPaymentMethod.DIRECT_DEBIT,
       offerCode: 'SEED-NEN-LA',
       offerStatus: OfferStatus.ACTIVE,
       highlights: [
@@ -661,6 +685,7 @@ export async function seedOffers(
       isActive: true,
       validFrom: new Date('2026-01-01'),
       target: UserTarget.PERSONAL,
+      paymentMethod: OfferPaymentMethod.POSTAL_ORDER,
       offerCode: 'SEED-NEN-GA',
       offerStatus: OfferStatus.ACTIVE,
       highlights: [
@@ -689,6 +714,7 @@ export async function seedOffers(
       validFrom: new Date('2026-04-01'),
       validUntil: new Date('2027-03-31'),
       target: UserTarget.PERSONAL,
+      paymentMethod: OfferPaymentMethod.BOTH,
       offerCode: 'SEED-GN-PV',
       offerStatus: OfferStatus.ACTIVE,
       highlights: [
@@ -718,6 +744,7 @@ export async function seedOffers(
       validFrom: new Date('2026-01-01'),
       validUntil: new Date('2026-12-31'),
       target: UserTarget.PERSONAL,
+      paymentMethod: OfferPaymentMethod.DIRECT_DEBIT,
       offerCode: 'SEED-OPT-TI',
       offerStatus: OfferStatus.ACTIVE,
       highlights: [
@@ -746,6 +773,7 @@ export async function seedOffers(
       validFrom: new Date('2026-02-01'),
       validUntil: new Date('2027-01-31'),
       target: UserTarget.PERSONAL,
+      paymentMethod: OfferPaymentMethod.POSTAL_ORDER,
       offerCode: 'SEED-ESTRA-CG',
       offerStatus: OfferStatus.ACTIVE,
       highlights: [
@@ -773,6 +801,7 @@ export async function seedOffers(
       isActive: false,
       validFrom: new Date('2026-07-01'),
       target: UserTarget.BOTH,
+      paymentMethod: OfferPaymentMethod.BOTH,
       offerCode: 'SEED-ENEL-LF24-V2',
       offerStatus: OfferStatus.DRAFT,
       version: 2,

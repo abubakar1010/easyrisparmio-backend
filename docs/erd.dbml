@@ -61,6 +61,12 @@ Enum user_target {
   both
 }
 
+Enum offer_payment_method {
+  direct_debit
+  postal_order
+  both
+}
+
 Enum case_status {
   new
   in_progress
@@ -506,6 +512,7 @@ Table offers [headercolor: #9b59b6] {
   valid_until date
   terms_url varchar(500)
   target user_target [not null, default: 'both']
+  payment_method offer_payment_method [not null, default: 'both', note: 'Payment method(s) the supplier accepts for this offer']
   highlights jsonb [note: 'String array of bullet points']
   version int [not null, default: 1]
   parent_offer_id uuid [ref: > offers.id]

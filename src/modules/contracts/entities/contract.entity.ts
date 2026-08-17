@@ -50,7 +50,7 @@ export class Contract extends BaseEntity {
   signedAt: Date;
 
   @Column({ name: 'signed_document_url', type: 'varchar', length: 500, nullable: true })
-  signedDocumentUrl: string;
+  signedDocumentUrl: string | null;
 
   @Column({
     name: 'delivery_method',

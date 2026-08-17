@@ -125,7 +125,10 @@ export class ContractsController {
     summary: 'Create a contract for a case',
     description:
       'Creates a new energy supply contract linked to an existing switch case. ' +
-      'The contract is initialized with status `draft`. Only admins can create contracts.',
+      'Without `deliveryMethod` the contract is initialized with status `draft`; with one it is ' +
+      'sent straight away. Pass `documents` (uploaded first via POST /api/v1/upload) to attach the ' +
+      'contract file in the same request — required when delivering through the app. ' +
+      'Only admins can create contracts.',
   })
   @ApiBody({ type: CreateContractDto })
   @ApiCreatedResponse({
@@ -202,8 +205,11 @@ export class ContractsController {
     @CurrentUser('id') adminId: string,
     @Body() dto: CreateContractDto,
   ) {
-    const result = await this.contractsService.createContract(dto);
-    void this.activityLogService.log(adminId, 'Contract Created', 'contract', result.id, { contractNumber: result.contractNumber });
+    const result = await this.contractsService.createContract(dto, adminId);
+    void this.activityLogService.log(adminId, 'Contract Created', 'contract', result.id, {
+      contractNumber: result.contractNumber,
+      documentCount: dto.documents?.length ?? 0,
+    });
     return result;
   }
 

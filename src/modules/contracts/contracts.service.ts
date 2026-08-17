@@ -18,7 +18,11 @@ import { SwitchCase } from '../cases/entities/switch-case.entity';
 import { CaseEvent } from '../cases/entities/case-event.entity';
 import { SentOffer } from '../offers/entities/sent-offer.entity';
 import { EnergyBill } from '../bills/entities/energy-bill.entity';
-import { ContractStatus, ContractDocumentType } from '../../common/enums/contract.enum';
+import {
+  ContractStatus,
+  ContractDocumentType,
+  ContractDeliveryMethod,
+} from '../../common/enums/contract.enum';
 import { CaseStatus } from '../../common/enums/case.enum';
 import { CaseEventType } from '../../common/enums/case-event.enum';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -45,7 +49,27 @@ export class ContractsService {
     private readonly notificationsService: NotificationsService,
   ) {}
 
-  async createContract(dto: CreateContractDto): Promise<Contract> {
+  /**
+   * A contract delivered through the app is only useful if a file travels with
+   * it — that is the copy the customer opens, downloads and signs. Contracts
+   * predating per-document storage carry the file in the legacy `documentUrl`,
+   * so either source counts.
+   */
+  private async hasContractFile(contract: Contract): Promise<boolean> {
+    if (contract.documentUrl) return true;
+    const count = await this.contractDocumentRepository.count({
+      where: {
+        contractId: contract.id,
+        documentType: ContractDocumentType.CONTRACT,
+      },
+    });
+    return count > 0;
+  }
+
+  async createContract(
+    dto: CreateContractDto,
+    createdById: string,
+  ): Promise<Contract> {
     const switchCase = await this.caseRepository.findOne({
       where: { id: dto.caseId },
     });
@@ -61,6 +85,19 @@ export class ContractsService {
 
     if (existing) {
       throw new ConflictException('A contract already exists for this case');
+    }
+
+    // Delivering through the app means the customer downloads the contract from
+    // there — refuse to announce one with nothing to open.
+    const documents = dto.documents ?? [];
+    if (
+      dto.deliveryMethod === ContractDeliveryMethod.APP &&
+      documents.length === 0 &&
+      !dto.documentUrl
+    ) {
+      throw new BadRequestException(
+        'A contract delivered through the app must include at least one contract document',
+      );
     }
 
     // If deliveryMethod is provided, set status to SENT directly
@@ -85,11 +122,30 @@ export class ContractsService {
       podPdrNumber: dto.podPdrNumber,
       status: initialStatus,
       deliveryMethod: dto.deliveryMethod || null,
-      documentUrl: dto.documentUrl || null,
+      documentUrl: dto.documentUrl || documents[0]?.fileUrl || null,
       estimatedSavings,
     });
 
     const saved = await this.contractRepository.save(contract);
+
+    // Store the documents before anything else so the contract is never
+    // announced to the customer with nothing attached to it.
+    if (documents.length > 0) {
+      await this.contractDocumentRepository.save(
+        documents.map((doc) =>
+          this.contractDocumentRepository.create({
+            contractId: saved.id,
+            documentType: ContractDocumentType.CONTRACT,
+            fileUrl: doc.fileUrl,
+            fileName: doc.fileName,
+            originalName: doc.originalName || null,
+            mimeType: doc.mimeType || null,
+            fileSizeBytes: doc.fileSizeBytes || null,
+            uploadedById: createdById,
+          }),
+        ),
+      );
+    }
 
     // Update case status to CONTRACT_SENT
     switchCase.status = CaseStatus.CONTRACT_SENT;
@@ -140,7 +196,9 @@ export class ContractsService {
       await this.billRepository.save(bill);
     }
 
-    return saved;
+    // Return with the documents so the caller sees the contract exactly as the
+    // customer will, without a second round-trip.
+    return this.getContractById(saved.id);
   }
 
   async getContracts(
@@ -194,6 +252,21 @@ export class ContractsService {
     }
 
     const oldStatus = contract.status;
+
+    // Sending through the app without a file would leave the customer with a
+    // notification and nothing to open — same rule as creation.
+    const nextDeliveryMethod = dto.deliveryMethod ?? contract.deliveryMethod;
+    if (
+      dto.status === ContractStatus.SENT &&
+      oldStatus !== ContractStatus.SENT &&
+      nextDeliveryMethod === ContractDeliveryMethod.APP &&
+      !dto.documentUrl &&
+      !(await this.hasContractFile(contract))
+    ) {
+      throw new BadRequestException(
+        'Attach at least one contract document before sending this contract through the app',
+      );
+    }
 
     // If status is being set to SIGNED, record the signing timestamp
     if (dto.status === ContractStatus.SIGNED && !contract.signedAt) {
@@ -454,6 +527,12 @@ export class ContractsService {
     if (documentType === ContractDocumentType.CONTRACT && !contract.documentUrl) {
       contract.documentUrl = dto.documents[0].fileUrl;
       await this.contractRepository.save(contract);
+    } else if (
+      documentType === ContractDocumentType.SIGNED &&
+      !contract.signedDocumentUrl
+    ) {
+      contract.signedDocumentUrl = dto.documents[0].fileUrl;
+      await this.contractRepository.save(contract);
     }
 
     return saved;
@@ -508,6 +587,36 @@ export class ContractsService {
       throw new NotFoundException('Document not found');
     }
 
+    const removedUrl = doc.fileUrl;
+    const documentType = doc.documentType;
+
     await this.contractDocumentRepository.remove(doc);
+
+    // The legacy URL is what the app falls back to when no documents are
+    // stored — leaving it pointing at a deleted file would show the customer a
+    // dead link, so re-point it at whatever is left.
+    const contract = await this.contractRepository.findOne({
+      where: { id: contractId },
+    });
+    if (!contract) return;
+
+    const isContractDoc = documentType === ContractDocumentType.CONTRACT;
+    const currentUrl = isContractDoc
+      ? contract.documentUrl
+      : contract.signedDocumentUrl;
+
+    if (currentUrl !== removedUrl) return;
+
+    const remaining = await this.contractDocumentRepository.findOne({
+      where: { contractId, documentType },
+      order: { createdAt: 'ASC' },
+    });
+
+    if (isContractDoc) {
+      contract.documentUrl = remaining?.fileUrl ?? null;
+    } else {
+      contract.signedDocumentUrl = remaining?.fileUrl ?? null;
+    }
+    await this.contractRepository.save(contract);
   }
 }

@@ -58,24 +58,23 @@ export class DashboardService {
   }
 
   async getUserDashboard(userId: string) {
-    const [totalCases, activeContracts, recentCases, potentialSavings] =
-      await Promise.all([
-        this.caseRepository.count({ where: { userId } }),
-        this.contractRepository.count({
-          where: { userId, status: ContractStatus.ACTIVE },
-        }),
-        this.caseRepository.find({
-          where: { userId },
-          order: { createdAt: 'DESC' },
-          take: 5,
-          relations: ['selectedOffer'],
-        }),
-        this.getUserPotentialSavings(userId),
-      ]);
+    const [totalCases, recentCases, potentialSavings] = await Promise.all([
+      this.caseRepository.count({ where: { userId } }),
+      this.caseRepository.find({
+        where: { userId },
+        order: { createdAt: 'DESC' },
+        take: 5,
+        relations: ['selectedOffer'],
+      }),
+      this.getUserPotentialSavings(userId),
+    ]);
 
     return {
       totalCases,
-      activeContracts,
+      // Single source of truth: the utility count and the savings figure are
+      // read off the same set of live contracts, so the two summary cards on
+      // the app home screen can never contradict each other.
+      activeContracts: potentialSavings.activeUtilities,
       potentialSavings,
       recentCases,
     };
@@ -338,6 +337,18 @@ export class DashboardService {
 
   // ─── User Dashboard Helpers ─────────────────────────────
 
+  /**
+   * Savings and utility count behind the two home summary cards.
+   *
+   * A utility starts counting the moment its contract goes live, which happens
+   * as soon as the pipeline reaches "In Activation" (`awaiting_activation`) —
+   * not only at `activated`. The case status is therefore the wrong gate here:
+   * `awaiting_activation` maps back to the `contract_signed` case status, so
+   * filtering on `sc.status = 'activated'` hid the savings of every utility
+   * that was already being shown as active on the utilities card.
+   * Both figures now key off `contract.status`, the same signal the utilities
+   * card and the "My Utilities" list use, so they can never disagree.
+   */
   private async getUserPotentialSavings(userId: string) {
     const result = await this.dataSource.query(
       `SELECT
@@ -345,12 +356,15 @@ export class DashboardService {
         COUNT(DISTINCT contract.id)::int AS "activeUtilities"
       FROM contracts contract
       INNER JOIN switch_cases sc ON sc.id = contract.case_id
-      LEFT JOIN sent_offers so ON so.bill_id = sc.bill_id AND so.offer_id = sc.selected_offer_id
+      LEFT JOIN sent_offers so
+        ON so.bill_id = sc.bill_id
+       AND so.offer_id = COALESCE(sc.selected_offer_id, contract.offer_id)
       WHERE contract.user_id = $1
-        AND sc.status = 'activated'
-        AND contract.status = 'active'
+        AND contract.status = $2
+        AND sc.status NOT IN ($3, $4)
+        AND contract.deleted_at IS NULL
         AND sc.deleted_at IS NULL`,
-      [userId],
+      [userId, ContractStatus.ACTIVE, CaseStatus.CANCELLED, CaseStatus.REJECTED],
     );
 
     const row = result[0] || {};

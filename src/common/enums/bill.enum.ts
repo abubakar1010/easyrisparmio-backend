@@ -14,11 +14,12 @@ export enum BillStatus {
   VERIFIED = 'verified',
   OFFER_SENT = 'offer_sent',
   OFFER_ACCEPTED = 'offer_accepted',
+  /**
+   * The admin handed the contract over for signing. Everything from here until
+   * activation happens outside this application — the customer signs with the
+   * supplier directly — so there is no signed/review/verified stage to track.
+   */
   CONTRACT_SENT = 'contract_sent',
-  CONTRACT_SIGNED = 'contract_signed',
-  CONTRACT_REVIEW = 'contract_review',
-  CONTRACT_VERIFICATION_REQUIRED = 'contract_verification_required',
-  CONTRACT_VERIFIED = 'contract_verified',
   AWAITING_ACTIVATION = 'awaiting_activation',
   ACTIVATED = 'activated',
   CANCELLED = 'cancelled',

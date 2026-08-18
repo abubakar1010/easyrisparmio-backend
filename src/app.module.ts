@@ -3,7 +3,9 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
+import { DataSource, DataSourceOptions } from 'typeorm';
 import { LocaleMiddleware } from './common/middleware/locale.middleware';
+import { runPreSyncMigrations } from './database/pre-sync';
 
 import appConfig from './config/app.config';
 import databaseConfig from './config/database.config';
@@ -19,7 +21,6 @@ import { BillsModule } from './modules/bills/bills.module';
 import { SuppliersModule } from './modules/suppliers/suppliers.module';
 import { OffersModule } from './modules/offers/offers.module';
 import { CasesModule } from './modules/cases/cases.module';
-import { ContractsModule } from './modules/contracts/contracts.module';
 import { SupportModule } from './modules/support/support.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
@@ -73,6 +74,22 @@ import { DeepLinkModule } from './modules/deep-link/deep-link.module';
           database: configService.get<string>('database.database') || 'easyresparmio',
         };
       },
+      // Synchronisation is taken over from TypeORM so that raw SQL can run
+      // between connecting and syncing. Schema changes that remove a Postgres
+      // enum label fail unless the rows using it have already been moved, and a
+      // module lifecycle hook is far too late — sync happens inside initialize().
+      dataSourceFactory: async (options) => {
+        const shouldSynchronize = (options as { synchronize?: boolean })
+          .synchronize === true;
+        const dataSource = new DataSource({
+          ...(options as DataSourceOptions),
+          synchronize: false,
+        });
+        await dataSource.initialize();
+        await runPreSyncMigrations(dataSource);
+        if (shouldSynchronize) await dataSource.synchronize();
+        return dataSource;
+      },
     }),
 
     // Rate limiting
@@ -96,7 +113,6 @@ import { DeepLinkModule } from './modules/deep-link/deep-link.module';
     SuppliersModule,
     OffersModule,
     CasesModule,
-    ContractsModule,
     SupportModule,
     NotificationsModule,
     DashboardModule,

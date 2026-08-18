@@ -7,7 +7,6 @@ import { SwitchCase } from '../../modules/cases/entities/switch-case.entity';
 import { SupportTicket } from '../../modules/support/entities/support-ticket.entity';
 import { UserAddress } from '../../modules/users/entities/user-address.entity';
 import { CsvReconciliation } from '../../modules/reconciliation/entities/csv-reconciliation.entity';
-import { Contract } from '../../modules/contracts/entities/contract.entity';
 
 export interface SeedContext {
   users: {
@@ -23,7 +22,6 @@ export interface SeedContext {
   tickets: SupportTicket[];
   addresses: UserAddress[];
   reconciliations: CsvReconciliation[];
-  contracts: Contract[];
 }
 
 export function createEmptyContext(): SeedContext {
@@ -37,6 +35,5 @@ export function createEmptyContext(): SeedContext {
     tickets: [],
     addresses: [],
     reconciliations: [],
-    contracts: [],
   };
 }

@@ -47,8 +47,11 @@ export class MetersController {
   @ApiOperation({
     summary: 'List my services',
     description:
-      'Returns the authenticated user\'s services — contracts that are signed (awaiting activation) ' +
-      'or active. Each item includes offer details, supplier info, contract data, and status.',
+      'Returns the authenticated user\'s services — switch cases that are in activation ' +
+      'or already activated. Each item includes offer details, supplier info, the ' +
+      'activation and expiry dates, and the case status. `contractDurationDays` is ' +
+      'derived from this contract\'s own activation and expiry dates, not from the ' +
+      'offer — clients are expected to quote it in months.',
   })
   @ApiOkResponse({
     description: 'List of user\'s activated services',
@@ -58,17 +61,17 @@ export class MetersController {
           success: true,
           data: [
             {
-              id: 'contract-uuid',
+              id: 'case-uuid',
               caseId: 'case-uuid',
               offerId: 'offer-uuid',
               energyType: 'electricity',
               offerName: 'Luce Fissa 2026',
               supplierName: 'Ener Energia',
-              contractNumber: 'CNT-20260630-00001',
+              contractNumber: 'CASE-20260630-00001',
               podPdrNumber: 'IT001E556779',
               activationDate: '2026-06-15',
               expiryDate: '2027-06-15',
-              monthlyEstimate: '85.00',
+              monthlyEstimate: null,
               pricePerKwh: '0.085000',
               pricePerSmc: null,
               fixedMonthlyFee: '10.00',

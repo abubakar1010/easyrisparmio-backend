@@ -10,7 +10,6 @@ import { Repository, In, LessThanOrEqual } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Supplier } from './entities/supplier.entity';
 import { Offer } from '../offers/entities/offer.entity';
-import { Contract } from '../contracts/entities/contract.entity';
 import { SwitchCase } from '../cases/entities/switch-case.entity';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
@@ -21,8 +20,10 @@ import {
   PaginatedResponseDto,
 } from '../../common/dto/pagination.dto';
 import { SupplierStatus } from '../../common/enums/supplier.enum';
-import { ContractStatus } from '../../common/enums/contract.enum';
-import { CaseStatus } from '../../common/enums/case.enum';
+import {
+  CaseStatus,
+  LIVE_UTILITY_CASE_STATUSES,
+} from '../../common/enums/case.enum';
 
 @Injectable()
 export class SuppliersService {
@@ -33,8 +34,6 @@ export class SuppliersService {
     private readonly supplierRepository: Repository<Supplier>,
     @InjectRepository(Offer)
     private readonly offerRepository: Repository<Offer>,
-    @InjectRepository(Contract)
-    private readonly contractRepository: Repository<Contract>,
     @InjectRepository(SwitchCase)
     private readonly caseRepository: Repository<SwitchCase>,
   ) {}
@@ -198,29 +197,27 @@ export class SuppliersService {
       };
     }
 
-    // Check for active contracts linked to this supplier's offers
-    const activeContracts = await this.getActiveContractsForSupplier(id);
+    // Check for live utilities served by this supplier's offers
+    const liveUtilities = await this.getLiveUtilitiesForSupplier(id);
 
-    if (activeContracts.length === 0) {
-      // No active contracts — delete immediately
+    if (liveUtilities.length === 0) {
+      // Nothing being supplied — delete immediately
       await this.executeSupplierDeletion(supplier);
       return { message: 'Supplier deleted successfully' };
     }
 
-    // Check for contracts with no expiry date
-    const noExpiryContracts = activeContracts.filter((c) => !c.expiryDate);
-    if (noExpiryContracts.length > 0) {
-      const contractNumbers = noExpiryContracts
-        .map((c) => c.contractNumber)
-        .join(', ');
+    // A supply with no expiry date has no point in time to wait for
+    const noExpiryUtilities = liveUtilities.filter((c) => !c.expiryDate);
+    if (noExpiryUtilities.length > 0) {
+      const caseNumbers = noExpiryUtilities.map((c) => c.caseNumber).join(', ');
       throw new BadRequestException(
-        `Cannot schedule deletion: the following active contracts have no expiry date set: ${contractNumbers}. Please set expiry dates on these contracts first.`,
+        `Cannot schedule deletion: the following live utilities have no expiry date set: ${caseNumbers}. Please set expiry dates on them first.`,
       );
     }
 
-    // Schedule deletion for when the last contract expires
-    const latestExpiry = activeContracts.reduce((latest, c) => {
-      const expiry = new Date(c.expiryDate);
+    // Schedule deletion for when the last supply expires
+    const latestExpiry = liveUtilities.reduce((latest, c) => {
+      const expiry = new Date(c.expiryDate!);
       return expiry > latest ? expiry : latest;
     }, new Date(0));
 
@@ -251,14 +248,15 @@ export class SuppliersService {
     activeContractsCount: number;
   }> {
     const supplier = await this.findById(id);
-    const activeContracts = await this.getActiveContractsForSupplier(id);
+    const liveUtilities = await this.getLiveUtilitiesForSupplier(id);
 
     return {
       status: supplier.status,
       scheduledDeletionDate: supplier.scheduledDeletionDate
         ? supplier.scheduledDeletionDate.toString()
         : null,
-      activeContractsCount: activeContracts.length,
+      // Key kept as-is: the admin dashboard reads it.
+      activeContractsCount: liveUtilities.length,
     };
   }
 
@@ -302,24 +300,23 @@ export class SuppliersService {
       });
 
       for (const supplier of pendingSuppliers) {
-        // Safety net: re-check no active contracts remain
-        const activeContracts =
-          await this.getActiveContractsForSupplier(supplier.id);
+        // Safety net: re-check no live utility remains
+        const liveUtilities = await this.getLiveUtilitiesForSupplier(
+          supplier.id,
+        );
 
-        if (activeContracts.length > 0) {
+        if (liveUtilities.length > 0) {
           // Recalculate scheduled date
-          const contractsWithExpiry = activeContracts.filter(
-            (c) => c.expiryDate,
-          );
-          if (contractsWithExpiry.length > 0) {
-            const newLatest = contractsWithExpiry.reduce((latest, c) => {
-              const expiry = new Date(c.expiryDate);
+          const utilitiesWithExpiry = liveUtilities.filter((c) => c.expiryDate);
+          if (utilitiesWithExpiry.length > 0) {
+            const newLatest = utilitiesWithExpiry.reduce((latest, c) => {
+              const expiry = new Date(c.expiryDate!);
               return expiry > latest ? expiry : latest;
             }, new Date(0));
             supplier.scheduledDeletionDate = newLatest;
             await this.supplierRepository.save(supplier);
             this.logger.warn(
-              `Supplier "${supplier.name}" (${supplier.id}) still has active contracts. Rescheduled to ${newLatest.toISOString().split('T')[0]}`,
+              `Supplier "${supplier.name}" (${supplier.id}) still has live utilities. Rescheduled to ${newLatest.toISOString().split('T')[0]}`,
             );
           }
           continue;
@@ -340,24 +337,27 @@ export class SuppliersService {
 
   // ─── Private Helpers ──────────────────────────────────────
 
-  private async getActiveContractsForSupplier(
+  /**
+   * The supplies this supplier is still serving: a switch that is under way or
+   * a supply that has not reached its expiry date yet. A supplier cannot be
+   * deleted while any of these exist, and the last expiry is what the scheduled
+   * deletion waits for.
+   */
+  private async getLiveUtilitiesForSupplier(
     supplierId: string,
-  ): Promise<Contract[]> {
+  ): Promise<SwitchCase[]> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    return this.contractRepository
-      .createQueryBuilder('contract')
-      .innerJoin('contract.offer', 'offer')
+    return this.caseRepository
+      .createQueryBuilder('sc')
+      .innerJoin('sc.selectedOffer', 'offer')
       .where('offer.supplierId = :supplierId', { supplierId })
-      .andWhere('contract.status = :status', {
-        status: ContractStatus.ACTIVE,
+      .andWhere('sc.status IN (:...statuses)', {
+        statuses: [...LIVE_UTILITY_CASE_STATUSES],
       })
-      .andWhere('contract.deletedAt IS NULL')
-      .andWhere(
-        '(contract.expiryDate IS NULL OR contract.expiryDate > :today)',
-        { today },
-      )
+      .andWhere('sc.deletedAt IS NULL')
+      .andWhere('(sc.expiryDate IS NULL OR sc.expiryDate > :today)', { today })
       .getMany();
   }
 

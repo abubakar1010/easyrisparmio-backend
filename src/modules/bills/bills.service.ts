@@ -10,7 +10,11 @@ import { In, Repository } from 'typeorm';
 import { EnergyBill } from './entities/energy-bill.entity';
 import { BillFile } from './entities/bill-file.entity';
 import { BillNote } from './entities/bill-note.entity';
-import { BillVerification, VerificationStatus } from './entities/bill-verification.entity';
+import {
+  BillVerification,
+  VerificationStatus,
+  VerificationType,
+} from './entities/bill-verification.entity';
 import { RequestVerificationDto, SubmitVerificationDto } from './dto/request-verification.dto';
 import { Offer } from '../offers/entities/offer.entity';
 import { Supplier } from '../suppliers/entities/supplier.entity';
@@ -27,7 +31,7 @@ import { EnergyType, MarketType } from '../../common/enums/offer.enum';
 import { OfferStatus } from '../../common/enums/offer-status.enum';
 import { SupplierStatus } from '../../common/enums/supplier.enum';
 import { NotificationType } from '../../common/enums/notification.enum';
-import { TransitionBillStatusDto, SubmitContractVerificationDto } from './dto/transition-bill-status.dto';
+import { TransitionBillStatusDto } from './dto/transition-bill-status.dto';
 import {
   getAvailableTransitions,
   getTransitionDirection,
@@ -38,9 +42,7 @@ import { BILL_STATUS_NOTIFICATIONS } from '../notifications/notification-message
 import { CaseEvent } from '../cases/entities/case-event.entity';
 import { CaseEventType } from '../../common/enums/case-event.enum';
 import { CaseStatus } from '../../common/enums/case.enum';
-import { ContractStatus } from '../../common/enums/contract.enum';
 import { SwitchCase } from '../cases/entities/switch-case.entity';
-import { Contract } from '../contracts/entities/contract.entity';
 import { readFileSync } from 'fs';
 import { join, extname } from 'path';
 
@@ -67,8 +69,6 @@ export class BillsService {
     private readonly caseRepository: Repository<SwitchCase>,
     @InjectRepository(CaseEvent)
     private readonly eventRepository: Repository<CaseEvent>,
-    @InjectRepository(Contract)
-    private readonly contractRepository: Repository<Contract>,
     @InjectRepository(BillNote)
     private readonly billNoteRepository: Repository<BillNote>,
     private readonly notificationsService: NotificationsService,
@@ -1001,6 +1001,7 @@ export class BillsService {
     const verification = this.verificationRepository.create({
       billId,
       adminMessage: dto.message,
+      type: VerificationType.BILL,
       status: VerificationStatus.PENDING,
     });
 
@@ -1053,8 +1054,15 @@ export class BillsService {
   ): Promise<EnergyBill> {
     const bill = await this.getBillById(billId, userId);
 
+    // Only a bill request is answered here — a contract request is answered by
+    // re-uploading the signed contract, and letting it through would rewind the
+    // pipeline all the way back to bill review.
     const verification = await this.verificationRepository.findOne({
-      where: { billId, status: VerificationStatus.PENDING },
+      where: {
+        billId,
+        type: VerificationType.BILL,
+        status: VerificationStatus.PENDING,
+      },
       order: { createdAt: 'DESC' },
     });
 
@@ -1121,7 +1129,7 @@ export class BillsService {
    * The admin is deliberately NOT restricted to the pipeline order — a case can
    * be moved forward, backward or sideways. Whatever the direction, this always:
    *   1. updates the bill status (drives the progress bar and the app),
-   *   2. keeps the linked case + contract in sync,
+   *   2. keeps the linked case in sync, including its activation dates,
    *   3. writes a case timeline entry,
    *   4. sends a push notification to the customer.
    */
@@ -1140,17 +1148,15 @@ export class BillsService {
       );
     }
 
-    // These two statuses carry an admin-written message to the customer,
-    // so they cannot be set without one.
-    const isVerificationRequest =
-      targetStatus === BillStatus.VERIFICATION_REQUIRED ||
-      targetStatus === BillStatus.CONTRACT_VERIFICATION_REQUIRED;
-
-    if (isVerificationRequest && !dto.message) {
+    // This status carries an admin-written message to the customer, so it
+    // cannot be set without one.
+    if (targetStatus === BillStatus.VERIFICATION_REQUIRED && !dto.message) {
       throw new BadRequestException(
         `Message is required when moving the case to "${BILL_STATUS_LABELS[targetStatus]}"`,
       );
     }
+
+    this.assertActivationDates(targetStatus, dto);
 
     const direction = getTransitionDirection(oldStatus, targetStatus);
 
@@ -1160,35 +1166,6 @@ export class BillsService {
 
     if (targetStatus === BillStatus.VERIFICATION_REQUIRED) {
       await this.requestVerification(billId, { message: dto.message! });
-      notificationHandled = true;
-    } else if (targetStatus === BillStatus.CONTRACT_VERIFICATION_REQUIRED) {
-      // Mark any previous pending verifications as resolved
-      await this.verificationRepository.update(
-        { billId, status: VerificationStatus.PENDING },
-        { status: VerificationStatus.RESOLVED, resolvedAt: new Date() },
-      );
-
-      // Create a contract verification record
-      const verification = this.verificationRepository.create({
-        billId,
-        adminMessage: dto.message!,
-        status: VerificationStatus.PENDING,
-      });
-      await this.verificationRepository.save(verification);
-
-      await this.billRepository.update(billId, { status: targetStatus });
-
-      try {
-        await this.notificationsService.sendNotification({
-          userId: bill.userId,
-          messageKey: 'contract_verification_required',
-          body: dto.message,
-          type: NotificationType.CONTRACT_VERIFICATION,
-          data: { billId: bill.id, oldStatus, newStatus: targetStatus },
-        });
-      } catch (error) {
-        this.logger.warn(`Failed to send contract verification notification: ${error?.message || error}`);
-      }
       notificationHandled = true;
     } else {
       // Moving anywhere other than a "waiting on the customer" status means we
@@ -1209,7 +1186,7 @@ export class BillsService {
       : null;
 
     if (activeCase) {
-      await this.syncContractWithBillStatus(activeCase.id, targetStatus);
+      await this.applyActivationDates(activeCase.id, targetStatus, dto);
       await this.logStatusChangeOnCase(activeCase, oldStatus, targetStatus, direction, adminId, dto.message);
     }
 
@@ -1240,30 +1217,73 @@ export class BillsService {
   }
 
   /**
-   * Keeps the utility contract aligned with the pipeline status in both
-   * directions, so the customer's "My Utilities" list never shows a utility as
-   * active after the case has been moved back before activation.
+   * The customer signs the contract with the supplier, outside this
+   * application, so we never observe the signature — the admin tells us when it
+   * is done by moving the case to "In Attivazione", and supplies the two dates
+   * the supplier gave them at the same time. Without them the utility would
+   * show up in the app with a blank activation date, which is why they are
+   * required rather than optional.
    */
-  private async syncContractWithBillStatus(
+  private assertActivationDates(
+    targetStatus: BillStatus,
+    dto: TransitionBillStatusDto,
+  ): void {
+    if (
+      targetStatus === BillStatus.AWAITING_ACTIVATION &&
+      (!dto.activationDate || !dto.expiryDate)
+    ) {
+      throw new BadRequestException(
+        `Activation date and expiry date are required when moving the case to "${BILL_STATUS_LABELS[targetStatus]}"`,
+      );
+    }
+
+    if (
+      dto.activationDate &&
+      dto.expiryDate &&
+      new Date(dto.expiryDate) <= new Date(dto.activationDate)
+    ) {
+      throw new BadRequestException(
+        'Expiry date must be after the activation date',
+      );
+    }
+  }
+
+  /**
+   * Writes the admin-supplied activation dates onto the case, and stamps when
+   * the contract went out for signing.
+   *
+   * Moving a case back before activation clears both dates: they describe a
+   * live supply, and leaving them behind would keep the utility looking active
+   * in "Le mie Utenze" after the switch was called off.
+   */
+  private async applyActivationDates(
     caseId: string,
     status: BillStatus,
+    dto: TransitionBillStatusDto,
   ): Promise<void> {
-    const contract = await this.contractRepository.findOne({ where: { caseId } });
-    if (!contract) return;
+    const switchCase = await this.caseRepository.findOne({ where: { id: caseId } });
+    if (!switchCase) return;
 
-    const shouldBeActive =
+    if (status === BillStatus.CONTRACT_SENT && !switchCase.contractSentAt) {
+      switchCase.contractSentAt = new Date();
+    }
+
+    const isLiveUtility =
       status === BillStatus.AWAITING_ACTIVATION || status === BillStatus.ACTIVATED;
 
-    if (shouldBeActive && contract.status !== ContractStatus.ACTIVE) {
-      contract.status = ContractStatus.ACTIVE;
-      if (!contract.activationDate) {
-        contract.activationDate = new Date();
+    if (isLiveUtility) {
+      if (dto.activationDate) {
+        switchCase.activationDate = new Date(dto.activationDate);
       }
-      await this.contractRepository.save(contract);
-    } else if (!shouldBeActive && contract.status === ContractStatus.ACTIVE) {
-      contract.status = ContractStatus.SIGNED;
-      await this.contractRepository.save(contract);
+      if (dto.expiryDate) {
+        switchCase.expiryDate = new Date(dto.expiryDate);
+      }
+    } else {
+      switchCase.activationDate = null;
+      switchCase.expiryDate = null;
     }
+
+    await this.caseRepository.save(switchCase);
   }
 
   /**
@@ -1328,69 +1348,10 @@ export class BillsService {
     [BillStatus.OFFER_SENT]: CaseStatus.IN_PROGRESS,
     [BillStatus.OFFER_ACCEPTED]: CaseStatus.IN_PROGRESS,
     [BillStatus.CONTRACT_SENT]: CaseStatus.CONTRACT_SENT,
-    [BillStatus.CONTRACT_SIGNED]: CaseStatus.CONTRACT_SIGNED,
-    [BillStatus.CONTRACT_REVIEW]: CaseStatus.CONTRACT_SIGNED,
-    [BillStatus.CONTRACT_VERIFICATION_REQUIRED]: CaseStatus.CONTRACT_SENT,
-    [BillStatus.CONTRACT_VERIFIED]: CaseStatus.CONTRACT_SIGNED,
-    [BillStatus.AWAITING_ACTIVATION]: CaseStatus.CONTRACT_SIGNED,
+    [BillStatus.AWAITING_ACTIVATION]: CaseStatus.AWAITING_ACTIVATION,
     [BillStatus.ACTIVATED]: CaseStatus.ACTIVATED,
     [BillStatus.CANCELLED]: CaseStatus.CANCELLED,
   };
-
-  async submitContractVerification(
-    billId: string,
-    userId: string,
-    dto: SubmitContractVerificationDto,
-  ): Promise<EnergyBill> {
-    const bill = await this.getBillById(billId, userId);
-
-    if (bill.status !== BillStatus.CONTRACT_VERIFICATION_REQUIRED) {
-      throw new BadRequestException(
-        'Bill must be in contract_verification_required status',
-      );
-    }
-
-    const verification = await this.verificationRepository.findOne({
-      where: { billId, status: VerificationStatus.PENDING },
-      order: { createdAt: 'DESC' },
-    });
-
-    if (verification) {
-      verification.status = VerificationStatus.SUBMITTED;
-      verification.userMessage = dto.message || null;
-      await this.verificationRepository.save(verification);
-
-      // Link uploaded files to this verification record
-      if (dto.fileIds?.length) {
-        await this.billFileRepository.update(
-          { id: In(dto.fileIds), billId },
-          { verificationId: verification.id },
-        );
-      }
-    }
-
-    // Update signed document if provided
-    if (dto.signedDocumentUrl) {
-      const activeCase = bill.switchCases?.length
-        ? bill.switchCases.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
-        : null;
-
-      if (activeCase) {
-        const contract = await this.contractRepository.findOne({
-          where: { caseId: activeCase.id },
-        });
-        if (contract) {
-          contract.signedDocumentUrl = dto.signedDocumentUrl;
-          await this.contractRepository.save(contract);
-        }
-      }
-    }
-
-    bill.status = BillStatus.CONTRACT_REVIEW;
-    await this.billRepository.save(bill);
-
-    return this.getBillById(bill.id, userId);
-  }
 
   async getBillNotes(billId: string): Promise<BillNote[]> {
     const bill = await this.billRepository.findOne({ where: { id: billId } });

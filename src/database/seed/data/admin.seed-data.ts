@@ -36,7 +36,7 @@ export async function seedAdminAlerts(
       title: 'Contratto in scadenza - Marco Rossi',
       description:
         'Il contratto gas di Marco Rossi scade tra 30 giorni. Verificare possibilità di rinnovo.',
-      entityType: 'Contract',
+      entityType: 'SwitchCase',
       expiresAt: new Date('2026-07-25T00:00:00Z'),
     },
     {

@@ -5,7 +5,6 @@ export * from './case-type.enum';
 export * from './case-event.enum';
 export * from './offer.enum';
 export * from './offer-status.enum';
-export * from './contract.enum';
 export * from './support.enum';
 export * from './notification.enum';
 export * from './user.enum';

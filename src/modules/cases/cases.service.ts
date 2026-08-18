@@ -12,17 +12,17 @@ import { CaseDocument } from './entities/case-document.entity';
 import { CaseEvent } from './entities/case-event.entity';
 import { EnergyBill } from '../bills/entities/energy-bill.entity';
 import { Offer } from '../offers/entities/offer.entity';
+import { SentOffer } from '../offers/entities/sent-offer.entity';
+import { Supplier } from '../suppliers/entities/supplier.entity';
 import { CreateCaseDto } from './dto/create-case.dto';
 import { UpdateCaseDto } from './dto/update-case.dto';
 import { QueryCasesDto } from './dto/query-cases.dto';
 import { PaginatedResponseDto } from '../../common/dto/pagination.dto';
-import { Contract } from '../contracts/entities/contract.entity';
 import { CaseStatus } from '../../common/enums/case.enum';
 import { CaseEventType } from '../../common/enums/case-event.enum';
-import { ContractStatus } from '../../common/enums/contract.enum';
 import { UserRole } from '../../common/enums/role.enum';
 import { DocumentType } from '../../common/enums/user.enum';
-import { BillStatus } from '../../common/enums/bill.enum';
+import { BillStatus, BillType } from '../../common/enums/bill.enum';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../../common/enums/notification.enum';
 import { SupplierStatus } from '../../common/enums/supplier.enum';
@@ -53,8 +53,10 @@ export class CasesService {
     private readonly billRepository: Repository<EnergyBill>,
     @InjectRepository(Offer)
     private readonly offerRepository: Repository<Offer>,
-    @InjectRepository(Contract)
-    private readonly contractRepository: Repository<Contract>,
+    @InjectRepository(Supplier)
+    private readonly supplierRepository: Repository<Supplier>,
+    @InjectRepository(SentOffer)
+    private readonly sentOfferRepository: Repository<SentOffer>,
     private readonly notificationsService: NotificationsService,
   ) {}
 
@@ -83,6 +85,10 @@ export class CasesService {
     }
     this.assertPaymentMethodAcceptedBy(offer, dto.paymentMethod);
 
+    // The user may have corrected the delivery point on the request form — the
+    // bill is the single source of truth for it, so write the correction back.
+    this.applyDeliveryPointCorrection(bill, dto.podNumber);
+
     const caseNumber = await this.generateCaseNumber();
 
     const switchCase = this.caseRepository.create({
@@ -91,7 +97,7 @@ export class CasesService {
       selectedOfferId: dto.selectedOfferId,
       status: CaseStatus.NEW,
       caseNumber,
-      fromSupplierId: bill.supplierId || null,
+      fromSupplierId: await this.resolveFromSupplierId(bill),
       toSupplierId: offer.supplierId,
       supplyStreet: dto.supplyStreet || null,
       supplyStreetNumber: dto.supplyStreetNumber || null,
@@ -112,6 +118,7 @@ export class CasesService {
       shippingProvince: normalizeProvince(dto.shippingProvince),
       paymentMethod: dto.paymentMethod || null,
       invoiceDelivery: dto.invoiceDelivery || null,
+      invoiceEmail: dto.invoiceEmail || null,
       iban: dto.iban || null,
       ibanHolderFirstName: dto.ibanHolderFirstName || null,
       ibanHolderLastName: dto.ibanHolderLastName || null,
@@ -196,7 +203,6 @@ export class CasesService {
         'toSupplier',
         'bill',
         'documents',
-        'contract',
         'events',
       ],
     });
@@ -215,21 +221,41 @@ export class CasesService {
     return switchCase;
   }
 
+  /**
+   * The case behind one bill, as the app's sign-contract screen reads it.
+   *
+   * The saving is quoted from the offer the customer accepted rather than
+   * stored on the case: it is a property of that offer, and copying it would
+   * only let the two drift apart.
+   */
   async getCaseByBillId(
     billId: string,
     userId: string,
-  ): Promise<SwitchCase | null> {
-    return this.caseRepository.findOne({
+  ): Promise<(SwitchCase & { estimatedSavings: number | null }) | null> {
+    const switchCase = await this.caseRepository.findOne({
       where: { billId, userId },
       relations: [
         'selectedOffer',
         'selectedOffer.supplier',
-        'contract',
         'documents',
         'events',
       ],
       order: { createdAt: 'DESC' },
     });
+
+    if (!switchCase) return null;
+
+    let estimatedSavings: number | null = null;
+    if (switchCase.selectedOfferId) {
+      const sentOffer = await this.sentOfferRepository.findOne({
+        where: { billId: switchCase.billId, offerId: switchCase.selectedOfferId },
+      });
+      if (sentOffer?.estimatedSavings != null) {
+        estimatedSavings = Number(sentOffer.estimatedSavings);
+      }
+    }
+
+    return Object.assign(switchCase, { estimatedSavings });
   }
 
   async updateCase(
@@ -245,7 +271,39 @@ export class CasesService {
 
     const oldStatus = switchCase.status;
 
-    Object.assign(switchCase, dto);
+    const { activationDate, expiryDate, ...rest } = dto;
+    Object.assign(switchCase, rest);
+
+    // A utility the customer can see must carry the dates it is described by.
+    // The same rule is enforced on the transition endpoint; this is the other
+    // way into "In Attivazione", so it cannot be the loophole.
+    const nextStatus = dto.status ?? switchCase.status;
+    if (activationDate !== undefined) {
+      switchCase.activationDate = activationDate ? new Date(activationDate) : null;
+    }
+    if (expiryDate !== undefined) {
+      switchCase.expiryDate = expiryDate ? new Date(expiryDate) : null;
+    }
+
+    if (
+      nextStatus === CaseStatus.AWAITING_ACTIVATION &&
+      (!switchCase.activationDate || !switchCase.expiryDate)
+    ) {
+      throw new BadRequestException(
+        'Activation date and expiry date are required to put a case in activation',
+      );
+    }
+
+    if (
+      switchCase.activationDate &&
+      switchCase.expiryDate &&
+      new Date(switchCase.expiryDate) <= new Date(switchCase.activationDate)
+    ) {
+      throw new BadRequestException(
+        'Expiry date must be after the activation date',
+      );
+    }
+
     const saved = await this.caseRepository.save(switchCase);
 
     // Log status change event and notify user
@@ -255,21 +313,6 @@ export class CasesService {
         newStatus: dto.status,
         actorId,
       });
-
-      // When case is activated, also sync the associated contract to ACTIVE
-      // so the utility appears in the user's my-services list
-      if (dto.status === CaseStatus.ACTIVATED) {
-        const contract = await this.contractRepository.findOne({
-          where: { caseId: id },
-        });
-        if (contract && contract.status !== ContractStatus.ACTIVE) {
-          contract.status = ContractStatus.ACTIVE;
-          if (!contract.activationDate) {
-            contract.activationDate = new Date();
-          }
-          await this.contractRepository.save(contract);
-        }
-      }
 
       try {
         await this.notificationsService.sendNotification({
@@ -375,6 +418,41 @@ export class CasesService {
   }
 
   /**
+   * The supplier the customer is leaving. OCR only ever reads a *name* off the
+   * bill, so a bill is rarely linked to a supplier record — match the name
+   * against the catalogue here so the case carries a real supplier whenever one
+   * exists. Returns null when nothing matches; consumers then fall back to the
+   * bill's `supplierName`.
+   */
+  private async resolveFromSupplierId(bill: EnergyBill): Promise<string | null> {
+    if (bill.supplierId) return bill.supplierId;
+
+    const name = bill.supplierName?.trim();
+    if (!name) return null;
+
+    const match = await this.supplierRepository
+      .createQueryBuilder('s')
+      // Exact name first, then a contains match so "Enel Energia S.p.A." on the
+      // bill still finds the "Enel Energia" record.
+      .where('LOWER(s.name) = LOWER(:name)', { name })
+      .orWhere(':name ILIKE CONCAT(\'%\', s.name, \'%\')', { name })
+      .orderBy('LENGTH(s.name)', 'DESC')
+      .getOne();
+
+    if (match) {
+      // Link the bill too, so every later read resolves without re-matching.
+      bill.supplierId = match.id;
+    }
+
+    return match?.id ?? null;
+  }
+
+  /**
+   * The request form lets the customer correct the POD/PDR read off the bill.
+   * The bill owns that value, so the correction is written back to it — the
+   * mutated entity is saved by the caller.
+   */
+  /**
    * The mobile form only shows the payment methods an offer accepts, but the
    * endpoint is public to any authenticated client — so enforce it here too.
    * Offers accepting both methods never reject.
@@ -400,6 +478,23 @@ export class CasesService {
       throw new BadRequestException(
         `Offer "${offer.name}" only accepts ${offer.paymentMethod.replace('_', ' ')} as payment method`,
       );
+    }
+  }
+
+  private applyDeliveryPointCorrection(
+    bill: EnergyBill,
+    deliveryPoint?: string,
+  ): void {
+    const value = deliveryPoint?.trim();
+    if (!value) return;
+
+    // Gas bills carry a PDR, electricity bills a POD. Fall back to whichever
+    // the bill already has when the type is ambiguous.
+    const isGas = bill.billType === BillType.GAS || (!bill.podNumber && !!bill.pdrNumber);
+    if (isGas) {
+      bill.pdrNumber = value;
+    } else {
+      bill.podNumber = value;
     }
   }
 

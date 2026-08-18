@@ -52,6 +52,9 @@ const CASE_EXAMPLE = {
   caseType: 'switch',
   fromSupplierId: 's1a2b3c4-d5e6-7890-abcd-ef1234567890',
   toSupplierId: 's2b3c4d5-e6f7-8901-bcde-f23456789012',
+  contractSentAt: null,
+  activationDate: null,
+  expiryDate: null,
   createdAt: '2026-06-10T10:00:00.000Z',
   updatedAt: '2026-06-10T10:00:00.000Z',
 };
@@ -63,7 +66,7 @@ const CASE_WITH_RELATIONS = {
   selectedOffer: { id: 'o1a2b3c4...', name: 'Casa Luce Fix 12', energyType: 'electricity' },
   assignedAgent: null,
   documents: [],
-  contract: null,
+  estimatedSavings: 240.0,
 };
 
 const DOCUMENT_EXAMPLE = {
@@ -156,7 +159,8 @@ export class CasesController {
     summary: 'Get case by bill ID (user)',
     description:
       'Returns the case associated with a specific bill for the authenticated user. ' +
-      'Includes selected offer, contract, documents, and event timeline.',
+      'Includes the selected offer, the activation dates, documents, the estimated ' +
+      'annual saving, and the event timeline.',
   })
   @ApiOkResponse({
     description: 'Case found for the given bill',
@@ -178,7 +182,7 @@ export class CasesController {
   @ApiOperation({
     summary: 'Get case by ID',
     description:
-      'Returns a single case with full details: user, bill, offer, assigned agent, documents, and contract. ' +
+      'Returns a single case with full details: user, bill, offer, assigned agent, documents, and activation dates. ' +
       'Users can only access their own cases; admins can access any case.',
   })
   @ApiOkResponse({

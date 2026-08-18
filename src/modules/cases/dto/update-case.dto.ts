@@ -3,6 +3,7 @@ import {
   IsUUID,
   IsEnum,
   IsString,
+  IsDateString,
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { CaseStatus, CasePriority } from '../../../common/enums/case.enum';
@@ -32,4 +33,17 @@ export class UpdateCaseDto {
   @IsOptional()
   @IsString()
   internalNotes?: string;
+
+  // Both dates are set when the case moves to "In Attivazione" and stay
+  // editable afterwards — the supplier does move activation dates around.
+
+  @ApiPropertyOptional({ description: 'When the new supply goes live', example: '2026-03-12' })
+  @IsOptional()
+  @IsDateString()
+  activationDate?: string;
+
+  @ApiPropertyOptional({ description: 'When the new supply contract expires', example: '2028-03-12' })
+  @IsOptional()
+  @IsDateString()
+  expiryDate?: string;
 }

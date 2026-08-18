@@ -1,4 +1,4 @@
-import { IsEnum, IsString, IsArray, IsOptional } from 'class-validator';
+import { IsEnum, IsString, IsOptional, IsDateString } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { BillStatus } from '../../../common/enums/bill.enum';
 
@@ -12,37 +12,28 @@ export class TransitionBillStatusDto {
   targetStatus: BillStatus;
 
   @ApiPropertyOptional({
-    description: 'Message for verification_required or contract_verification_required transitions',
+    description: 'Message for the verification_required transition',
     example: 'The bill is hard to read. Please upload a clearer copy.',
   })
   @IsString()
   @IsOptional()
   message?: string;
-}
-
-export class SubmitContractVerificationDto {
-  @ApiPropertyOptional({
-    description: 'Message from user about the contract resubmission',
-    example: 'I have corrected the signature and re-uploaded the contract.',
-  })
-  @IsString()
-  @IsOptional()
-  message?: string;
 
   @ApiPropertyOptional({
-    description: 'URL of the re-uploaded signed contract document',
+    description:
+      'When the new supply goes live. Required when moving to awaiting_activation.',
+    example: '2026-03-12',
   })
-  @IsString()
+  @IsDateString()
   @IsOptional()
-  signedDocumentUrl?: string;
+  activationDate?: string;
 
   @ApiPropertyOptional({
-    description: 'IDs of uploaded files to associate with this verification',
-    example: ['uuid-1', 'uuid-2'],
-    type: [String],
+    description:
+      'When the new supply contract expires. Required when moving to awaiting_activation, and must be after the activation date.',
+    example: '2028-03-12',
   })
-  @IsArray()
-  @IsString({ each: true })
+  @IsDateString()
   @IsOptional()
-  fileIds?: string[];
+  expiryDate?: string;
 }

@@ -15,6 +15,21 @@ export enum VerificationStatus {
   RESOLVED = 'resolved',
 }
 
+/**
+ * What the admin is asking the customer to fix. Only BILL is ever created now:
+ * contracts are signed with the supplier, outside this application, so there is
+ * no signed copy for us to send back.
+ */
+export enum VerificationType {
+  BILL = 'bill',
+  /**
+   * @deprecated Never created since contract signing moved outside the app.
+   * Kept so historic rows keep reading — a Postgres enum label cannot be
+   * dropped while rows still use it.
+   */
+  CONTRACT = 'contract',
+}
+
 @Entity('bill_verifications')
 export class BillVerification extends BaseEntity {
   @Column({ name: 'bill_id', type: 'uuid' })
@@ -22,6 +37,13 @@ export class BillVerification extends BaseEntity {
 
   @Column({ name: 'admin_message', type: 'text' })
   adminMessage: string;
+
+  @Column({
+    type: 'enum',
+    enum: VerificationType,
+    default: VerificationType.BILL,
+  })
+  type: VerificationType;
 
   @Column({
     type: 'enum',

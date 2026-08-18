@@ -2,11 +2,9 @@ import { DataSource } from 'typeorm';
 import { SwitchCase } from '../../../modules/cases/entities/switch-case.entity';
 import { CaseEvent } from '../../../modules/cases/entities/case-event.entity';
 import { CaseDocument } from '../../../modules/cases/entities/case-document.entity';
-import { Contract } from '../../../modules/contracts/entities/contract.entity';
 import { CaseStatus, CasePriority } from '../../../common/enums/case.enum';
 import { CaseType } from '../../../common/enums/case-type.enum';
 import { CaseEventType } from '../../../common/enums/case-event.enum';
-import { ContractStatus } from '../../../common/enums/contract.enum';
 import { DocumentType } from '../../../common/enums/user.enum';
 import { SeedContext } from '../seed-context';
 
@@ -57,13 +55,16 @@ export async function seedSwitchCases(
       billId: ctx.bills[1].id, // Marco's gas bill
       selectedOfferId: offerByCode(ctx, 'SEED-ENEL-GCS')?.id, // Gas Casa Sicura (Enel)
       assignedAgentId: admin.id,
-      status: CaseStatus.CONTRACT_SIGNED,
+      status: CaseStatus.AWAITING_ACTIVATION,
       priority: CasePriority.LOW,
       caseNumber: 'SEED-CASE-002',
       caseType: CaseType.SWITCH,
-      notes: 'Passaggio gas completato. Contratto firmato.',
+      notes: 'Contratto firmato con il fornitore. Passaggio in corso.',
       slaDaysTotal: 30,
       estimatedAnnualValue: 1140.0,
+      contractSentAt: new Date('2026-06-01T09:00:00Z'),
+      activationDate: new Date('2026-07-01'),
+      expiryDate: new Date('2027-07-01'),
       fromSupplierId: eni?.id,
       toSupplierId: enel?.id,
     },
@@ -98,6 +99,9 @@ export async function seedSwitchCases(
       notes: 'Switch luce completato e attivato.',
       slaDaysTotal: 30,
       estimatedAnnualValue: 1740.0,
+      contractSentAt: new Date('2026-05-05T10:00:00Z'),
+      activationDate: new Date('2026-05-15'),
+      expiryDate: new Date('2028-05-15'),
       fromSupplierId: eni?.id,
       toSupplierId: enel?.id,
     },
@@ -114,6 +118,9 @@ export async function seedSwitchCases(
       notes: 'Switch gas completato e attivato.',
       slaDaysTotal: 30,
       estimatedAnnualValue: 942.0,
+      contractSentAt: new Date('2026-05-20T14:00:00Z'),
+      activationDate: new Date('2026-06-01'),
+      expiryDate: new Date('2027-06-01'),
       fromSupplierId: eni?.id,
       toSupplierId: enel?.id,
     },
@@ -163,14 +170,14 @@ export async function seedCaseEvents(
     },
     {
       caseId: ctx.cases[1].id, // SEED-CASE-002
-      eventType: CaseEventType.CONTRACT_SIGNED,
-      title: 'Contratto firmato',
+      eventType: CaseEventType.STATUS_CHANGE,
+      title: 'Utenza in attivazione',
       description:
-        'Il cliente ha firmato il contratto Gas Casa con Enel Energia.',
+        'Contratto Gas Casa firmato con Enel Energia. Passaggio avviato.',
       oldStatus: CaseStatus.CONTRACT_SENT,
-      newStatus: CaseStatus.CONTRACT_SIGNED,
-      actorId: marco.id,
-      actorLabel: 'Marco Rossi',
+      newStatus: CaseStatus.AWAITING_ACTIVATION,
+      actorId: admin.id,
+      actorLabel: 'Admin EasyRisparmio',
     },
     {
       caseId: ctx.cases[2].id, // SEED-CASE-003
@@ -253,70 +260,3 @@ export async function seedCaseDocuments(
   }
 }
 
-export async function seedContracts(
-  ds: DataSource,
-  ctx: SeedContext,
-): Promise<void> {
-  const repo = ds.getRepository(Contract);
-  const marco = ctx.users.personal[0];
-
-  const testUser = ctx.users.personal[2]; // test@yopmail.com
-
-  const contractsData = [
-    {
-      caseId: ctx.cases[1].id, // SEED-CASE-002 (CONTRACT_SIGNED)
-      offerId: offerByCode(ctx, 'SEED-ENEL-GCS')?.id, // Gas Casa Sicura
-      userId: marco.id,
-      contractNumber: 'SEED-CTR-001',
-      status: ContractStatus.SIGNED,
-      podPdrNumber: '12345678901234',
-      activationDate: new Date('2026-07-01'),
-      expiryDate: new Date('2027-07-01'),
-      signedAt: new Date('2026-06-05T14:00:00Z'),
-      signedDocumentUrl: '/uploads/documents/seed-case002-contract.pdf',
-      monthlyEstimate: 47.65,
-    },
-    // test@yopmail.com — electricity contract (ACTIVE)
-    {
-      caseId: ctx.cases[3].id, // SEED-CASE-004 (ACTIVATED)
-      offerId: offerByCode(ctx, 'SEED-ENEL-LF24')?.id, // Luce Fissa 24
-      userId: testUser.id,
-      contractNumber: 'SEED-CTR-002',
-      status: ContractStatus.ACTIVE,
-      podPdrNumber: 'IT001E55667788',
-      activationDate: new Date('2026-05-15'),
-      expiryDate: new Date('2028-05-15'),
-      signedAt: new Date('2026-05-10T10:00:00Z'),
-      signedDocumentUrl: '/uploads/documents/seed-test-electricity-contract.pdf',
-      monthlyEstimate: 72.5,
-    },
-    // test@yopmail.com — gas contract (ACTIVE)
-    {
-      caseId: ctx.cases[4].id, // SEED-CASE-005 (ACTIVATED)
-      offerId: offerByCode(ctx, 'SEED-ENEL-GCS')?.id, // Gas Casa Sicura
-      userId: testUser.id,
-      contractNumber: 'SEED-CTR-003',
-      status: ContractStatus.ACTIVE,
-      podPdrNumber: '98765432109876',
-      activationDate: new Date('2026-06-01'),
-      expiryDate: new Date('2027-06-01'),
-      signedAt: new Date('2026-05-25T14:00:00Z'),
-      signedDocumentUrl: '/uploads/documents/seed-test-gas-contract.pdf',
-      monthlyEstimate: 52.3,
-    },
-  ];
-
-  for (const data of contractsData) {
-    let contract = await repo.findOne({
-      where: { contractNumber: data.contractNumber },
-      withDeleted: true,
-    });
-    if (!contract) {
-      contract = await repo.save(repo.create(data));
-      console.log(`  Created contract: ${data.contractNumber}`);
-    } else {
-      console.log(`  Contract already exists: ${data.contractNumber}`);
-    }
-    ctx.contracts.push(contract);
-  }
-}

@@ -10,7 +10,6 @@ import { Offer } from './entities/offer.entity';
 import { SentOffer } from './entities/sent-offer.entity';
 import { SwitchCase } from '../cases/entities/switch-case.entity';
 import { Supplier } from '../suppliers/entities/supplier.entity';
-import { Contract } from '../contracts/entities/contract.entity';
 import { CreateOfferDto } from './dto/create-offer.dto';
 import { UpdateOfferDto } from './dto/update-offer.dto';
 import { UpdateOfferStatusDto } from './dto/update-offer-status.dto';
@@ -25,7 +24,6 @@ import {
 } from '../../common/enums/offer.enum';
 import { OfferStatus } from '../../common/enums/offer-status.enum';
 import { SupplierStatus } from '../../common/enums/supplier.enum';
-import { ContractStatus } from '../../common/enums/contract.enum';
 import { CaseStatus } from '../../common/enums/case.enum';
 
 @Injectable()
@@ -41,8 +39,6 @@ export class OffersService {
     private readonly switchCaseRepository: Repository<SwitchCase>,
     @InjectRepository(Supplier)
     private readonly supplierRepository: Repository<Supplier>,
-    @InjectRepository(Contract)
-    private readonly contractRepository: Repository<Contract>,
   ) {}
 
   resolveOfferLocale(offer: Offer, locale?: string): Offer {
@@ -297,34 +293,33 @@ export class OffersService {
   async deleteOffer(id: string): Promise<{ message: string; cancelledCases?: number }> {
     const offer = await this.findById(id);
 
-    // Check for active contracts linked to this offer
-    const activeContracts = await this.contractRepository
-      .createQueryBuilder('contract')
-      .where('contract.offerId = :offerId', { offerId: id })
-      .andWhere('contract.status = :status', { status: ContractStatus.ACTIVE })
-      .andWhere('contract.deletedAt IS NULL')
-      .andWhere(
-        '(contract.expiryDate IS NULL OR contract.expiryDate > :today)',
-        { today: new Date() },
-      )
+    // A supply that is still running is the strongest reason not to delete an
+    // offer: the customer is being billed against its terms right now. An
+    // activated case counts until the day its supply expires.
+    const liveUtilities = await this.switchCaseRepository
+      .createQueryBuilder('sc')
+      .where('sc.selectedOfferId = :offerId', { offerId: id })
+      .andWhere('sc.status = :activated', { activated: CaseStatus.ACTIVATED })
+      .andWhere('sc.deletedAt IS NULL')
+      .andWhere('(sc.expiryDate IS NULL OR sc.expiryDate > :today)', {
+        today: new Date(),
+      })
       .getMany();
 
-    if (activeContracts.length > 0) {
-      const contractNumbers = activeContracts
-        .map((c) => c.contractNumber)
-        .join(', ');
+    if (liveUtilities.length > 0) {
+      const caseNumbers = liveUtilities.map((c) => c.caseNumber).join(', ');
       throw new BadRequestException(
-        `Cannot delete this offer: it has ${activeContracts.length} active contract(s) (${contractNumbers}). Wait for them to expire or cancel them first.`,
+        `Cannot delete this offer: it has ${liveUtilities.length} live utility/utilities (${caseNumbers}). Wait for them to expire or cancel them first.`,
       );
     }
 
-    // Check for in-progress cases (not yet contracted but not terminal)
+    // Check for in-progress cases (not yet activated but not terminal)
     const activeCaseStatuses = [
       CaseStatus.NEW,
       CaseStatus.IN_PROGRESS,
       CaseStatus.DOCUMENTS_PENDING,
       CaseStatus.CONTRACT_SENT,
-      CaseStatus.CONTRACT_SIGNED,
+      CaseStatus.AWAITING_ACTIVATION,
     ];
 
     const activeCases = await this.switchCaseRepository.count({
@@ -340,7 +335,7 @@ export class OffersService {
       );
     }
 
-    // Safe to delete — only terminal cases (ACTIVATED, CANCELLED, REJECTED) remain
+    // Safe to delete — only terminal cases (expired, CANCELLED, REJECTED) remain
     await this.offerRepository.softRemove(offer);
 
     return { message: 'Offer deleted successfully' };

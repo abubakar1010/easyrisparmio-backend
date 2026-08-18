@@ -35,7 +35,6 @@ import { seedTicketMessages } from './data/support.seed-data';
 import {
   seedCaseDocuments,
   seedCaseEvents,
-  seedContracts,
 } from './data/cases.seed-data';
 
 // Data seeders - Level 5
@@ -49,7 +48,6 @@ const TABLES_IN_REVERSE_ORDER = [
   'csv_reconciliation_rows',
   'csv_reconciliations',
   'admin_alerts',
-  'contracts',
   'case_events',
   'case_documents',
   'ticket_messages',
@@ -158,10 +156,9 @@ async function run(): Promise<void> {
     await seedTicketMessages(ds, ctx);
 
     // ---- Level 4: Depend on Level 3 ----
-    console.log('\n--- Level 4: Documents, Events, Contracts ---\n');
+    console.log('\n--- Level 4: Documents, Events ---\n');
     await seedCaseDocuments(ds, ctx);
     await seedCaseEvents(ds, ctx);
-    await seedContracts(ds, ctx);
 
     // ---- Level 5: Depend on Level 4 ----
     console.log('\n--- Level 5: Alerts, Reconciliation ---\n');

@@ -3,7 +3,6 @@ import {
   Column,
   ManyToOne,
   OneToMany,
-  OneToOne,
   JoinColumn,
   DeleteDateColumn,
   Index,
@@ -18,7 +17,6 @@ import { EnergyBill } from '../../bills/entities/energy-bill.entity';
 import { Offer } from '../../offers/entities/offer.entity';
 import { CaseDocument } from './case-document.entity';
 import { CaseEvent } from './case-event.entity';
-import { Contract } from '../../contracts/entities/contract.entity';
 
 @Entity('switch_cases')
 @Index(['status'])
@@ -79,6 +77,23 @@ export class SwitchCase extends BaseEntity {
 
   @Column({ name: 'meter_id', type: 'uuid', nullable: true })
   meterId: string | null;
+
+  // ── Activation ──
+  // Contract signing happens outside the application. Once it is done the admin
+  // moves the case to "In Attivazione" and supplies both dates by hand; nothing
+  // here is ever derived from a signing event, because we never see one.
+
+  /** When the new supply goes live. Planned while the switch is running. */
+  @Column({ name: 'activation_date', type: 'date', nullable: true })
+  activationDate: Date | null;
+
+  /** When the new supply contract expires. */
+  @Column({ name: 'expiry_date', type: 'date', nullable: true })
+  expiryDate: Date | null;
+
+  /** When the admin handed the contract over for signing. */
+  @Column({ name: 'contract_sent_at', type: 'timestamptz', nullable: true })
+  contractSentAt: Date | null;
 
   // ── Addresses ──
   // Supply, residential and shipping addresses all carry the same five fields
@@ -146,6 +161,11 @@ export class SwitchCase extends BaseEntity {
   @Column({ name: 'invoice_delivery', type: 'enum', enum: InvoiceDelivery, nullable: true })
   invoiceDelivery: InvoiceDelivery | null;
 
+  // Where digital invoices are sent. Defaults to the account email, but the
+  // customer can route them elsewhere on the request form.
+  @Column({ name: 'invoice_email', type: 'varchar', length: 255, nullable: true })
+  invoiceEmail: string | null;
+
   @Column({ type: 'varchar', length: 34, nullable: true })
   iban: string | null;
 
@@ -187,9 +207,6 @@ export class SwitchCase extends BaseEntity {
   @ManyToOne(() => Supplier, { nullable: true, eager: false })
   @JoinColumn({ name: 'to_supplier_id' })
   toSupplier: Supplier;
-
-  @OneToOne(() => Contract, (contract) => contract.switchCase)
-  contract: Contract;
 
   @OneToMany(() => CaseEvent, (event) => event.switchCase)
   events: CaseEvent[];

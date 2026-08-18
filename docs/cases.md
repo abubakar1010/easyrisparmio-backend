@@ -1,6 +1,6 @@
 # Cases (Switch Requests)
 
-Cases represent supplier-switching requests on the EasyRisparmio platform. Users create a case by selecting an offer for their uploaded bill. The case tracks the full lifecycle from request through document collection to contract signing and activation. All endpoints are prefixed with `/api/v1/cases`.
+Cases represent supplier-switching requests on the EasyRisparmio platform. Users create a case by selecting an offer for their uploaded bill. The case tracks the full lifecycle from request through document collection to activation. Contract signing itself happens with the supplier, outside this application — the case only records that it was handed over and, once the supplier confirms, the activation and expiry dates. All endpoints are prefixed with `/api/v1/cases`.
 
 ## Table of Contents
 
@@ -19,7 +19,7 @@ Cases represent supplier-switching requests on the EasyRisparmio platform. Users
 ## Case Status Lifecycle
 
 ```
-NEW → IN_PROGRESS → DOCUMENTS_PENDING → CONTRACT_SENT → CONTRACT_SIGNED → ACTIVATED
+NEW → IN_PROGRESS → DOCUMENTS_PENDING → CONTRACT_SENT → AWAITING_ACTIVATION → ACTIVATED
  ↓        ↓              ↓
 CANCELLED  REJECTED     CANCELLED
 ```
@@ -29,11 +29,19 @@ CANCELLED  REJECTED     CANCELLED
 | `new` | Case created, awaiting admin review |
 | `in_progress` | Admin assigned and working on it |
 | `documents_pending` | Waiting for user to upload required documents |
-| `contract_sent` | Contract generated and sent to user |
-| `contract_signed` | User signed the contract |
+| `contract_sent` | Handed over for signing — the customer signs with the supplier, outside the app |
+| `awaiting_activation` | Signed and accepted; the switch is running. `activation_date` and `expiry_date` are set |
 | `activated` | Switch completed, new supplier active |
 | `rejected` | Admin rejected the request |
 | `cancelled` | Cancelled by user or system |
+
+`LIVE_UTILITY_CASE_STATUSES` (`src/common/enums/case.enum.ts`) is
+`[awaiting_activation, activated]` — the one definition of "this utility belongs
+to the customer". The my-services list, the utilities count, the savings total
+and the app badge all read it, so they can never disagree.
+
+The case status is mirrored from the bill status; the bill is the pipeline that
+drives everything (`CASE_STATUS_BY_BILL_STATUS` in `bills.service.ts`).
 
 ## Case Types
 
@@ -84,6 +92,22 @@ CANCELLED  REJECTED     CANCELLED
 | `fromSupplierId` | UUID | Current supplier (auto-populated from bill) |
 | `toSupplierId` | UUID | Target supplier (auto-populated from offer) |
 | `estimatedAnnualValue` | decimal | Estimated annual savings |
+| `contractSentAt` | timestamptz | When the contract went out for signing |
+| `activationDate` | date | When the new supply goes live — admin-entered |
+| `expiryDate` | date | When the new supply contract expires — admin-entered |
+
+### Activation dates
+
+Contracts are signed with the supplier, outside this application, so nothing here
+is ever derived from a signing event. When the supplier confirms, the admin moves
+the case to `awaiting_activation` through
+`POST /bills/admin/:billId/transition { targetStatus, activationDate, expiryDate }`
+— **both dates are required for that target**, and the expiry must fall after the
+activation. Moving a case back before activation clears both, so a called-off
+switch stops looking live in the customer's utilities.
+
+Suppliers move activation dates around, so both stay editable afterwards through
+`PATCH /cases/:id { activationDate, expiryDate }`, which enforces the same rules.
 
 ## Document Fields
 
@@ -144,7 +168,8 @@ GET /api/v1/cases/:id
 Authorization: Bearer <access_token>
 ```
 
-Returns full case with user, bill, offer, agent, documents, and contract relations.
+Returns the full case with its user, bill, offer, agent and documents, plus the
+activation dates.
 
 ### Upload Document
 

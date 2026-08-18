@@ -5,14 +5,9 @@ export type MessageKey =
   | 'bill_updated'
   | 'offers_recommended'
   | 'bill_verification_required'
-  | 'contract_verification_required'
   | 'bill_verified'
-  | 'contract_approved'
   | 'awaiting_activation'
   | 'utility_activated'
-  | 'contract_sent_app'
-  | 'contract_sent_other'
-  | 'contract_signed'
   | 'case_update'
   | 'ticket_resolved'
   | 'ticket_closed'
@@ -31,7 +26,6 @@ export type MessageKey =
   | 'status_offer_sent'
   | 'status_offer_accepted'
   | 'status_contract_sent'
-  | 'status_contract_review'
   | 'status_cancelled';
 
 type Lang = 'it' | 'en';
@@ -120,10 +114,6 @@ const MESSAGES: Record<MessageKey, Record<Lang, MessageDef>> = {
     it: { title: 'Verifica richiesta per la tua bolletta', body: '' },
     en: { title: 'Verification required for your bill', body: '' },
   },
-  contract_verification_required: {
-    it: { title: 'Verifica contratto richiesta', body: '' },
-    en: { title: 'Contract verification required', body: '' },
-  },
   bill_verified: {
     it: {
       title: 'Bolletta verificata',
@@ -132,16 +122,6 @@ const MESSAGES: Record<MessageKey, Record<Lang, MessageDef>> = {
     en: {
       title: 'Bill verified',
       body: 'Your bill data has been verified. You will receive offers shortly.',
-    },
-  },
-  contract_approved: {
-    it: {
-      title: 'Contratto approvato',
-      body: 'Il tuo contratto è stato verificato e approvato.',
-    },
-    en: {
-      title: 'Contract approved',
-      body: 'Your contract has been verified and approved.',
     },
   },
   awaiting_activation: {
@@ -162,38 +142,6 @@ const MESSAGES: Record<MessageKey, Record<Lang, MessageDef>> = {
     en: {
       title: 'Utility Activated',
       body: 'Your utility has been activated! You can view it in the My Utilities section.',
-    },
-  },
-  contract_sent_app: {
-    it: {
-      title: 'Contratto Inviato',
-      body: 'Il tuo contratto è stato caricato. Puoi scaricarlo dalla app.',
-    },
-    en: {
-      title: 'Contract Sent',
-      body: 'Your contract has been uploaded. You can download it from the app.',
-    },
-  },
-  contract_sent_other: {
-    it: {
-      title: 'Contratto Inviato',
-      body: (method: string) =>
-        `Il tuo contratto ti è stato inviato via ${method}.`,
-    },
-    en: {
-      title: 'Contract Sent',
-      body: (method: string) =>
-        `Your contract has been sent to you via ${method}.`,
-    },
-  },
-  contract_signed: {
-    it: {
-      title: 'Contratto Firmato',
-      body: 'Il tuo contratto è stato firmato. È in fase di attivazione.',
-    },
-    en: {
-      title: 'Contract Signed',
-      body: 'Your contract has been signed. It is being activated.',
     },
   },
   case_update: {
@@ -358,24 +306,17 @@ const MESSAGES: Record<MessageKey, Record<Lang, MessageDef>> = {
       body: 'Your offer has been confirmed. We are preparing the contract.',
     },
   },
+  // The one push that opens the Sign Your Contract screen. Signing happens
+  // with the supplier, not in the app, so the copy points at the instructions
+  // rather than promising a document to open.
   status_contract_sent: {
     it: {
-      title: 'Contratto inviato',
-      body: 'Il tuo contratto è pronto. Aprilo nella app per firmarlo.',
+      title: 'Contratto da firmare',
+      body: 'Il tuo contratto è pronto per la firma. Apri la app per vedere come procedere.',
     },
     en: {
-      title: 'Contract sent',
-      body: 'Your contract is ready. Open the app to sign it.',
-    },
-  },
-  status_contract_review: {
-    it: {
-      title: 'Contratto in verifica',
-      body: 'Stiamo verificando il contratto firmato. Ti aggiorneremo a breve.',
-    },
-    en: {
-      title: 'Contract under review',
-      body: 'We are reviewing your signed contract. We will update you shortly.',
+      title: 'Contract ready to sign',
+      body: 'Your contract is ready to sign. Open the app to see how to proceed.',
     },
   },
   status_cancelled: {
@@ -443,22 +384,6 @@ export const BILL_STATUS_NOTIFICATIONS: Record<
   },
   [BillStatus.CONTRACT_SENT]: {
     messageKey: 'status_contract_sent',
-    type: NotificationType.CONTRACT_STATUS,
-  },
-  [BillStatus.CONTRACT_SIGNED]: {
-    messageKey: 'contract_signed',
-    type: NotificationType.CONTRACT_STATUS,
-  },
-  [BillStatus.CONTRACT_REVIEW]: {
-    messageKey: 'status_contract_review',
-    type: NotificationType.CONTRACT_STATUS,
-  },
-  [BillStatus.CONTRACT_VERIFICATION_REQUIRED]: {
-    messageKey: 'contract_verification_required',
-    type: NotificationType.CONTRACT_VERIFICATION,
-  },
-  [BillStatus.CONTRACT_VERIFIED]: {
-    messageKey: 'contract_approved',
     type: NotificationType.CONTRACT_STATUS,
   },
   [BillStatus.AWAITING_ACTIVATION]: {

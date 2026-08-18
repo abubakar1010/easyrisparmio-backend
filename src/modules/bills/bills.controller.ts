@@ -48,7 +48,7 @@ import { AssociateBillUserDto } from './dto/associate-bill-user.dto';
 import { QueryBillsDto } from './dto/query-bills.dto';
 import { SendOffersDto } from './dto/send-offers.dto';
 import { RequestVerificationDto, SubmitVerificationDto } from './dto/request-verification.dto';
-import { TransitionBillStatusDto, SubmitContractVerificationDto } from './dto/transition-bill-status.dto';
+import { TransitionBillStatusDto } from './dto/transition-bill-status.dto';
 import { UpdateBillDto } from './dto/update-bill.dto';
 import { CreateBillNoteDto } from './dto/create-bill-note.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -869,18 +869,6 @@ export class BillsController {
         direction: getTransitionDirection(current, status),
       })),
     };
-  }
-
-  @Post(':id/contract-verification/submit')
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Submit contract verification response (user)' })
-  @ApiBearerAuth()
-  async submitContractVerification(
-    @CurrentUser('id') userId: string,
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: SubmitContractVerificationDto,
-  ) {
-    return this.billsService.submitContractVerification(id, userId, dto);
   }
 
   @Get(':id/notes')

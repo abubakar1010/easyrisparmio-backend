@@ -62,7 +62,7 @@ export async function seedCsvReconciliationRows(
         consumo_kwh: 520,
       },
       status: ReconRowStatus.MATCHED,
-      matchedContractId: ctx.contracts.length > 0 ? ctx.contracts[0].id : null,
+      matchedCaseId: ctx.cases.length > 0 ? ctx.cases[0].id : null,
     },
     {
       reconciliationId: reconciliation.id,

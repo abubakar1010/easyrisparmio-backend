@@ -22,7 +22,6 @@ import { SwitchCase } from '../../modules/cases/entities/switch-case.entity';
 import { SupportTicket } from '../../modules/support/entities/support-ticket.entity';
 import { UserAddress } from '../../modules/users/entities/user-address.entity';
 import { CsvReconciliation } from '../../modules/reconciliation/entities/csv-reconciliation.entity';
-import { Contract } from '../../modules/contracts/entities/contract.entity';
 import { UserRole } from '../../common/enums/role.enum';
 
 // Seeder imports
@@ -40,7 +39,6 @@ import {
   seedSwitchCases,
   seedCaseDocuments,
   seedCaseEvents,
-  seedContracts,
 } from './data/cases.seed-data';
 import {
   seedFaqs,
@@ -86,7 +84,6 @@ async function loadContext(ds: DataSource): Promise<SeedContext> {
   ctx.tickets = await ds.getRepository(SupportTicket).find({ order: { createdAt: 'ASC' } });
   ctx.addresses = await ds.getRepository(UserAddress).find({ order: { createdAt: 'ASC' } });
   ctx.reconciliations = await ds.getRepository(CsvReconciliation).find({ order: { createdAt: 'ASC' } });
-  ctx.contracts = await ds.getRepository(Contract).find({ withDeleted: true, order: { createdAt: 'ASC' } });
 
   return ctx;
 }
@@ -120,7 +117,6 @@ const SEEDERS: Record<
     await seedSwitchCases(ds, ctx);
     await seedCaseDocuments(ds, ctx);
     await seedCaseEvents(ds, ctx);
-    await seedContracts(ds, ctx);
   },
   faqs: async (ds) => {
     await seedFaqs(ds);

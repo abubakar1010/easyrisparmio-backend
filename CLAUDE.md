@@ -51,13 +51,16 @@ Inject authenticated user with `@CurrentUser() user: User`.
 
 ### Module Pattern
 
-Each domain module follows: Entity + DTO + Service + Controller + Module. 14 modules total under `src/modules/`.
+Each domain module follows: Entity + DTO + Service + Controller + Module. 20 modules total under `src/modules/`.
 
 Key cross-module imports:
 - `AuthModule` imports `UsersModule`
 - `OffersModule` imports `BillsModule` (for recommended offers by bill)
-- `DashboardModule` imports entities from Users, Cases, Contracts, Commissions via `TypeOrmModule.forFeature()`
+- `DashboardModule` imports entities from Users, Cases, Bills, Alerts and ActivityLog via `TypeOrmModule.forFeature()`
 - `ActivityLogModule` has no controller - service-only, exported for use by other modules
+
+There is no `commissions` module — `SYSTEM_FLOW.md` Phase 10 describes a feature
+that was never built.
 
 ### Entity Conventions
 
@@ -84,6 +87,20 @@ Query DTOs extend `PaginationDto` (page, limit, search). Services return `Pagina
 `@nestjs/config` with `registerAs()` pattern. Three config namespaces: `app`, `database`, `jwt`. Accessed via `configService.get('database.host')`. Environment variables defined in `.env.example`.
 
 Database uses `autoLoadEntities: true` and `synchronize: true` in dev mode only.
+
+### Schema changes without migrations
+
+There is no migrations directory. `AppModule` takes synchronisation over from
+TypeORM via `dataSourceFactory` so that `src/database/pre-sync/index.ts` can run
+raw SQL *between* connecting and syncing. Anything that must happen before the
+schema is rewritten belongs there — in particular, removing a value from a
+Postgres enum fails unless the rows using it have already been moved, and a
+module's `onModuleInit` hook is far too late (sync happens inside `initialize()`).
+
+Everything in `pre-sync` must be idempotent and must tolerate a database where
+the table or column does not exist yet — it runs on empty databases too.
+Destructive operations go in `scripts/` as documented manual SQL instead; see
+`scripts/drop-legacy-contract-tables.sql`.
 
 ### Italian Energy Domain Terms
 

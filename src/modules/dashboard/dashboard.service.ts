@@ -3,14 +3,15 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { SwitchCase } from '../cases/entities/switch-case.entity';
-import { Contract } from '../contracts/entities/contract.entity';
 import { EnergyBill } from '../bills/entities/energy-bill.entity';
 import { AdminSettings } from './entities/admin-settings.entity';
 import { AdminAlert } from '../alerts/entities/admin-alert.entity';
 import { ActivityLog } from '../activity-log/entities/activity-log.entity';
 import { UpdateAdminSettingsDto } from './dto/update-admin-settings.dto';
-import { ContractStatus } from '../../common/enums/contract.enum';
-import { CaseStatus } from '../../common/enums/case.enum';
+import {
+  CaseStatus,
+  LIVE_UTILITY_CASE_STATUSES,
+} from '../../common/enums/case.enum';
 import { AlertStatus } from '../../common/enums/alert.enum';
 
 @Injectable()
@@ -20,8 +21,6 @@ export class DashboardService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(SwitchCase)
     private readonly caseRepository: Repository<SwitchCase>,
-    @InjectRepository(Contract)
-    private readonly contractRepository: Repository<Contract>,
     @InjectRepository(EnergyBill)
     private readonly billRepository: Repository<EnergyBill>,
     @InjectRepository(AdminSettings)
@@ -72,8 +71,9 @@ export class DashboardService {
     return {
       totalCases,
       // Single source of truth: the utility count and the savings figure are
-      // read off the same set of live contracts, so the two summary cards on
-      // the app home screen can never contradict each other.
+      // read off the same set of live cases, so the two summary cards on the
+      // app home screen can never contradict each other. The key keeps its
+      // historical name — the app and the admin dashboard both read it.
       activeContracts: potentialSavings.activeUtilities,
       potentialSavings,
       recentCases,
@@ -247,15 +247,19 @@ export class DashboardService {
         this.caseRepository.count({
           where: { status: CaseStatus.DOCUMENTS_PENDING },
         }),
-        this.contractRepository
+        this.caseRepository
           .createQueryBuilder('c')
-          .where('c.status = :status', { status: ContractStatus.ACTIVE })
+          .where('c.status IN (:...statuses)', {
+            statuses: [...LIVE_UTILITY_CASE_STATUSES],
+          })
           .andWhere('c.expiryDate IS NOT NULL')
           .andWhere('c.expiryDate <= NOW() + INTERVAL \'30 days\'')
           .andWhere('c.deletedAt IS NULL')
           .getCount(),
+        // Out for signature: the customer is signing with the supplier and the
+        // case is waiting on us to confirm activation.
         this.caseRepository.count({
-          where: { status: CaseStatus.CONTRACT_SIGNED },
+          where: { status: CaseStatus.CONTRACT_SENT },
         }),
         this.caseRepository
           .createQueryBuilder('c')
@@ -340,31 +344,24 @@ export class DashboardService {
   /**
    * Savings and utility count behind the two home summary cards.
    *
-   * A utility starts counting the moment its contract goes live, which happens
-   * as soon as the pipeline reaches "In Activation" (`awaiting_activation`) —
-   * not only at `activated`. The case status is therefore the wrong gate here:
-   * `awaiting_activation` maps back to the `contract_signed` case status, so
-   * filtering on `sc.status = 'activated'` hid the savings of every utility
-   * that was already being shown as active on the utilities card.
-   * Both figures now key off `contract.status`, the same signal the utilities
-   * card and the "My Utilities" list use, so they can never disagree.
+   * Both figures count a utility from "In Attivazione" onward, exactly like the
+   * utilities list: reading `LIVE_UTILITY_CASE_STATUSES` off the case keeps the
+   * count, the savings and the list on precisely the same utilities. The saving
+   * itself comes from the offer the customer accepted.
    */
   private async getUserPotentialSavings(userId: string) {
     const result = await this.dataSource.query(
       `SELECT
-        COALESCE(SUM(COALESCE(contract.estimated_savings, so.estimated_savings, 0)), 0) AS "totalSavings",
-        COUNT(DISTINCT contract.id)::int AS "activeUtilities"
-      FROM contracts contract
-      INNER JOIN switch_cases sc ON sc.id = contract.case_id
+        COALESCE(SUM(COALESCE(so.estimated_savings, 0)), 0) AS "totalSavings",
+        COUNT(DISTINCT sc.id)::int AS "activeUtilities"
+      FROM switch_cases sc
       LEFT JOIN sent_offers so
         ON so.bill_id = sc.bill_id
-       AND so.offer_id = COALESCE(sc.selected_offer_id, contract.offer_id)
-      WHERE contract.user_id = $1
-        AND contract.status = $2
-        AND sc.status NOT IN ($3, $4)
-        AND contract.deleted_at IS NULL
+       AND so.offer_id = sc.selected_offer_id
+      WHERE sc.user_id = $1
+        AND sc.status::text = ANY($2::text[])
         AND sc.deleted_at IS NULL`,
-      [userId, ContractStatus.ACTIVE, CaseStatus.CANCELLED, CaseStatus.REJECTED],
+      [userId, [...LIVE_UTILITY_CASE_STATUSES]],
     );
 
     const row = result[0] || {};

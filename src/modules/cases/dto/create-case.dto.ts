@@ -1,4 +1,4 @@
-import { IsUUID, IsNotEmpty, IsOptional, IsString, IsEnum, IsBoolean, MaxLength, Matches } from 'class-validator';
+import { IsUUID, IsNotEmpty, IsOptional, IsString, IsEnum, IsBoolean, IsEmail, MaxLength, Matches } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PaymentMethod, InvoiceDelivery } from '../../../common/enums/payment.enum';
 
@@ -15,6 +15,17 @@ export class CreateCaseDto {
   @IsNotEmpty()
   @IsUUID()
   selectedOfferId: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Delivery point the customer confirmed on the request form (POD for electricity, PDR for gas). ' +
+      'When it differs from the value OCR read, the bill is corrected with it.',
+    example: 'IT001E12345678',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  podNumber?: string;
 
   // ── Addresses ──
   // Supply, residential and shipping addresses all carry the same five fields:
@@ -129,6 +140,16 @@ export class CreateCaseDto {
   @IsOptional()
   @IsEnum(InvoiceDelivery)
   invoiceDelivery?: InvoiceDelivery;
+
+  @ApiPropertyOptional({
+    description:
+      'Address digital invoices are sent to. Defaults to the account email when omitted.',
+    example: 'mario.rossi@email.com',
+  })
+  @IsOptional()
+  @IsEmail()
+  @MaxLength(255)
+  invoiceEmail?: string;
 
   @ApiPropertyOptional({ description: 'IBAN for direct debit payment', example: 'IT60X0542811101000000123456' })
   @IsOptional()

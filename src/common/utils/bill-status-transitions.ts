@@ -3,6 +3,11 @@ import { BillStatus } from '../enums/bill.enum';
 /**
  * Allowed status transitions for the unified bill pipeline.
  * Each key maps to the list of statuses it can transition TO.
+ *
+ * Contract signing happens outside this application: the admin hands the
+ * contract over (CONTRACT_SENT) and, once the customer has signed with the
+ * supplier and the supplier has accepted it, moves straight to
+ * AWAITING_ACTIVATION with the activation and expiry dates.
  */
 const ALLOWED_TRANSITIONS: Record<string, BillStatus[]> = {
   [BillStatus.UPLOADED]: [BillStatus.ANALYZING, BillStatus.VERIFICATION_REVIEW],
@@ -13,11 +18,7 @@ const ALLOWED_TRANSITIONS: Record<string, BillStatus[]> = {
   [BillStatus.VERIFIED]: [BillStatus.OFFER_SENT],
   [BillStatus.OFFER_SENT]: [BillStatus.OFFER_ACCEPTED],
   [BillStatus.OFFER_ACCEPTED]: [BillStatus.CONTRACT_SENT],
-  [BillStatus.CONTRACT_SENT]: [BillStatus.CONTRACT_SIGNED],
-  [BillStatus.CONTRACT_SIGNED]: [BillStatus.CONTRACT_REVIEW],
-  [BillStatus.CONTRACT_REVIEW]: [BillStatus.CONTRACT_VERIFIED, BillStatus.CONTRACT_VERIFICATION_REQUIRED],
-  [BillStatus.CONTRACT_VERIFICATION_REQUIRED]: [BillStatus.CONTRACT_REVIEW],
-  [BillStatus.CONTRACT_VERIFIED]: [BillStatus.AWAITING_ACTIVATION],
+  [BillStatus.CONTRACT_SENT]: [BillStatus.AWAITING_ACTIVATION],
   [BillStatus.AWAITING_ACTIVATION]: [BillStatus.ACTIVATED],
 };
 
@@ -65,23 +66,18 @@ export const TRANSITION_ACTORS: Record<string, TransitionActor> = {
   [`${BillStatus.UPLOADED}->${BillStatus.ANALYZING}`]: 'auto',
   [`${BillStatus.ANALYZING}->${BillStatus.ANALYZED}`]: 'auto',
   [`${BillStatus.ANALYZED}->${BillStatus.VERIFICATION_REVIEW}`]: 'auto',
-  [`${BillStatus.CONTRACT_SIGNED}->${BillStatus.CONTRACT_REVIEW}`]: 'auto',
 
   // Admin actions
   [`${BillStatus.VERIFICATION_REVIEW}->${BillStatus.VERIFIED}`]: 'admin',
   [`${BillStatus.VERIFICATION_REVIEW}->${BillStatus.VERIFICATION_REQUIRED}`]: 'admin',
   [`${BillStatus.VERIFIED}->${BillStatus.OFFER_SENT}`]: 'admin',
   [`${BillStatus.OFFER_ACCEPTED}->${BillStatus.CONTRACT_SENT}`]: 'admin',
-  [`${BillStatus.CONTRACT_REVIEW}->${BillStatus.CONTRACT_VERIFIED}`]: 'admin',
-  [`${BillStatus.CONTRACT_REVIEW}->${BillStatus.CONTRACT_VERIFICATION_REQUIRED}`]: 'admin',
-  [`${BillStatus.CONTRACT_VERIFIED}->${BillStatus.AWAITING_ACTIVATION}`]: 'admin',
+  [`${BillStatus.CONTRACT_SENT}->${BillStatus.AWAITING_ACTIVATION}`]: 'admin',
   [`${BillStatus.AWAITING_ACTIVATION}->${BillStatus.ACTIVATED}`]: 'admin',
 
   // User actions
   [`${BillStatus.OFFER_SENT}->${BillStatus.OFFER_ACCEPTED}`]: 'user',
-  [`${BillStatus.CONTRACT_SENT}->${BillStatus.CONTRACT_SIGNED}`]: 'user',
   [`${BillStatus.VERIFICATION_REQUIRED}->${BillStatus.VERIFICATION_REVIEW}`]: 'user',
-  [`${BillStatus.CONTRACT_VERIFICATION_REQUIRED}->${BillStatus.CONTRACT_REVIEW}`]: 'user',
 };
 
 /**
@@ -97,10 +93,6 @@ export const PIPELINE_STATUS_ORDER: BillStatus[] = [
   BillStatus.OFFER_SENT,
   BillStatus.OFFER_ACCEPTED,
   BillStatus.CONTRACT_SENT,
-  BillStatus.CONTRACT_SIGNED,
-  BillStatus.CONTRACT_REVIEW,
-  BillStatus.CONTRACT_VERIFICATION_REQUIRED,
-  BillStatus.CONTRACT_VERIFIED,
   BillStatus.AWAITING_ACTIVATION,
   BillStatus.ACTIVATED,
 ];
@@ -149,10 +141,6 @@ export const BILL_STATUS_LABELS: Record<BillStatus, string> = {
   [BillStatus.OFFER_SENT]: 'Offer Sent',
   [BillStatus.OFFER_ACCEPTED]: 'Offer Accepted',
   [BillStatus.CONTRACT_SENT]: 'Contract Sent',
-  [BillStatus.CONTRACT_SIGNED]: 'Contract Signed',
-  [BillStatus.CONTRACT_REVIEW]: 'Contract Review',
-  [BillStatus.CONTRACT_VERIFICATION_REQUIRED]: 'Contract Verification Required',
-  [BillStatus.CONTRACT_VERIFIED]: 'Contract Verified',
   [BillStatus.AWAITING_ACTIVATION]: 'In Activation',
   [BillStatus.ACTIVATED]: 'Activated',
   [BillStatus.CANCELLED]: 'Cancelled',

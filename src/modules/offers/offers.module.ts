@@ -7,12 +7,11 @@ import { OfferPriceVersion } from './entities/offer-price-version.entity';
 import { SentOffer } from './entities/sent-offer.entity';
 import { SwitchCase } from '../cases/entities/switch-case.entity';
 import { Supplier } from '../suppliers/entities/supplier.entity';
-import { Contract } from '../contracts/entities/contract.entity';
 import { BillsModule } from '../bills/bills.module';
 import { ActivityLogModule } from '../activity-log/activity-log.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Offer, OfferPriceVersion, SentOffer, SwitchCase, Supplier, Contract]), BillsModule, ActivityLogModule],
+  imports: [TypeOrmModule.forFeature([Offer, OfferPriceVersion, SentOffer, SwitchCase, Supplier]), BillsModule, ActivityLogModule],
   controllers: [OffersController],
   providers: [OffersService],
   exports: [OffersService, TypeOrmModule],

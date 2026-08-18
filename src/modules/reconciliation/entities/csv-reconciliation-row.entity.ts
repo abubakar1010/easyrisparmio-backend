@@ -27,8 +27,8 @@ export class CsvReconciliationRow extends BaseEntity {
   @Column({ name: 'matched_meter_id', type: 'uuid', nullable: true })
   matchedMeterId: string | null;
 
-  @Column({ name: 'matched_contract_id', type: 'uuid', nullable: true })
-  matchedContractId: string | null;
+  @Column({ name: 'matched_case_id', type: 'uuid', nullable: true })
+  matchedCaseId: string | null;
 
   @Column({ name: 'possible_match_info', type: 'varchar', length: 500, nullable: true })
   possibleMatchInfo: string | null;

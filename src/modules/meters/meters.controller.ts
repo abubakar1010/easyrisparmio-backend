@@ -52,12 +52,19 @@ export class MetersController {
       'activation and expiry dates, and the case status. `supplierLogo` is the ' +
       'supplier\'s logo as stored — a relative upload path clients resolve against ' +
       'the API origin, or an absolute URL — and is null when the supplier has none. ' +
+      '`supplierEmail` and `supplierWebsite` are the supplier\'s own contact address ' +
+      'and site, each null when the supplier has none on file. ' +
       '`contractDurationDays` is ' +
       'derived from this contract\'s own activation and expiry dates, not from the ' +
       'offer — clients are expected to quote it in months. `energyType` is the supply ' +
       'the customer asked to switch (taken from their bill), not the offer\'s own type, ' +
       'which may be `dual`. `supplyAddress` is the delivery address held on the case, so ' +
-      'an admin edit in the CRM shows up on the client\'s next read.',
+      'an admin edit in the CRM shows up on the client\'s next read. ' +
+      '`meterNumber` is the meter serving that address, read off the bill. ' +
+      '`annualConsumption` scales the bill\'s consumption up to a full year — ' +
+      'bimonthly billing is assumed when the bill carries no period — and is ' +
+      'quoted in `consumptionUnit`: kWh for electricity, Smc for gas. All three ' +
+      'are null when the bill does not carry the figure.',
   })
   @ApiOkResponse({
     description: 'List of user\'s activated services',
@@ -75,8 +82,13 @@ export class MetersController {
               offerName: 'Luce Fissa 2026',
               supplierName: 'Ener Energia',
               supplierLogo: '/uploads/logos/ener-energia.png',
+              supplierEmail: 'supporto@enerenergia.it',
+              supplierWebsite: 'enerenergia.it',
               contractNumber: 'CASE-20260630-00001',
               podPdrNumber: 'IT001E556779',
+              meterNumber: '14528796',
+              annualConsumption: 2800,
+              consumptionUnit: 'kWh',
               activationDate: '2026-06-15',
               expiryDate: '2027-06-15',
               monthlyEstimate: null,

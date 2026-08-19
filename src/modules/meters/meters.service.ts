@@ -11,7 +11,9 @@ import { UpdateMeterDto } from './dto/update-meter.dto';
 import { QueryMetersDto } from './dto/query-meters.dto';
 import { PaginatedResponseDto } from '../../common/dto/pagination.dto';
 import { SwitchCase } from '../cases/entities/switch-case.entity';
+import { EnergyBill } from '../bills/entities/energy-bill.entity';
 import { LIVE_UTILITY_CASE_STATUSES } from '../../common/enums/case.enum';
+import { BillType } from '../../common/enums/bill.enum';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -131,7 +133,13 @@ export class MetersService {
       .createQueryBuilder('sc')
       .leftJoinAndSelect('sc.selectedOffer', 'offer')
       .leftJoin('offer.supplier', 'supplier')
-      .addSelect(['supplier.id', 'supplier.name', 'supplier.logoUrl'])
+      .addSelect([
+        'supplier.id',
+        'supplier.name',
+        'supplier.logoUrl',
+        'supplier.contactEmail',
+        'supplier.website',
+      ])
       .leftJoin('sc.bill', 'bill')
       .addSelect([
         'bill.id',
@@ -139,6 +147,11 @@ export class MetersService {
         'bill.pdrNumber',
         'bill.billType',
         'bill.supplyAddress',
+        'bill.meterNumber',
+        'bill.consumptionKwh',
+        'bill.consumptionSmc',
+        'bill.billingPeriodStart',
+        'bill.billingPeriodEnd',
       ])
       .where('sc.userId = :userId', { userId })
       .andWhere('sc.status IN (:...statuses)', {
@@ -165,12 +178,24 @@ export class MetersService {
       // clients resolve against the API origin. Null when the supplier has no
       // logo on file — the client falls back to a generic mark.
       supplierLogo: switchCase.selectedOffer?.supplier?.logoUrl || null,
+      // How the customer reaches the supplier directly, alongside the in-app
+      // ticket: the address the supplier takes customer mail at, and their own
+      // site. Either is null when the supplier has none on file, and the client
+      // leaves that contact option out rather than showing a dead row.
+      supplierEmail: switchCase.selectedOffer?.supplier?.contactEmail || null,
+      supplierWebsite: switchCase.selectedOffer?.supplier?.website || null,
       // The customer's reference for this supply. There is no contract number
       // to quote any more — nobody enters one, because the contract is signed
       // outside the application — so the case number is what identifies it.
       contractNumber: switchCase.caseNumber,
       podPdrNumber:
         switchCase.bill?.podNumber || switchCase.bill?.pdrNumber || null,
+      // The physical meter serving this supply, as read off the bill. Null on
+      // a bill the OCR could not find one on, so the client leaves the row out
+      // rather than print a placeholder.
+      meterNumber: switchCase.bill?.meterNumber || null,
+      annualConsumption: this.annualConsumption(switchCase.bill),
+      consumptionUnit: this.consumptionUnit(switchCase.bill),
       // Both entered by the admin when the case moves to "In Attivazione".
       activationDate: switchCase.activationDate || null,
       expiryDate: switchCase.expiryDate || null,
@@ -206,6 +231,58 @@ export class MetersService {
       .join(', ');
 
     return line || switchCase.bill?.supplyAddress || null;
+  }
+
+  /**
+   * What this supply uses in a year, in kWh for electricity and Smc for gas.
+   *
+   * A bill covers one billing period, so the figure printed on it is scaled up
+   * by how many of those periods fit in a year — the same annualisation the
+   * savings calculation uses. Where the period dates are missing the Italian
+   * default of bimonthly billing (six periods) stands in, which is what makes
+   * this answerable for a bill the OCR read the consumption off but not the
+   * dates. Null when there is no consumption figure at all; the client leaves
+   * the block out rather than show a zero the customer would read as a fact.
+   */
+  private annualConsumption(bill: EnergyBill | null | undefined): number | null {
+    if (!bill) return null;
+
+    const raw =
+      bill.billType === BillType.GAS ? bill.consumptionSmc : bill.consumptionKwh;
+    const consumption = raw == null ? null : Number(raw);
+    if (consumption == null || !Number.isFinite(consumption) || consumption <= 0) {
+      return null;
+    }
+
+    return Math.round(consumption * this.billingPeriodsPerYear(bill));
+  }
+
+  /** The unit [annualConsumption] is quoted in, so the client need not map the
+   * supply type to a unit itself. Null whenever the figure itself is null. */
+  private consumptionUnit(bill: EnergyBill | null | undefined): string | null {
+    if (this.annualConsumption(bill) === null) return null;
+    return bill!.billType === BillType.GAS ? 'Smc' : 'kWh';
+  }
+
+  /**
+   * How many billing periods this bill's own period fits into a year. Falls
+   * back to six — bimonthly, the common Italian cycle — when the bill carries
+   * no usable period.
+   */
+  private billingPeriodsPerYear(bill: EnergyBill): number {
+    const start = bill.billingPeriodStart
+      ? new Date(bill.billingPeriodStart).getTime()
+      : NaN;
+    const end = bill.billingPeriodEnd
+      ? new Date(bill.billingPeriodEnd).getTime()
+      : NaN;
+
+    if (!Number.isNaN(start) && !Number.isNaN(end) && end > start) {
+      const periodDays = (end - start) / MS_PER_DAY;
+      if (periodDays > 0) return 365 / periodDays;
+    }
+
+    return 6;
   }
 
   /**

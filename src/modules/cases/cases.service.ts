@@ -6,7 +6,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Not, Repository } from 'typeorm';
 import { SwitchCase } from './entities/switch-case.entity';
 import { CaseDocument } from './entities/case-document.entity';
 import { CaseEvent } from './entities/case-event.entity';
@@ -18,7 +18,7 @@ import { CreateCaseDto } from './dto/create-case.dto';
 import { UpdateCaseDto } from './dto/update-case.dto';
 import { QueryCasesDto } from './dto/query-cases.dto';
 import { PaginatedResponseDto } from '../../common/dto/pagination.dto';
-import { CaseStatus } from '../../common/enums/case.enum';
+import { CaseStatus, CLOSED_CASE_STATUSES } from '../../common/enums/case.enum';
 import { CaseEventType } from '../../common/enums/case-event.enum';
 import { UserRole } from '../../common/enums/role.enum';
 import { DocumentType } from '../../common/enums/user.enum';
@@ -70,6 +70,20 @@ export class CasesService {
     if (!bill) {
       throw new NotFoundException('Bill not found');
     }
+    if (bill.userId !== userId) {
+      throw new ForbiddenException('You do not have access to this bill');
+    }
+
+    // One bill, one switch. Without this a second acceptance would leave the
+    // customer with two live cases competing over the same supply point.
+    const openCase = await this.caseRepository.findOne({
+      where: { billId: dto.billId, status: Not(In([...CLOSED_CASE_STATUSES])) },
+    });
+    if (openCase) {
+      throw new BadRequestException(
+        'A switch request already exists for this bill',
+      );
+    }
 
     const offer = await this.offerRepository.findOne({
       where: { id: dto.selectedOfferId },
@@ -84,6 +98,18 @@ export class CasesService {
       );
     }
     this.assertPaymentMethodAcceptedBy(offer, dto.paymentMethod);
+
+    // The offer has to be one that was actually proposed for this bill. A case
+    // pinned to any other bill marks a bill nobody chose as accepted and leaves
+    // the offers the customer did choose from sitting in their list.
+    const sentOffer = await this.sentOfferRepository.findOne({
+      where: { billId: dto.billId, offerId: dto.selectedOfferId },
+    });
+    if (!sentOffer) {
+      throw new BadRequestException(
+        'This offer was not proposed for the selected bill',
+      );
+    }
 
     // The user may have corrected the delivery point on the request form — the
     // bill is the single source of truth for it, so write the correction back.

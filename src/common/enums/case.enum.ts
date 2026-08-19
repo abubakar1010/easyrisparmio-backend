@@ -31,6 +31,16 @@ export const LIVE_UTILITY_CASE_STATUSES: readonly CaseStatus[] = [
   CaseStatus.ACTIVATED,
 ];
 
+/**
+ * The cases that no longer hold on to their bill. Every other status means the
+ * bill is spoken for: its offers leave the customer's list and no second one
+ * can be accepted. Cancelling or rejecting the case frees the bill again.
+ */
+export const CLOSED_CASE_STATUSES: readonly CaseStatus[] = [
+  CaseStatus.CANCELLED,
+  CaseStatus.REJECTED,
+];
+
 export enum CasePriority {
   LOW = 'low',
   MEDIUM = 'medium',

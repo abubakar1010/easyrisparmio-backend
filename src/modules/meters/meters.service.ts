@@ -133,7 +133,13 @@ export class MetersService {
       .leftJoin('offer.supplier', 'supplier')
       .addSelect(['supplier.id', 'supplier.name', 'supplier.logoUrl'])
       .leftJoin('sc.bill', 'bill')
-      .addSelect(['bill.id', 'bill.podNumber', 'bill.pdrNumber'])
+      .addSelect([
+        'bill.id',
+        'bill.podNumber',
+        'bill.pdrNumber',
+        'bill.billType',
+        'bill.supplyAddress',
+      ])
       .where('sc.userId = :userId', { userId })
       .andWhere('sc.status IN (:...statuses)', {
         statuses: [...LIVE_UTILITY_CASE_STATUSES],
@@ -146,7 +152,11 @@ export class MetersService {
       id: switchCase.id,
       caseId: switchCase.id,
       offerId: switchCase.selectedOfferId,
-      energyType: switchCase.selectedOffer?.energyType || null,
+      // The supply the customer asked us to switch — never the offer's own
+      // energyType, which is "dual" on an offer that covers both and would
+      // name a supply the customer never asked for.
+      energyType: switchCase.bill?.billType || null,
+      supplyAddress: this.supplyAddressLine(switchCase),
       offerName: switchCase.selectedOffer?.name || null,
       supplierName: switchCase.selectedOffer?.supplier?.name || null,
       // The customer's reference for this supply. There is no contract number
@@ -169,6 +179,27 @@ export class MetersService {
       isGreenEnergy: switchCase.selectedOffer?.isGreenEnergy || false,
       status: switchCase.status,
     }));
+  }
+
+  /**
+   * Where this utility is delivered, as one line — "Via Roma 25, Cagliari".
+   *
+   * The five structured fields on the case are the answer: they are what the
+   * admin edits in the CRM, so the app picks an edit up on its next read. The
+   * OCR'd line on the bill is the fallback for cases opened before those
+   * fields existed, which carry the address nowhere else.
+   */
+  private supplyAddressLine(switchCase: SwitchCase): string | null {
+    const street = [switchCase.supplyStreet, switchCase.supplyStreetNumber]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+
+    const line = [street, switchCase.supplyCity?.trim()]
+      .filter(Boolean)
+      .join(', ');
+
+    return line || switchCase.bill?.supplyAddress || null;
   }
 
   /**

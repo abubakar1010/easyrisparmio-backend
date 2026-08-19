@@ -51,7 +51,10 @@ export class MetersController {
       'or already activated. Each item includes offer details, supplier info, the ' +
       'activation and expiry dates, and the case status. `contractDurationDays` is ' +
       'derived from this contract\'s own activation and expiry dates, not from the ' +
-      'offer — clients are expected to quote it in months.',
+      'offer — clients are expected to quote it in months. `energyType` is the supply ' +
+      'the customer asked to switch (taken from their bill), not the offer\'s own type, ' +
+      'which may be `dual`. `supplyAddress` is the delivery address held on the case, so ' +
+      'an admin edit in the CRM shows up on the client\'s next read.',
   })
   @ApiOkResponse({
     description: 'List of user\'s activated services',
@@ -65,6 +68,7 @@ export class MetersController {
               caseId: 'case-uuid',
               offerId: 'offer-uuid',
               energyType: 'electricity',
+              supplyAddress: 'Via Roma 25, Cagliari',
               offerName: 'Luce Fissa 2026',
               supplierName: 'Ener Energia',
               contractNumber: 'CASE-20260630-00001',

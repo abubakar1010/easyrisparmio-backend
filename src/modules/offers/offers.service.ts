@@ -24,7 +24,7 @@ import {
 } from '../../common/enums/offer.enum';
 import { OfferStatus } from '../../common/enums/offer-status.enum';
 import { SupplierStatus } from '../../common/enums/supplier.enum';
-import { CaseStatus } from '../../common/enums/case.enum';
+import { CaseStatus, CLOSED_CASE_STATUSES } from '../../common/enums/case.enum';
 
 @Injectable()
 export class OffersService {
@@ -412,6 +412,13 @@ export class OffersService {
     return qb.getMany();
   }
 
+  /**
+   * The offers the customer still has to choose from.
+   *
+   * Accepting one offer settles the whole bill, so every offer sent for that
+   * bill leaves the list — the accepted one included. Only a cancelled or
+   * rejected case frees the bill again and brings its offers back.
+   */
   async getUserSentOffers(userId: string): Promise<SentOffer[]> {
     return this.sentOfferRepository
       .createQueryBuilder('so')
@@ -419,12 +426,13 @@ export class OffersService {
       .leftJoinAndSelect('offer.supplier', 'supplier')
       .where('so.userId = :userId', { userId })
       .andWhere(
-        `so.billId NOT IN (
-          SELECT sc.bill_id FROM switch_cases sc
-          WHERE sc.user_id = :userId
-          AND sc.status NOT IN ('cancelled', 'rejected')
+        `NOT EXISTS (
+          SELECT 1 FROM switch_cases sc
+          WHERE sc.bill_id = "so"."bill_id"
+          AND sc.status NOT IN (:...closedCaseStatuses)
           AND sc.deleted_at IS NULL
         )`,
+        { closedCaseStatuses: [...CLOSED_CASE_STATUSES] },
       )
       .orderBy('so.createdAt', 'DESC')
       .getMany();

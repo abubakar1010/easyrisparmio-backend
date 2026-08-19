@@ -49,7 +49,10 @@ export class MetersController {
     description:
       'Returns the authenticated user\'s services — switch cases that are in activation ' +
       'or already activated. Each item includes offer details, supplier info, the ' +
-      'activation and expiry dates, and the case status. `contractDurationDays` is ' +
+      'activation and expiry dates, and the case status. `supplierLogo` is the ' +
+      'supplier\'s logo as stored — a relative upload path clients resolve against ' +
+      'the API origin, or an absolute URL — and is null when the supplier has none. ' +
+      '`contractDurationDays` is ' +
       'derived from this contract\'s own activation and expiry dates, not from the ' +
       'offer — clients are expected to quote it in months. `energyType` is the supply ' +
       'the customer asked to switch (taken from their bill), not the offer\'s own type, ' +
@@ -71,6 +74,7 @@ export class MetersController {
               supplyAddress: 'Via Roma 25, Cagliari',
               offerName: 'Luce Fissa 2026',
               supplierName: 'Ener Energia',
+              supplierLogo: '/uploads/logos/ener-energia.png',
               contractNumber: 'CASE-20260630-00001',
               podPdrNumber: 'IT001E556779',
               activationDate: '2026-06-15',

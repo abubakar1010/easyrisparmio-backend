@@ -159,6 +159,12 @@ export class MetersService {
       supplyAddress: this.supplyAddressLine(switchCase),
       offerName: switchCase.selectedOffer?.name || null,
       supplierName: switchCase.selectedOffer?.supplier?.name || null,
+      // The supplier's own logo, so the utilities list shows who supplies the
+      // contract rather than a placeholder. Stored as the relative upload path
+      // the admin uploaded it to (or an absolute URL for a hosted logo), which
+      // clients resolve against the API origin. Null when the supplier has no
+      // logo on file — the client falls back to a generic mark.
+      supplierLogo: switchCase.selectedOffer?.supplier?.logoUrl || null,
       // The customer's reference for this supply. There is no contract number
       // to quote any more — nobody enters one, because the contract is signed
       // outside the application — so the case number is what identifies it.

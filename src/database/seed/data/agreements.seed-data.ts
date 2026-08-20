@@ -155,6 +155,96 @@ export async function seedAgreements(
       sortOrder: 8,
       createdBy: admin.id,
     },
+    {
+      title: 'Iscrizione Gratuita + 20% sull’Abbonamento Annuale',
+      description:
+        'Virgin Active gestisce club fitness premium in tutta Italia con piscine, aree functional training, oltre 100 corsi a settimana e personal trainer qualificati. La convenzione EasyRisparmio azzera la quota di iscrizione e sconta l’abbonamento annuale in tutti i club aderenti.',
+      partnerName: 'Virgin Active Italia',
+      partnerLogoUrl:
+        'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=400&h=400&fit=crop&q=80',
+      discountDescription:
+        'Quota di iscrizione gratuita (valore 150€) + 20% di sconto sull’abbonamento annuale. Codice: EASYFIT20',
+      termsUrl: 'https://www.virginactive.it',
+      address: 'Viale Bligny 39, 20136 Milano MI, Italia',
+      isActive: true,
+      targetAudience: UserTarget.BOTH,
+      validFrom: new Date('2026-09-01'),
+      validUntil: new Date('2027-08-31'),
+      sortOrder: 9,
+      createdBy: admin.id,
+    },
+    {
+      title: 'Sconto Carburante 5 Cent al Litro',
+      description:
+        'Q8 (Kuwait Petroleum Italia) conta oltre 2.800 stazioni di servizio sul territorio nazionale. Con la convenzione EasyRisparmio i clienti ottengono uno sconto immediato sul rifornimento di benzina e diesel presso tutte le stazioni Q8 e Q8 Easy aderenti, cumulabile con la app Q8.',
+      partnerName: 'Q8 - Kuwait Petroleum Italia',
+      partnerLogoUrl:
+        'https://images.unsplash.com/photo-1545262810-77515befe149?w=400&h=400&fit=crop&q=80',
+      discountDescription:
+        '5 centesimi di sconto al litro su benzina e diesel self-service, fino a 100 litri al mese. Codice: EASYQ8',
+      termsUrl: 'https://www.q8.it',
+      address: 'Viale dell’Oceano Indiano 13, 00144 Roma RM, Italia',
+      isActive: true,
+      targetAudience: UserTarget.BOTH,
+      validFrom: new Date('2026-06-01'),
+      validUntil: new Date('2027-05-31'),
+      sortOrder: 10,
+      createdBy: admin.id,
+    },
+    {
+      title: '30% sulle Lenti da Vista + Visita Gratuita',
+      description:
+        'Salmoiraghi & Viganò, catena ottica italiana attiva dal 1865 con più di 400 negozi, offre occhiali da vista e da sole delle migliori marche. La convenzione EasyRisparmio include il controllo della vista gratuito con optometrista e uno sconto dedicato sulle lenti oftalmiche.',
+      partnerName: 'Salmoiraghi & Viganò',
+      partnerLogoUrl:
+        'https://images.unsplash.com/photo-1574258495973-f010dfbb5371?w=400&h=400&fit=crop&q=80',
+      discountDescription:
+        '30% di sconto sulle lenti da vista e controllo della vista gratuito in negozio. Codice: EASYVISTA30',
+      termsUrl: 'https://www.salmoiraghievigano.it',
+      address: 'Corso Vittorio Emanuele II 30, 20122 Milano MI, Italia',
+      isActive: true,
+      targetAudience: UserTarget.PERSONAL,
+      validFrom: new Date('2026-03-15'),
+      validUntil: new Date('2026-12-31'),
+      sortOrder: 11,
+      createdBy: admin.id,
+    },
+    {
+      title: '15% su Abbigliamento e Attrezzatura Sportiva',
+      description:
+        'Decathlon Italia propone attrezzatura e abbigliamento per oltre 70 sport a prezzi accessibili, con i marchi propri Quechua, Domyos, Kipsta e Btwin. Lo sconto EasyRisparmio è valido nei negozi fisici e sull’e-commerce, esclusi i prodotti già in promozione.',
+      partnerName: 'Decathlon Italia',
+      partnerLogoUrl:
+        'https://images.unsplash.com/photo-1517649763962-0c623066013b?w=400&h=400&fit=crop&q=80',
+      discountDescription:
+        '15% di sconto su abbigliamento e attrezzatura, in negozio e online. Spesa minima 50€. Codice: EASYSPORT15',
+      termsUrl: 'https://www.decathlon.it',
+      address: 'Via Enrico Fermi 8, 20090 Assago MI, Italia',
+      isActive: true,
+      targetAudience: UserTarget.BOTH,
+      validFrom: new Date('2026-07-01'),
+      validUntil: new Date('2027-06-30'),
+      sortOrder: 12,
+      createdBy: admin.id,
+    },
+    {
+      title: 'Noleggio Aziendale -20% e Secondo Guidatore Gratis',
+      description:
+        'Europcar Italia mette a disposizione una flotta aziendale con oltre 400 punti di noleggio in Italia, inclusi aeroporti e stazioni ferroviarie. La convenzione è riservata alle aziende clienti EasyRisparmio per trasferte di lavoro e noleggi a breve termine.',
+      partnerName: 'Europcar Italia',
+      partnerLogoUrl:
+        'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?w=400&h=400&fit=crop&q=80',
+      discountDescription:
+        '20% di sconto sulle tariffe business e secondo guidatore incluso senza costi aggiuntivi. Codice: EASYBIZCAR',
+      termsUrl: 'https://www.europcar.it',
+      address: 'Via Antonio Cechov 50, 20151 Milano MI, Italia',
+      isActive: true,
+      targetAudience: UserTarget.BUSINESS,
+      validFrom: new Date('2026-02-01'),
+      validUntil: new Date('2027-01-31'),
+      sortOrder: 13,
+      createdBy: admin.id,
+    },
   ];
 
   for (const data of agreementsData) {

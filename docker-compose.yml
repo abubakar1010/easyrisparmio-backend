@@ -90,6 +90,14 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
+    healthcheck:
+      # `Up` only means the container is running — it says nothing about Nest
+      # having bootstrapped. Probe the port so a broken boot shows as unhealthy.
+      test: ["CMD-SHELL", "wget -qO- -T 3 http://127.0.0.1:3000/api/docs >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
     depends_on:
       postgres:
         condition: service_healthy

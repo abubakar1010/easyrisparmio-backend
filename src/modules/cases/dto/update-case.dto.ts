@@ -7,8 +7,14 @@ import {
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { CaseStatus, CasePriority } from '../../../common/enums/case.enum';
+import { CaseAddressesDto } from './case-addresses.dto';
 
-export class UpdateCaseDto {
+/**
+ * Extends {@link CaseAddressesDto} so an admin can correct the supply, residence
+ * and shipping addresses the customer submitted, field by field, under exactly
+ * the validation the app was held to when it created them.
+ */
+export class UpdateCaseDto extends CaseAddressesDto {
   @ApiPropertyOptional({ enum: CaseStatus, description: 'Case status', example: CaseStatus.IN_PROGRESS })
   @IsOptional()
   @IsEnum(CaseStatus)

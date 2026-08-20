@@ -204,8 +204,11 @@ export class CasesController {
   @ApiOperation({
     summary: 'Update case (admin)',
     description:
-      'Updates case status, priority, agent assignment, or notes. All fields are optional. ' +
-      'Status changes and agent assignments are logged as case events for audit trail.',
+      'Updates case status, priority, agent assignment, notes, activation dates, or any of the ' +
+      'three addresses (supply, residence, shipping) field by field. All fields are optional. ' +
+      'Status changes, agent assignments and address corrections are logged as case events for audit trail. ' +
+      'While `residentialSameAsSupply` or `shippingSameAsSupply` is true that block is kept as a copy of ' +
+      'the supply address, so correcting the supply address moves it too.',
   })
   @ApiBody({ type: UpdateCaseDto })
   @ApiOkResponse({

@@ -28,15 +28,17 @@ import { NotificationType } from '../../common/enums/notification.enum';
 import { SupplierStatus } from '../../common/enums/supplier.enum';
 import { OfferPaymentMethod } from '../../common/enums/offer.enum';
 import { PaymentMethod } from '../../common/enums/payment.enum';
+import {
+  normalizePostalCode,
+  normalizeProvince,
+} from '../../common/utils/address.utils';
+import {
+  CaseAddressesDto,
+  CASE_ADDRESS_BLOCKS,
+  CASE_ADDRESS_BLOCK_LABELS,
+  CASE_ADDRESS_FIELDS,
+} from './dto/case-addresses.dto';
 
-/**
- * Province is free text — it is stored exactly as the user typed it, with only
- * surrounding whitespace removed and blanks collapsed to null.
- */
-function normalizeProvince(value?: string): string | null {
-  const province = value?.trim();
-  return province ? province : null;
-}
 
 @Injectable()
 export class CasesService {
@@ -125,23 +127,8 @@ export class CasesService {
       caseNumber,
       fromSupplierId: await this.resolveFromSupplierId(bill),
       toSupplierId: offer.supplierId,
-      supplyStreet: dto.supplyStreet || null,
-      supplyStreetNumber: dto.supplyStreetNumber || null,
-      supplyCity: dto.supplyCity || null,
-      supplyPostalCode: dto.supplyPostalCode || null,
-      supplyProvince: normalizeProvince(dto.supplyProvince),
       residentialSameAsSupply: dto.residentialSameAsSupply ?? false,
-      residentialStreet: dto.residentialStreet || null,
-      residentialStreetNumber: dto.residentialStreetNumber || null,
-      residentialCity: dto.residentialCity || null,
-      residentialPostalCode: dto.residentialPostalCode || null,
-      residentialProvince: normalizeProvince(dto.residentialProvince),
       shippingSameAsSupply: dto.shippingSameAsSupply ?? false,
-      shippingStreet: dto.shippingStreet || null,
-      shippingStreetNumber: dto.shippingStreetNumber || null,
-      shippingCity: dto.shippingCity || null,
-      shippingPostalCode: dto.shippingPostalCode || null,
-      shippingProvince: normalizeProvince(dto.shippingProvince),
       paymentMethod: dto.paymentMethod || null,
       invoiceDelivery: dto.invoiceDelivery || null,
       invoiceEmail: dto.invoiceEmail || null,
@@ -150,6 +137,10 @@ export class CasesService {
       ibanHolderLastName: dto.ibanHolderLastName || null,
       ibanHolderTaxCode: dto.ibanHolderTaxCode || null,
     });
+
+    // The three addresses go through the same writer the admin's edits use, so
+    // the app cannot create a case shaped differently from one the CRM saved.
+    this.applyAddressFields(switchCase, dto);
 
     const saved = await this.caseRepository.save(switchCase);
 
@@ -298,7 +289,23 @@ export class CasesService {
     const oldStatus = switchCase.status;
 
     const { activationDate, expiryDate, ...rest } = dto;
-    Object.assign(switchCase, rest);
+
+    // The addresses are held back from the blind assign: they need normalising
+    // and the same-as-supply blocks need squaring up afterwards.
+    const addressKeys = new Set<string>([
+      ...CASE_ADDRESS_BLOCKS.flatMap((block) =>
+        CASE_ADDRESS_FIELDS.map((field) => `${block}${field}`),
+      ),
+      'residentialSameAsSupply',
+      'shippingSameAsSupply',
+    ]);
+    Object.assign(
+      switchCase,
+      Object.fromEntries(
+        Object.entries(rest).filter(([key]) => !addressKeys.has(key)),
+      ),
+    );
+    const addressChanges = this.applyAddressFields(switchCase, dto);
 
     // A utility the customer can see must carry the dates it is described by.
     // The same rule is enforced on the transition endpoint; this is the other
@@ -331,6 +338,22 @@ export class CasesService {
     }
 
     const saved = await this.caseRepository.save(switchCase);
+
+    // Addresses are what the switch is actually filed against, so a correction
+    // belongs on the case's own timeline rather than only in the activity log.
+    if (Object.keys(addressChanges).length > 0) {
+      // The timeline names the blocks that moved; the exact old and new values
+      // of every field are in the metadata for anyone who needs to audit them.
+      const blocksTouched = CASE_ADDRESS_BLOCKS.filter((block) =>
+        Object.keys(addressChanges).some((field) => field.startsWith(block)),
+      ).map((block) => CASE_ADDRESS_BLOCK_LABELS[block]);
+
+      await this.logEvent(id, CaseEventType.SYSTEM_EVENT, 'Addresses updated', {
+        description: `${blocksTouched.join(', ')} corrected by an admin`,
+        actorId,
+        metadata: { changes: addressChanges },
+      });
+    }
 
     // Log status change event and notify user
     if (dto.status && dto.status !== oldStatus) {
@@ -542,6 +565,65 @@ export class CasesService {
     }
 
     return `${prefix}${String(seq).padStart(5, '0')}`;
+  }
+
+  /**
+   * Writes whichever address fields the caller supplied onto the case, and
+   * keeps the three blocks coherent afterwards.
+   *
+   * Two rules, both enforced here rather than trusted to the caller:
+   *
+   * - A CAP is five digits or nothing, and a province is trimmed free text.
+   *   The app and the CRM both come through here, so neither can store a
+   *   half-read CAP that looks filled in on the form and reaches the supplier
+   *   unchecked.
+   * - While `residentialSameAsSupply` or `shippingSameAsSupply` is true, that
+   *   block is a copy of the supply address. Correcting the supply address
+   *   therefore moves the residence and the shipping address with it, instead
+   *   of leaving the case claiming a residence the customer never gave.
+   *
+   * Returns the fields that actually changed, for the case timeline.
+   */
+  private applyAddressFields(
+    switchCase: SwitchCase,
+    dto: Partial<CaseAddressesDto>,
+  ): Record<string, { old: unknown; new: unknown }> {
+    const changes: Record<string, { old: unknown; new: unknown }> = {};
+
+    const set = (field: string, value: unknown): void => {
+      const previous = (switchCase as any)[field] ?? null;
+      if (previous === value) return;
+      changes[field] = { old: previous, new: value };
+      (switchCase as any)[field] = value;
+    };
+
+    const normalize = (field: string, value?: string): string | null => {
+      if (field === 'PostalCode') return normalizePostalCode(value);
+      if (field === 'Province') return normalizeProvince(value);
+      return value?.trim() || null;
+    };
+
+    for (const block of CASE_ADDRESS_BLOCKS) {
+      if (block !== 'supply') {
+        const flag = `${block}SameAsSupply`;
+        if ((dto as any)[flag] !== undefined) set(flag, (dto as any)[flag]);
+      }
+
+      for (const field of CASE_ADDRESS_FIELDS) {
+        const key = `${block}${field}`;
+        if ((dto as any)[key] === undefined) continue;
+        set(key, normalize(field, (dto as any)[key]));
+      }
+    }
+
+    for (const block of ['residential', 'shipping'] as const) {
+      if (!(switchCase as any)[`${block}SameAsSupply`]) continue;
+      for (const field of CASE_ADDRESS_FIELDS) {
+        set(`${block}${field}`, (switchCase as any)[`supply${field}`] ?? null);
+      }
+    }
+
+    return changes;
   }
 
   private async logEvent(

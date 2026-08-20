@@ -92,7 +92,11 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   const port = configService.get('app.port') || 3000;
-  await app.listen(port);
+  // Bind every interface explicitly. Left to Node's default the server binds
+  // only `::`, which Docker's IPv4 proxy can reach solely because the kernel
+  // has `bindv6only=0` — on a host where that is off, the container looks
+  // healthy while the published port refuses every connection.
+  await app.listen(port, '0.0.0.0');
   console.log(`EasyRisparmio API running on port ${port}`);
   console.log(`Swagger docs: http://localhost:${port}/api/docs`);
 }

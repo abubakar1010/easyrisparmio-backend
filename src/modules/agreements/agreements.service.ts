@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Agreement } from './entities/agreement.entity';
@@ -17,10 +21,30 @@ export class AgreementsService {
     private readonly agreementRepository: Repository<Agreement>,
   ) {}
 
+  /**
+   * An agreement whose validity window is inverted would pass every filter in
+   * `findAllForUser` and simply never appear, so reject it at the edge instead
+   * of letting the admin save a record that silently does nothing.
+   */
+  private assertValidDateRange(
+    validFrom?: string | Date | null,
+    validUntil?: string | Date | null,
+  ): void {
+    if (!validFrom || !validUntil) return;
+
+    if (new Date(validUntil) < new Date(validFrom)) {
+      throw new BadRequestException(
+        'validUntil must be the same as or later than validFrom',
+      );
+    }
+  }
+
   async create(
     dto: CreateAgreementDto,
     adminId: string,
   ): Promise<Agreement> {
+    this.assertValidDateRange(dto.validFrom, dto.validUntil);
+
     const agreement = this.agreementRepository.create({
       ...dto,
       createdBy: adminId,
@@ -135,6 +159,14 @@ export class AgreementsService {
     adminId: string,
   ): Promise<Agreement> {
     const agreement = await this.findById(id);
+
+    // A PATCH may move either end of the window, so validate the merged result
+    // rather than whatever the payload happens to carry.
+    this.assertValidDateRange(
+      dto.validFrom ?? agreement.validFrom,
+      dto.validUntil !== undefined ? dto.validUntil : agreement.validUntil,
+    );
+
     Object.assign(agreement, dto);
     agreement.updatedBy = adminId;
     return this.agreementRepository.save(agreement);

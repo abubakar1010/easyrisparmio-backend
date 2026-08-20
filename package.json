@@ -36,7 +36,8 @@
     "seed:agreements": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts agreements",
     "seed:static-pages": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts static-pages",
     "seed:admin": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts admin",
-    "seed:reconciliation": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts reconciliation"
+    "seed:reconciliation": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts reconciliation",
+    "email:test": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/scripts/send-test-email.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.111.0",
@@ -65,7 +66,6 @@
     "pdf-to-img": "^6.2.0",
     "pg": "^8.13.0",
     "reflect-metadata": "^0.2.2",
-    "resend": "^6.12.4",
     "rxjs": "^7.8.1",
     "typeorm": "^0.3.20",
     "uuid": "^11.0.0"

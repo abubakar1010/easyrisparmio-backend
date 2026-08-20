@@ -14,11 +14,13 @@ import { OtpCode } from './entities/otp-code.entity';
 import { BusinessProfile } from '../users/entities/business-profile.entity';
 import { UsersModule } from '../users/users.module';
 import { ReferralsModule } from '../referrals/referrals.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
     UsersModule,
     ReferralsModule,
+    NotificationsModule,
     PassportModule,
     TypeOrmModule.forFeature([RefreshToken, OtpCode, BusinessProfile]),
     JwtModule.registerAsync({

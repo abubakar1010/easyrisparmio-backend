@@ -29,6 +29,8 @@ import { UsersService } from '../users/users.service';
 import { FirebaseService } from './firebase.service';
 import { ReferralsService } from '../referrals/referrals.service';
 import { EmailService } from '../email/email.service';
+import { AdminNotificationsService } from '../notifications/admin-notifications.service';
+import { NotificationType } from '../../common/enums/notification.enum';
 
 const MAX_OTP_ATTEMPTS = 5;
 const OTP_TTL_MINUTES = 10;
@@ -71,6 +73,7 @@ export class AuthService {
     private readonly firebaseService: FirebaseService,
     private readonly referralsService: ReferralsService,
     private readonly emailService: EmailService,
+    private readonly adminNotifications: AdminNotificationsService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -140,6 +143,17 @@ export class AuthService {
       emailWarning =
         'We could not send the verification code. Use "resend code" to try again.';
     }
+
+    await this.adminNotifications.notifyAdmins({
+      messageKey: 'admin_user_registered',
+      type: NotificationType.ADMIN_USER,
+      bodyParams: [
+        `${user.firstName} ${user.lastName}`.trim() || user.email,
+        user.role,
+        user.email,
+      ],
+      data: { userId: user.id, role: user.role, entityType: 'user' },
+    });
 
     const verificationToken = this.generateVerificationToken(user.email);
     const { passwordHash: _, ...result } = user;
@@ -228,13 +242,25 @@ export class AuthService {
     const otpCode = await this.consumeOtp(user, dto.type, dto.code);
 
     if (dto.type === OtpType.EMAIL_VERIFICATION) {
+      const wasPending = user.status === UserStatus.PENDING_VERIFICATION;
       await this.usersService.update(user.id, {
         emailVerified: true,
-        status:
-          user.status === UserStatus.PENDING_VERIFICATION
-            ? UserStatus.ACTIVE
-            : user.status,
+        status: wasPending ? UserStatus.ACTIVE : user.status,
       });
+
+      // Only the transition out of PENDING_VERIFICATION is news to an admin;
+      // re-verifying an already active address is not.
+      if (wasPending) {
+        await this.adminNotifications.notifyAdmins({
+          messageKey: 'admin_user_verified',
+          type: NotificationType.ADMIN_USER,
+          bodyParams: [
+            `${user.firstName} ${user.lastName}`.trim() || user.email,
+            user.email,
+          ],
+          data: { userId: user.id, role: user.role, entityType: 'user' },
+        });
+      }
     }
 
     if (dto.type === OtpType.PHONE_VERIFICATION) {
@@ -634,6 +660,22 @@ export class AuthService {
         role: UserRole.PERSONAL,
         status: UserStatus.ACTIVE,
         emailVerified: true,
+      });
+
+      await this.adminNotifications.notifyAdmins({
+        messageKey: 'admin_user_registered',
+        type: NotificationType.ADMIN_USER,
+        bodyParams: [
+          `${user.firstName} ${user.lastName}`.trim() || user.email,
+          user.role,
+          user.email,
+        ],
+        data: {
+          userId: user.id,
+          role: user.role,
+          authProvider: provider,
+          entityType: 'user',
+        },
       });
     }
 

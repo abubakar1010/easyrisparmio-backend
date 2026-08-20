@@ -26,7 +26,27 @@ export type MessageKey =
   | 'status_offer_sent'
   | 'status_offer_accepted'
   | 'status_contract_sent'
-  | 'status_cancelled';
+  | 'status_cancelled'
+  // Admin-facing events. These are only ever delivered to ADMIN recipients by
+  // AdminNotificationsService — never to a customer.
+  | 'admin_user_registered'
+  | 'admin_user_verified'
+  | 'admin_bill_uploaded'
+  | 'admin_bill_email_requested'
+  | 'admin_bill_analyzed'
+  | 'admin_bill_analysis_failed'
+  | 'admin_verification_submitted'
+  | 'admin_offer_accepted'
+  | 'admin_case_status_changed'
+  | 'admin_document_uploaded'
+  | 'admin_ticket_created'
+  | 'admin_ticket_replied'
+  | 'admin_referral_registered'
+  | 'admin_offer_created'
+  | 'admin_offer_status_changed';
+
+/** The subset of MessageKey that addresses an admin. */
+export type AdminMessageKey = Extract<MessageKey, `admin_${string}`>;
 
 type Lang = 'it' | 'en';
 
@@ -343,6 +363,191 @@ const MESSAGES: Record<MessageKey, Record<Lang, MessageDef>> = {
     en: {
       title: 'Case cancelled',
       body: 'Your case has been cancelled. Contact us for more information.',
+    },
+  },
+
+  // ---------------------------------------------------------------------------
+  // Admin-facing copy. Recipients are ADMIN users, so the tone is operational:
+  // say who did what and what now needs doing.
+  // ---------------------------------------------------------------------------
+  admin_user_registered: {
+    it: {
+      title: 'Nuova registrazione',
+      body: (name: string, role: string, email: string) =>
+        `${name} (${role}) si è registrato con ${email}.`,
+    },
+    en: {
+      title: 'New registration',
+      body: (name: string, role: string, email: string) =>
+        `${name} (${role}) signed up with ${email}.`,
+    },
+  },
+  admin_user_verified: {
+    it: {
+      title: 'Account verificato',
+      body: (name: string, email: string) =>
+        `${name} ha verificato la propria email (${email}).`,
+    },
+    en: {
+      title: 'Account verified',
+      body: (name: string, email: string) =>
+        `${name} verified their email address (${email}).`,
+    },
+  },
+  admin_bill_uploaded: {
+    it: {
+      title: 'Nuova bolletta caricata',
+      body: (name: string, billType: string) =>
+        `${name} ha caricato una bolletta ${billType}. In attesa di analisi.`,
+    },
+    en: {
+      title: 'New bill uploaded',
+      body: (name: string, billType: string) =>
+        `${name} uploaded a ${billType} bill. Awaiting analysis.`,
+    },
+  },
+  admin_bill_email_requested: {
+    it: {
+      title: 'Richiesta bolletta via email',
+      body: (name: string) =>
+        `${name} ha chiesto di inviare la bolletta via email. Carica il documento quando arriva.`,
+    },
+    en: {
+      title: 'Email bill request',
+      body: (name: string) =>
+        `${name} asked to send their bill by email. Upload the document once it arrives.`,
+    },
+  },
+  admin_bill_analyzed: {
+    it: {
+      title: 'Analisi bolletta completata',
+      body: (name: string, billType: string) =>
+        `La bolletta ${billType} di ${name} è stata analizzata ed è pronta per la revisione.`,
+    },
+    en: {
+      title: 'Bill analysis complete',
+      body: (name: string, billType: string) =>
+        `The ${billType} bill from ${name} has been analysed and is ready for review.`,
+    },
+  },
+  admin_bill_analysis_failed: {
+    it: {
+      title: 'Analisi bolletta fallita',
+      body: (name: string, reason: string) =>
+        `Non è stato possibile analizzare la bolletta di ${name}: ${reason}`,
+    },
+    en: {
+      title: 'Bill analysis failed',
+      body: (name: string, reason: string) =>
+        `Could not analyse the bill from ${name}: ${reason}`,
+    },
+  },
+  admin_verification_submitted: {
+    it: {
+      title: 'Documenti di verifica ricevuti',
+      body: (name: string) =>
+        `${name} ha inviato i documenti richiesti. Da rivedere.`,
+    },
+    en: {
+      title: 'Verification documents received',
+      body: (name: string) =>
+        `${name} submitted the requested documents. Ready for review.`,
+    },
+  },
+  admin_offer_accepted: {
+    it: {
+      title: 'Offerta accettata',
+      body: (name: string, supplier: string, caseNumber: string) =>
+        `${name} ha accettato l'offerta di ${supplier}. Pratica ${caseNumber} creata.`,
+    },
+    en: {
+      title: 'Offer accepted',
+      body: (name: string, supplier: string, caseNumber: string) =>
+        `${name} accepted the offer from ${supplier}. Case ${caseNumber} created.`,
+    },
+  },
+  admin_case_status_changed: {
+    it: {
+      title: 'Stato pratica aggiornato',
+      body: (caseNumber: string, status: string, actorName: string) =>
+        `La pratica ${caseNumber} è passata a "${status}" (${actorName}).`,
+    },
+    en: {
+      title: 'Case status updated',
+      body: (caseNumber: string, status: string, actorName: string) =>
+        `Case ${caseNumber} moved to "${status}" (${actorName}).`,
+    },
+  },
+  admin_document_uploaded: {
+    it: {
+      title: 'Nuovo documento caricato',
+      body: (name: string, docType: string, caseNumber: string) =>
+        `${name} ha caricato un documento (${docType}) sulla pratica ${caseNumber}.`,
+    },
+    en: {
+      title: 'New document uploaded',
+      body: (name: string, docType: string, caseNumber: string) =>
+        `${name} uploaded a document (${docType}) on case ${caseNumber}.`,
+    },
+  },
+  admin_ticket_created: {
+    it: {
+      title: 'Nuovo ticket di assistenza',
+      body: (name: string, subject: string) =>
+        `${name} ha aperto un ticket: "${subject}"`,
+    },
+    en: {
+      title: 'New support ticket',
+      body: (name: string, subject: string) =>
+        `${name} opened a ticket: "${subject}"`,
+    },
+  },
+  admin_ticket_replied: {
+    it: {
+      title: 'Risposta del cliente',
+      body: (name: string, subject: string, preview: string) =>
+        `${name} ha risposto su "${subject}": ${preview}`,
+    },
+    en: {
+      title: 'Customer replied',
+      body: (name: string, subject: string, preview: string) =>
+        `${name} replied on "${subject}": ${preview}`,
+    },
+  },
+  admin_referral_registered: {
+    it: {
+      title: 'Nuovo referral registrato',
+      body: (referrerName: string, refereeName: string) =>
+        `${refereeName} si è registrato tramite l'invito di ${referrerName}.`,
+    },
+    en: {
+      title: 'New referral registered',
+      body: (referrerName: string, refereeName: string) =>
+        `${refereeName} signed up through an invite from ${referrerName}.`,
+    },
+  },
+  admin_offer_created: {
+    it: {
+      title: 'Nuova offerta creata',
+      body: (offerName: string, supplier: string, actorName: string) =>
+        `${actorName} ha creato l'offerta "${offerName}" di ${supplier}.`,
+    },
+    en: {
+      title: 'New offer created',
+      body: (offerName: string, supplier: string, actorName: string) =>
+        `${actorName} created the offer "${offerName}" from ${supplier}.`,
+    },
+  },
+  admin_offer_status_changed: {
+    it: {
+      title: 'Stato offerta aggiornato',
+      body: (offerName: string, status: string, actorName: string) =>
+        `L'offerta "${offerName}" è ora "${status}" (${actorName}).`,
+    },
+    en: {
+      title: 'Offer status updated',
+      body: (offerName: string, status: string, actorName: string) =>
+        `Offer "${offerName}" is now "${status}" (${actorName}).`,
     },
   },
 };

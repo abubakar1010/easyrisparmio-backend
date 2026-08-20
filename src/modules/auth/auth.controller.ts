@@ -445,8 +445,13 @@ export class AuthController {
     description:
       'Verifies a 6-digit OTP code. Accepts either `verificationToken` (preferred) or `email` to identify the user. ' +
       'The `verificationToken` is a signed JWT received from the register response or login 403 response. ' +
-      'For `email_verification`, activates the user account (sets `emailVerified: true` and `status: active`). ' +
-      'For `phone_verification`, sets `phoneVerified: true`. OTP codes expire after 10 minutes and are single-use.',
+      'For `email_verification`, activates the user account (sets `emailVerified: true` and `status: active`) ' +
+      'and returns a signed-in session — the token pair plus the full profile, `businessProfile` included — ' +
+      'because redeeming the emailed code proves ownership of the address. Clients should store the tokens and ' +
+      'go straight to the app rather than asking the user to sign in again. ' +
+      'For `phone_verification`, sets `phoneVerified: true`. ' +
+      'For `password_reset`, returns a short-lived `resetToken` instead. ' +
+      'OTP codes expire after 10 minutes and are single-use.',
   })
   @ApiBody({ type: VerifyOtpDto })
   @ApiOkResponse({
@@ -454,10 +459,40 @@ export class AuthController {
     type: MessageResponseDto,
     content: {
       'application/json': {
-        example: {
-          success: true,
-          data: {
-            message: 'OTP verified successfully',
+        examples: {
+          email_verification: {
+            summary: 'Email verified — the account is now signed in',
+            value: {
+              success: true,
+              data: {
+                message: 'OTP verified successfully',
+                user: {
+                  id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                  email: 'mario.rossi@email.com',
+                  firstName: 'Mario',
+                  lastName: 'Rossi',
+                  role: 'business',
+                  status: 'active',
+                  emailVerified: true,
+                  businessProfile: {
+                    companyName: 'Rossi S.r.l.',
+                    partitaIva: '12345678901',
+                    jobRole: 'CEO / Founder',
+                  },
+                },
+                accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+                refreshToken: '6f1c9a52-3d7e-4b18-9a44-2c9d5f0e7b31',
+              },
+            },
+          },
+          phone_verification: {
+            summary: 'Phone verified',
+            value: {
+              success: true,
+              data: {
+                message: 'OTP verified successfully',
+              },
+            },
           },
         },
       },

@@ -360,6 +360,163 @@ describe('AuthService — password reset', () => {
   });
 });
 
+/**
+ * The last step of sign-up. The app goes straight from here to the home
+ * screen, so verifying the address has to hand back a usable session: it used
+ * to return a bare message, leaving the brand-new account on the home screen
+ * with no token, where the first request 401'd and the interceptor bounced it
+ * back out to the login screen. A business account never got as far as seeing
+ * its company details.
+ */
+describe('AuthService — sign-up email verification', () => {
+  let service: AuthService;
+  let otpRepository: FakeOtpRepository;
+  let refreshTokenRepository: FakeRefreshTokenRepository;
+  let jwtService: JwtService;
+  let sendOtpEmail: jest.Mock;
+  let users: Map<string, User>;
+
+  const EMAIL = 'azienda@email.com';
+
+  const businessProfile = {
+    id: 'bp-1',
+    companyName: 'Rossi S.r.l.',
+    partitaIva: '12345678901',
+    jobRole: 'CEO / Founder',
+  };
+
+  const mailedCode = (): string => sendOtpEmail.mock.calls.at(-1)![1];
+
+  beforeEach(() => {
+    otpRepository = new FakeOtpRepository();
+    refreshTokenRepository = new FakeRefreshTokenRepository();
+    jwtService = new JwtService({ secret: JWT_SECRET });
+    sendOtpEmail = jest.fn().mockResolvedValue(undefined);
+
+    users = new Map([
+      [
+        'user-1',
+        {
+          id: 'user-1',
+          email: EMAIL,
+          passwordHash: bcrypt.hashSync('StrongP@ss1', 4),
+          firstName: 'Mario',
+          lastName: 'Rossi',
+          role: UserRole.BUSINESS,
+          status: UserStatus.PENDING_VERIFICATION,
+          emailVerified: false,
+          businessProfile,
+        } as unknown as User,
+      ],
+    ]);
+
+    const usersService = {
+      findByEmail: jest.fn(async (email: string) =>
+        [...users.values()].find(
+          (u) => u.email.toLowerCase() === email.toLowerCase(),
+        ) ?? null,
+      ),
+      findById: jest.fn(async (id: string) => users.get(id) ?? null),
+      update: jest.fn(async (id: string, patch: Partial<User>) => {
+        const user = users.get(id)!;
+        Object.assign(user, patch);
+        return user;
+      }),
+    };
+
+    service = new AuthService(
+      refreshTokenRepository as any,
+      otpRepository as any,
+      {} as any,
+      usersService as any,
+      jwtService,
+      { get: jest.fn(() => '7') } as any,
+      {} as any,
+      {} as any,
+      { sendOtpEmail } as any,
+      { notifyAdmins: jest.fn() } as any,
+      {} as any,
+      {} as any,
+    );
+  });
+
+  /** Puts a live email-verification code on the pending account. */
+  const requestCode = async () => {
+    await service.resendOtp({
+      email: EMAIL,
+      type: OtpType.EMAIL_VERIFICATION,
+    } as any);
+    return mailedCode();
+  };
+
+  it('hands back a session, so the app is not left signed out on the home screen', async () => {
+    const code = await requestCode();
+
+    const result: any = await service.verifyOtp({
+      email: EMAIL,
+      code,
+      type: OtpType.EMAIL_VERIFICATION,
+    } as any);
+
+    expect(result.accessToken).toEqual(expect.any(String));
+    expect(result.refreshToken).toEqual(expect.any(String));
+    // The refresh token is the stored one, not an unsaved string.
+    expect(refreshTokenRepository.rows).toHaveLength(1);
+    expect(refreshTokenRepository.rows[0].token).toBe(result.refreshToken);
+
+    const claims = jwtService.verify(result.accessToken, { secret: JWT_SECRET });
+    expect(claims.sub).toBe('user-1');
+    expect(claims.role).toBe(UserRole.BUSINESS);
+  });
+
+  it('returns the company details, so a business account sees them straight away', async () => {
+    const code = await requestCode();
+
+    const result: any = await service.verifyOtp({
+      email: EMAIL,
+      code,
+      type: OtpType.EMAIL_VERIFICATION,
+    } as any);
+
+    expect(result.user.role).toBe(UserRole.BUSINESS);
+    expect(result.user.businessProfile).toMatchObject({
+      companyName: 'Rossi S.r.l.',
+      partitaIva: '12345678901',
+      jobRole: 'CEO / Founder',
+    });
+    // The account is active by the time the client is told it is signed in.
+    expect(result.user.status).toBe(UserStatus.ACTIVE);
+    expect(result.user.emailVerified).toBe(true);
+  });
+
+  it('never puts the password hash in that payload', async () => {
+    const code = await requestCode();
+
+    const result: any = await service.verifyOtp({
+      email: EMAIL,
+      code,
+      type: OtpType.EMAIL_VERIFICATION,
+    } as any);
+
+    expect(result.user).not.toHaveProperty('passwordHash');
+  });
+
+  it('issues nothing for a wrong code', async () => {
+    await requestCode();
+
+    await expect(
+      service.verifyOtp({
+        email: EMAIL,
+        code: '000000',
+        type: OtpType.EMAIL_VERIFICATION,
+      } as any),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(refreshTokenRepository.rows).toHaveLength(0);
+    expect(users.get('user-1')!.status).toBe(UserStatus.PENDING_VERIFICATION);
+  });
+});
+
 describe('ForgotPasswordDto', () => {
   it('folds the address so a differently-cased sign-up is still reachable', () => {
     const dto = plainToInstance(ForgotPasswordDto, { email: '  Mario.Rossi@Email.COM ' });

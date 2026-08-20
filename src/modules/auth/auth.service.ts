@@ -308,7 +308,7 @@ export class AuthService {
 
     if (dto.type === OtpType.EMAIL_VERIFICATION) {
       const wasPending = user.status === UserStatus.PENDING_VERIFICATION;
-      await this.usersService.update(user.id, {
+      const verified = await this.usersService.update(user.id, {
         emailVerified: true,
         status: wasPending ? UserStatus.ACTIVE : user.status,
       });
@@ -326,6 +326,27 @@ export class AuthService {
           data: { userId: user.id, role: user.role, entityType: 'user' },
         });
       }
+
+      // Verifying the address is the last step of sign-up, and the app goes
+      // straight to the home screen from here. It was doing so without a
+      // session: this endpoint returned a bare message, so the very first
+      // authenticated call 401'd and the refresh interceptor — with no refresh
+      // token either — bounced the brand-new account back to the login screen.
+      // A business account never got as far as seeing its company details.
+      //
+      // Redeeming the code proves the mailbox is theirs, which is the same
+      // thing the password check proves at login, so the session is issued
+      // here rather than making them sign in again. `update` returns the user
+      // with `businessProfile` loaded, so the client has the company details
+      // in hand as soon as it lands.
+      const tokens = await this.generateTokens(verified);
+      const { passwordHash: _pw, ...safeUser } = verified;
+
+      return {
+        message: 'OTP verified successfully',
+        user: safeUser,
+        ...tokens,
+      };
     }
 
     if (dto.type === OtpType.PHONE_VERIFICATION) {

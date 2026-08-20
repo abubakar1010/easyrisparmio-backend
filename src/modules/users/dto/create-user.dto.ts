@@ -97,6 +97,17 @@ export class CreateUserDto {
   @MaxLength(100)
   companyType?: string;
 
+  @ApiPropertyOptional({
+    example: 'CEO / Founder',
+    description:
+      'Position the account holder occupies in the company. Free text: the ' +
+      'mobile switch-to-business sheet offers a shortlist plus "Other".',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  jobRole?: string;
+
   @ApiPropertyOptional({ example: '35.11.00' })
   @IsOptional()
   @IsString()

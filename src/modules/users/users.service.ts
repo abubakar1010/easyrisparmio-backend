@@ -208,7 +208,7 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    const { companyName, partitaIva, pecEmail, legalRepresentative, companyType, atecoCode, ...userData } = dto;
+    const { companyName, partitaIva, pecEmail, legalRepresentative, companyType, atecoCode, jobRole, ...userData } = dto;
 
     Object.assign(user, userData);
     await this.userRepository.save(user);
@@ -222,6 +222,7 @@ export class UsersService {
       if (legalRepresentative !== undefined) businessData.legalRepresentative = legalRepresentative;
       if (companyType !== undefined) businessData.companyType = companyType;
       if (atecoCode !== undefined) businessData.atecoCode = atecoCode;
+      if (jobRole !== undefined) businessData.jobRole = jobRole || null;
 
       if (Object.keys(businessData).length > 0) {
         if (user.businessProfile) {
@@ -344,6 +345,10 @@ export class UsersService {
       if (dto.legalRepresentative !== undefined) businessData.legalRepresentative = dto.legalRepresentative;
       if (dto.companyType !== undefined) businessData.companyType = dto.companyType;
       if (dto.atecoCode !== undefined) businessData.atecoCode = dto.atecoCode;
+      // The switch-to-business sheet captures the job role, so the profile
+      // screen has to be able to correct it afterwards like any other field.
+      // An empty string clears it rather than storing a blank.
+      if (dto.jobRole !== undefined) businessData.jobRole = dto.jobRole || null;
 
       if (Object.keys(businessData).length > 0) {
         if (dto.partitaIva !== undefined) {

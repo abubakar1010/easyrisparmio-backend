@@ -22,6 +22,7 @@ import { Supplier } from '../suppliers/entities/supplier.entity';
 import { SentOffer } from '../offers/entities/sent-offer.entity';
 import { User } from '../users/entities/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AdminNotificationsService } from '../notifications/admin-notifications.service';
 import { VisionOcrService } from './ocr/vision-ocr.service';
 import { UploadBillDto } from './dto/upload-bill.dto';
 import { CreateEmailBillDto } from './dto/create-email-bill.dto';
@@ -81,6 +82,7 @@ export class BillsService implements OnModuleInit {
     @InjectRepository(BillNote)
     private readonly billNoteRepository: Repository<BillNote>,
     private readonly notificationsService: NotificationsService,
+    private readonly adminNotifications: AdminNotificationsService,
     private readonly visionOcrService: VisionOcrService,
   ) {}
 
@@ -140,6 +142,18 @@ export class BillsService implements OnModuleInit {
 
   // ─── Upload ───────────────────────────────────────────────
 
+  /** Display name for a user id, for admin-facing notification copy. */
+  private async userDisplayName(userId: string): Promise<string> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: { id: true, firstName: true, lastName: true, email: true },
+    });
+    if (!user) return 'Cliente';
+    return (
+      `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email
+    );
+  }
+
   async uploadBill(
     userId: string,
     fileUrl: string,
@@ -195,6 +209,18 @@ export class BillsService implements OnModuleInit {
     if (fileUrl) {
       await this.createBillFileRecord(savedBill.id, fileUrl, fileMeta);
     }
+
+    await this.adminNotifications.notifyAdmins({
+      messageKey: 'admin_bill_uploaded',
+      type: NotificationType.ADMIN_BILL,
+      bodyParams: [await this.userDisplayName(userId), savedBill.billType],
+      data: {
+        billId: savedBill.id,
+        userId,
+        entityType: 'bill',
+        entityId: savedBill.id,
+      },
+    });
 
     // If no OCR data was provided (mobile upload without extraction),
     // trigger background OCR extraction + analysis
@@ -362,6 +388,18 @@ export class BillsService implements OnModuleInit {
       await this.billRepository.save(bill);
 
       this.logger.log(`Background OCR completed for bill ${bill.id}`);
+
+      await this.adminNotifications.notifyAdmins({
+        messageKey: 'admin_bill_analyzed',
+        type: NotificationType.ADMIN_BILL,
+        bodyParams: [await this.userDisplayName(bill.userId), bill.billType],
+        data: {
+          billId: bill.id,
+          userId: bill.userId,
+          entityType: 'bill',
+          entityId: bill.id,
+        },
+      });
     } catch (error) {
       this.logger.error(
         `Background OCR processing failed for bill ${bill.id}: ${error.message}`,
@@ -374,6 +412,18 @@ export class BillsService implements OnModuleInit {
       };
       bill.status = BillStatus.VERIFICATION_REVIEW;
       await this.billRepository.save(bill);
+
+      await this.adminNotifications.notifyAdmins({
+        messageKey: 'admin_bill_analysis_failed',
+        type: NotificationType.ADMIN_BILL,
+        bodyParams: [await this.userDisplayName(bill.userId), error.message],
+        data: {
+          billId: bill.id,
+          userId: bill.userId,
+          entityType: 'bill',
+          entityId: bill.id,
+        },
+      });
     }
   }
 
@@ -736,7 +786,22 @@ export class BillsService implements OnModuleInit {
       },
     });
 
-    return this.billRepository.save(bill);
+    const savedBill = await this.billRepository.save(bill);
+
+    await this.adminNotifications.notifyAdmins({
+      messageKey: 'admin_bill_email_requested',
+      type: NotificationType.ADMIN_BILL,
+      bodyParams: [await this.userDisplayName(userId)],
+      data: {
+        billId: savedBill.id,
+        userId,
+        billType: savedBill.billType,
+        entityType: 'bill',
+        entityId: savedBill.id,
+      },
+    });
+
+    return savedBill;
   }
 
   async adminUploadEmailBill(
@@ -1267,6 +1332,19 @@ export class BillsService implements OnModuleInit {
     bill.status = BillStatus.VERIFICATION_REVIEW;
     await this.billRepository.save(bill);
 
+    await this.adminNotifications.notifyAdmins({
+      messageKey: 'admin_verification_submitted',
+      type: NotificationType.ADMIN_VERIFICATION,
+      bodyParams: [await this.userDisplayName(userId)],
+      data: {
+        billId: bill.id,
+        userId,
+        verificationId: verification.id,
+        entityType: 'bill',
+        entityId: bill.id,
+      },
+    });
+
     return this.getBillById(bill.id, userId);
   }
 
@@ -1392,6 +1470,27 @@ export class BillsService implements OnModuleInit {
         }
       }
     }
+
+    // Other admins hear about the move; the one who made it does not.
+    await this.adminNotifications.notifyAdmins({
+      messageKey: 'admin_case_status_changed',
+      type: NotificationType.ADMIN_CASE,
+      bodyParams: [
+        activeCase?.caseNumber || bill.id,
+        BILL_STATUS_LABELS[targetStatus] || targetStatus,
+        await this.userDisplayName(adminId),
+      ],
+      data: {
+        billId: bill.id,
+        caseId: activeCase?.id,
+        userId: bill.userId,
+        oldStatus,
+        newStatus: targetStatus,
+        entityType: activeCase ? 'case' : 'bill',
+        entityId: activeCase?.id || bill.id,
+      },
+      actorId: adminId,
+    });
 
     return this.getBillByIdAdmin(billId);
   }

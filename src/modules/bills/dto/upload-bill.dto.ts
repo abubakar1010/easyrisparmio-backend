@@ -5,11 +5,13 @@ import {
   IsNumber,
   IsUUID,
   IsDateString,
+  Matches,
   MaxLength,
   Min,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { BillType } from '../../../common/enums/bill.enum';
+import { POSTAL_CODE_PATTERN } from '../../../common/utils/address.utils';
 
 export class UploadBillDto {
   @ApiProperty({ enum: BillType, description: 'Type of energy bill', example: BillType.ELECTRICITY })
@@ -85,11 +87,46 @@ export class UploadBillDto {
   @IsDateString()
   billingPeriodEnd?: string;
 
-  @ApiPropertyOptional({ description: 'Supply/delivery address (indirizzo di fornitura)', example: 'Via Roma 42, 20121 Milano MI', maxLength: 500 })
+  // ── Supply address ──
+  // The five fields a case stores its addresses as. `supplyAddress` is the
+  // rendered line and is recomposed from these on save, so a client that only
+  // sends the line still works and a client that sends the parts wins.
+
+  @ApiPropertyOptional({ description: 'Supply/delivery address (indirizzo di fornitura) as one line. Recomposed from the five fields below whenever any of them is set.', example: 'Via Roma 42, 20121 Milano (MI)', maxLength: 500 })
   @IsOptional()
   @IsString()
   @MaxLength(500)
   supplyAddress?: string;
+
+  @ApiPropertyOptional({ description: 'Supply address street', example: 'Via Roma', maxLength: 255 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  supplyStreet?: string;
+
+  @ApiPropertyOptional({ description: 'Supply address street number', example: '42', maxLength: 20 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  supplyStreetNumber?: string;
+
+  @ApiPropertyOptional({ description: 'Supply address city', example: 'Milano', maxLength: 100 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  supplyCity?: string;
+
+  @ApiPropertyOptional({ description: 'Supply address postal code (CAP)', example: '20121' })
+  @IsOptional()
+  @IsString()
+  @Matches(POSTAL_CODE_PATTERN, { message: 'supplyPostalCode must be a 5-digit CAP' })
+  supplyPostalCode?: string;
+
+  @ApiPropertyOptional({ description: 'Supply address province (free text)', example: 'MI', maxLength: 100 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  supplyProvince?: string;
 
   @ApiPropertyOptional({ description: 'Codice Fiscale (Italian tax code, 16 chars)', example: 'RSSMRA85M01H501Z', maxLength: 16 })
   @IsOptional()

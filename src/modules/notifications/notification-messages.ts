@@ -49,6 +49,11 @@ const FIELD_LABELS: Record<Lang, Record<string, string>> = {
     billingPeriodStart: 'Inizio periodo',
     billingPeriodEnd: 'Fine periodo',
     supplyAddress: 'Indirizzo fornitura',
+    supplyStreet: 'Indirizzo fornitura',
+    supplyStreetNumber: 'Indirizzo fornitura',
+    supplyCity: 'Indirizzo fornitura',
+    supplyPostalCode: 'Indirizzo fornitura',
+    supplyProvince: 'Indirizzo fornitura',
     codiceFiscale: 'Codice Fiscale',
     partitaIva: 'Partita IVA',
     contractNumber: 'Numero contratto',
@@ -70,6 +75,11 @@ const FIELD_LABELS: Record<Lang, Record<string, string>> = {
     billingPeriodStart: 'Billing period start',
     billingPeriodEnd: 'Billing period end',
     supplyAddress: 'Supply address',
+    supplyStreet: 'Supply address',
+    supplyStreetNumber: 'Supply address',
+    supplyCity: 'Supply address',
+    supplyPostalCode: 'Supply address',
+    supplyProvince: 'Supply address',
     codiceFiscale: 'Tax ID (Codice Fiscale)',
     partitaIva: 'VAT number (Partita IVA)',
     contractNumber: 'Contract number',
@@ -80,9 +90,15 @@ const FIELD_LABELS: Record<Lang, Record<string, string>> = {
   },
 };
 
+/**
+ * Deduplicated on purpose: the supply address is stored as five fields plus the
+ * line rendered from them, and editing the street changes several at once. The
+ * customer wants to be told their address changed, not to read it named six
+ * times, so every part shares one label and repeats are collapsed.
+ */
 export function resolveFieldLabels(fieldKeys: string[], lang: Lang): string {
   const labels = FIELD_LABELS[lang] || FIELD_LABELS.it;
-  return fieldKeys.map((k) => labels[k] || k).join(', ');
+  return [...new Set(fieldKeys.map((k) => labels[k] || k))].join(', ');
 }
 
 const MESSAGES: Record<MessageKey, Record<Lang, MessageDef>> = {

@@ -402,7 +402,7 @@ export class BillsController {
     summary: 'List all bills (admin, paginated)',
     description:
       'Returns a paginated list of all user bills with user and supplier details. ' +
-      'Supports filtering by bill type, status, date range, and text search (user email/name, POD/PDR number).',
+      'Supports filtering by bill type, status, date range, and text search (user email/name, POD/PDR number, supplier name).',
   })
   @ApiOkResponse({
     description: 'Paginated list of all bills',

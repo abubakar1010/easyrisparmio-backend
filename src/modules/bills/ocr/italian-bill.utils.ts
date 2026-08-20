@@ -342,7 +342,10 @@ export function getMissingMandatoryFields(
   if (result.taxes == null) missing.push('taxes');
   if (!result.billingPeriodStart) missing.push('billingPeriodStart');
   if (!result.billingPeriodEnd) missing.push('billingPeriodEnd');
-  if (!result.supplyAddress) missing.push('supplyAddress');
+  // Street and city are what the switch actually needs; a bill that gave up
+  // only a CAP or a province has not really given up an address. Reported under
+  // the one name `supplyAddress` so the second pass asks for the whole block.
+  if (!result.supplyStreet || !result.supplyCity) missing.push('supplyAddress');
   if (!result.codiceFiscale && !result.partitaIva) missing.push('codiceFiscale/partitaIva');
 
   return missing;

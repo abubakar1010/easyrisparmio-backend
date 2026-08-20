@@ -109,6 +109,33 @@ export class EnergyBill extends BaseEntity {
   })
   taxes: number | null;
 
+  // ── Supply address ──
+  // Where the energy is delivered, split into the same five fields a case
+  // stores (street, civic number, city, CAP, province) so the address the OCR
+  // reads and the address the customer confirms have one shape end to end.
+
+  @Column({ name: 'supply_street', type: 'varchar', length: 255, nullable: true })
+  supplyStreet: string | null;
+
+  @Column({ name: 'supply_street_number', type: 'varchar', length: 20, nullable: true })
+  supplyStreetNumber: string | null;
+
+  @Column({ name: 'supply_city', type: 'varchar', length: 100, nullable: true })
+  supplyCity: string | null;
+
+  @Column({ name: 'supply_postal_code', type: 'varchar', length: 10, nullable: true })
+  supplyPostalCode: string | null;
+
+  @Column({ name: 'supply_province', type: 'varchar', length: 100, nullable: true })
+  supplyProvince: string | null;
+
+  /**
+   * The five fields above rendered as one line, kept in step with them on every
+   * write. Everything that only displays the address reads this, so the split
+   * stays invisible to the utilities list, the client drawer and the mobile
+   * bill card. On bills stored before the columns existed it is the only copy
+   * of the address there is.
+   */
   @Column({ name: 'supply_address', type: 'varchar', length: 500, nullable: true })
   supplyAddress: string | null;
 

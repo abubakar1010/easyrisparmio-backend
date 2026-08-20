@@ -8,6 +8,11 @@ import {
   FieldConfidence,
 } from '../dto/extract-bill.dto';
 import {
+  normalizePostalCode,
+  normalizeProvince,
+  reconcileAddress,
+} from '../../../common/utils/address.utils';
+import {
   parseItalianNumber,
   sanitizeString,
   validatePod,
@@ -79,6 +84,13 @@ Italian energy bills follow a semi-standard layout regulated by ARERA (Autorità
 **Supply Address (indirizzo di fornitura)**
 - Section: "Dati fornitura", "Indirizzo di fornitura", "Punto di fornitura", "Ubicazione fornitura"
 - This is where the energy is delivered, NOT the billing/postal address.
+- Return it BOTH as the single line exactly as printed (supplyAddress) AND split into five separate fields. Split it from the layout you can see — do not guess by cutting the string.
+  - supplyStreet: the street name WITHOUT the civic number, keeping the type prefix. "VIA ROMA 42/A" gives "Via Roma". Also: Corso, Piazza, Viale, Largo, Strada, Vicolo, Localita, Frazione, Contrada, Borgo.
+  - supplyStreetNumber: the civic number only — "42", "42/A", "42 bis", or "SNC" where the bill says so. Printed after the street or near "civico", "n.", "nr.".
+  - supplyCity: the town or city (comune). Where a bill prints a hamlet and a comune (e.g. "Loc. Sassa - L'Aquila"), the comune is the city.
+  - supplyPostalCode: the CAP — exactly 5 digits. Return null unless you can read all 5.
+  - supplyProvince: the two-letter sigla in capitals (MI, RM, NA). Bills print it in brackets after the city, e.g. "20121 MILANO (MI)". Where only the full name is printed ("Milano"), return the sigla for it.
+- Italian bills print this as "VIA ROMA 42 - 20121 MILANO (MI)", or across two lines with the street first and "CAP CITY (PR)" underneath.
 
 **Customer Name (intestatario)**
 - Section: "Dati cliente", "Intestatario", "Dati anagrafici del cliente"
@@ -134,7 +146,12 @@ Return a JSON object with exactly these fields (use null for any field you canno
   "taxes": number_or_null,
   "billingPeriodStart": "YYYY-MM-DD or null",
   "billingPeriodEnd": "YYYY-MM-DD or null",
-  "supplyAddress": "string or null",
+  "supplyAddress": "string or null — the full line as printed",
+  "supplyStreet": "string or null — street name without the civic number",
+  "supplyStreetNumber": "string or null — civic number only",
+  "supplyCity": "string or null",
+  "supplyPostalCode": "string or null — exactly 5 digits (CAP)",
+  "supplyProvince": "string or null — two-letter sigla, uppercase",
   "codiceFiscale": "string or null — exactly 16 alphanumeric chars",
   "partitaIva": "string or null — exactly 11 digits (strip IT prefix)",
   "contractNumber": "string or null",
@@ -153,6 +170,11 @@ Return a JSON object with exactly these fields (use null for any field you canno
     "billingPeriodStart": "high|medium|low|null",
     "billingPeriodEnd": "high|medium|low|null",
     "supplyAddress": "high|medium|low|null",
+    "supplyStreet": "high|medium|low|null",
+    "supplyStreetNumber": "high|medium|low|null",
+    "supplyCity": "high|medium|low|null",
+    "supplyPostalCode": "high|medium|low|null",
+    "supplyProvince": "high|medium|low|null",
     "codiceFiscale": "high|medium|low|null",
     "partitaIva": "high|medium|low|null",
     "contractNumber": "high|medium|low|null",
@@ -195,7 +217,7 @@ const FIELD_GUIDANCE: Record<string, string> = {
   billingPeriodEnd:
     'Billing Period End: The end date of the billing period. Look for "al DD/MM/YYYY" or the second date in a range.',
   supplyAddress:
-    'Supply Address (indirizzo di fornitura): The address where energy is delivered. Look in "Dati fornitura", "Ubicazione fornitura". NOT the postal/billing address.',
+    'Supply Address (indirizzo di fornitura): The address where energy is delivered. Look in "Dati fornitura", "Ubicazione fornitura" — NOT the postal/billing address. Return the full printed line as "supplyAddress" AND split it into "supplyStreet" (street name, no civic number), "supplyStreetNumber" (civic number only), "supplyCity" (the comune), "supplyPostalCode" (the 5-digit CAP) and "supplyProvince" (two-letter sigla, uppercase). Italian bills print it as "VIA ROMA 42 - 20121 MILANO (MI)", sometimes across two lines.',
   'codiceFiscale/partitaIva':
     'Tax Identifier: Look for EITHER Codice Fiscale (16 alphanumeric chars, near "C.F.", "Codice Fiscale") OR Partita IVA (11 digits, near "P.IVA", "Partita IVA"). Check "Dati cliente" or "Dati anagrafici" section.',
   codiceFiscale:
@@ -230,6 +252,11 @@ const EXTRACTION_RESPONSE_SCHEMA = {
         billingPeriodStart: { type: ['string', 'null'] },
         billingPeriodEnd: { type: ['string', 'null'] },
         supplyAddress: { type: ['string', 'null'] },
+        supplyStreet: { type: ['string', 'null'] },
+        supplyStreetNumber: { type: ['string', 'null'] },
+        supplyCity: { type: ['string', 'null'] },
+        supplyPostalCode: { type: ['string', 'null'] },
+        supplyProvince: { type: ['string', 'null'] },
         codiceFiscale: { type: ['string', 'null'] },
         partitaIva: { type: ['string', 'null'] },
         contractNumber: { type: ['string', 'null'] },
@@ -250,6 +277,11 @@ const EXTRACTION_RESPONSE_SCHEMA = {
             billingPeriodStart: CONFIDENCE_FIELD,
             billingPeriodEnd: CONFIDENCE_FIELD,
             supplyAddress: CONFIDENCE_FIELD,
+            supplyStreet: CONFIDENCE_FIELD,
+            supplyStreetNumber: CONFIDENCE_FIELD,
+            supplyCity: CONFIDENCE_FIELD,
+            supplyPostalCode: CONFIDENCE_FIELD,
+            supplyProvince: CONFIDENCE_FIELD,
             codiceFiscale: CONFIDENCE_FIELD,
             partitaIva: CONFIDENCE_FIELD,
             contractNumber: CONFIDENCE_FIELD,
@@ -260,6 +292,8 @@ const EXTRACTION_RESPONSE_SCHEMA = {
             'supplierName', 'podNumber', 'pdrNumber', 'totalAmount',
             'consumptionKwh', 'consumptionSmc', 'costPerUnit', 'fixedCharges',
             'taxes', 'billingPeriodStart', 'billingPeriodEnd', 'supplyAddress',
+            'supplyStreet', 'supplyStreetNumber', 'supplyCity',
+            'supplyPostalCode', 'supplyProvince',
             'codiceFiscale', 'partitaIva', 'contractNumber', 'meterNumber',
             'customerName',
           ],
@@ -270,6 +304,8 @@ const EXTRACTION_RESPONSE_SCHEMA = {
         'supplierName', 'podNumber', 'pdrNumber', 'totalAmount',
         'consumptionKwh', 'consumptionSmc', 'costPerUnit', 'fixedCharges',
         'taxes', 'billingPeriodStart', 'billingPeriodEnd', 'supplyAddress',
+        'supplyStreet', 'supplyStreetNumber', 'supplyCity',
+        'supplyPostalCode', 'supplyProvince',
         'codiceFiscale', 'partitaIva', 'contractNumber', 'meterNumber',
         'customerName', 'confidence',
       ],
@@ -283,8 +319,20 @@ const KNOWN_FIELDS = new Set([
   'supplierName', 'podNumber', 'pdrNumber', 'totalAmount',
   'consumptionKwh', 'consumptionSmc', 'costPerUnit', 'fixedCharges',
   'taxes', 'billingPeriodStart', 'billingPeriodEnd', 'supplyAddress',
+  'supplyStreet', 'supplyStreetNumber', 'supplyCity',
+  'supplyPostalCode', 'supplyProvince',
   'codiceFiscale', 'partitaIva', 'contractNumber', 'meterNumber',
   'customerName', 'confidence',
+]);
+
+/**
+ * The five parts of the supply address. `supplyAddress` is deliberately not one
+ * of them: it is the whole address, and the overall-confidence score counts it
+ * once on their behalf.
+ */
+const ADDRESS_PART_FIELDS = new Set([
+  'supplyStreet', 'supplyStreetNumber', 'supplyCity',
+  'supplyPostalCode', 'supplyProvince',
 ]);
 
 // ─── Service ───────────────────────────────────────────────
@@ -494,11 +542,18 @@ export class VisionOcrService {
       .join('\n');
 
     const fieldNames = missingFields
-      .map((f) =>
-        f === 'codiceFiscale/partitaIva'
-          ? '"codiceFiscale", "partitaIva"'
-          : `"${f}"`,
-      )
+      .map((f) => {
+        if (f === 'codiceFiscale/partitaIva') {
+          return '"codiceFiscale", "partitaIva"';
+        }
+        // The address is one field to the caller but six on the wire: asking
+        // only for the line would come back unsplit and land the admin with a
+        // blank street, city and CAP to type out.
+        if (f === 'supplyAddress') {
+          return '"supplyAddress", "supplyStreet", "supplyStreetNumber", "supplyCity", "supplyPostalCode", "supplyProvince"';
+        }
+        return `"${f}"`;
+      })
       .join(', ');
 
     const secondPassPrompt = `You are re-examining an Italian energy bill because the following fields were NOT found in the first analysis attempt. Look MORE CAREFULLY at ALL pages, including fine print, footnotes, headers, sidebars, and secondary pages.
@@ -573,6 +628,13 @@ Return ONLY the JSON object, no other text.`;
     let billingPeriodStart = sanitizeString(parsed.billingPeriodStart);
     let billingPeriodEnd = sanitizeString(parsed.billingPeriodEnd);
     const supplyAddress = sanitizeString(parsed.supplyAddress);
+    const supplyStreet = sanitizeString(parsed.supplyStreet);
+    const supplyStreetNumber = sanitizeString(parsed.supplyStreetNumber);
+    const supplyCity = sanitizeString(parsed.supplyCity);
+    // A CAP that is not five digits is dropped rather than kept partial — it
+    // would sit in the form looking filled in and reach the supplier unchecked.
+    const supplyPostalCode = normalizePostalCode(sanitizeString(parsed.supplyPostalCode));
+    const supplyProvince = normalizeProvince(sanitizeString(parsed.supplyProvince));
     let codiceFiscale = sanitizeString(parsed.codiceFiscale);
     let partitaIva = sanitizeString(parsed.partitaIva);
     const contractNumber = sanitizeString(parsed.contractNumber);
@@ -633,6 +695,8 @@ Return ONLY the JSON object, no other text.`;
       'supplierName', 'podNumber', 'pdrNumber', 'totalAmount',
       'consumptionKwh', 'consumptionSmc', 'costPerUnit', 'fixedCharges',
       'taxes', 'billingPeriodStart', 'billingPeriodEnd', 'supplyAddress',
+      'supplyStreet', 'supplyStreetNumber', 'supplyCity',
+      'supplyPostalCode', 'supplyProvince',
       'codiceFiscale', 'partitaIva', 'contractNumber', 'meterNumber',
       'customerName',
     ] as const;
@@ -661,10 +725,8 @@ Return ONLY the JSON object, no other text.`;
     fixedCharges = derivable.fixedCharges;
     taxes = derivable.taxes;
 
-    // 7. Compute overall confidence
-    const overallConfidence = this.computeOverallConfidence(confidence);
-
-    return {
+    // 7. Assemble, reconcile the supply address, then score
+    const result: BillExtractionResult = {
       supplierName: supplierName ?? null,
       podNumber: podNumber ?? null,
       pdrNumber: pdrNumber ?? null,
@@ -677,15 +739,71 @@ Return ONLY the JSON object, no other text.`;
       billingPeriodStart: billingPeriodStart ?? null,
       billingPeriodEnd: billingPeriodEnd ?? null,
       supplyAddress: supplyAddress ?? null,
+      supplyStreet: supplyStreet ?? null,
+      supplyStreetNumber: supplyStreetNumber ?? null,
+      supplyCity: supplyCity ?? null,
+      supplyPostalCode: supplyPostalCode ?? null,
+      supplyProvince: supplyProvince ?? null,
       codiceFiscale: codiceFiscale ?? null,
       partitaIva: partitaIva ?? null,
       contractNumber: contractNumber ?? null,
       meterNumber: meterNumber ?? null,
       customerName: customerName ?? null,
       confidence,
-      overallConfidence,
+      overallConfidence: 'low',
       rawResponse: parsed,
     };
+
+    this.reconcileSupplyAddress(result);
+    result.overallConfidence = this.computeOverallConfidence(result.confidence);
+
+    return result;
+  }
+
+  // ─── Private: Supply Address Reconciliation ──────────────
+
+  /**
+   * Makes the printed line and its five parts agree.
+   *
+   * The model is asked for both, and either half can come back alone: a second
+   * pass answers narrowly, and a bill that prints the address as free text gets
+   * a line but no clean split. Whichever half is missing is derived from the
+   * other, so a bill never reaches the admin with an address it holds in a form
+   * nothing can edit.
+   *
+   * The parts are the source of truth once they exist — the line is only ever
+   * rendered from them, which is what keeps the two from drifting apart on
+   * later edits.
+   */
+  private reconcileSupplyAddress(result: BillExtractionResult): void {
+    const { line, parts, recovered } = reconcileAddress(result.supplyAddress, {
+      street: result.supplyStreet,
+      streetNumber: result.supplyStreetNumber,
+      city: result.supplyCity,
+      postalCode: result.supplyPostalCode,
+      province: result.supplyProvince,
+    });
+
+    result.supplyAddress = line;
+    result.supplyStreet = parts.street;
+    result.supplyStreetNumber = parts.streetNumber;
+    result.supplyCity = parts.city;
+    result.supplyPostalCode = parts.postalCode;
+    result.supplyProvince = parts.province;
+
+    if (recovered.length === 0) return;
+
+    // A split guessed from punctuation is never as good as one the model read
+    // off the layout, however clear the line itself was. Marking the recovered
+    // parts "low" is what puts the warning badge in front of the admin.
+    for (const key of recovered) {
+      const field = `supply${key[0].toUpperCase()}${key.slice(1)}`;
+      (result.confidence as any)[field] = 'low';
+    }
+
+    this.logger.debug(
+      `Recovered ${recovered.join(', ')} by splitting the printed supply address`,
+    );
   }
 
   // ─── Private: Merge Second Pass Results ──────────────────
@@ -700,7 +818,9 @@ Return ONLY the JSON object, no other text.`;
     const stringFields = [
       'supplierName', 'podNumber', 'pdrNumber',
       'billingPeriodStart', 'billingPeriodEnd',
-      'supplyAddress', 'codiceFiscale', 'partitaIva',
+      'supplyAddress', 'supplyStreet', 'supplyStreetNumber', 'supplyCity',
+      'supplyPostalCode', 'supplyProvince',
+      'codiceFiscale', 'partitaIva',
       'contractNumber', 'meterNumber', 'customerName',
     ] as const;
 
@@ -719,6 +839,8 @@ Return ONLY the JSON object, no other text.`;
         else if (field === 'pdrNumber') val = validatePdr(val);
         else if (field === 'codiceFiscale') val = validateCodiceFiscale(val);
         else if (field === 'partitaIva') val = validatePartitaIva(val);
+        else if (field === 'supplyPostalCode') val = normalizePostalCode(val);
+        else if (field === 'supplyProvince') val = normalizeProvince(val);
         else if (field === 'billingPeriodStart' || field === 'billingPeriodEnd')
           val = validateAndNormalizeDate(val);
 
@@ -762,6 +884,10 @@ Return ONLY the JSON object, no other text.`;
     result.costPerUnit = derivable.costPerUnit;
     result.fixedCharges = derivable.fixedCharges;
     result.taxes = derivable.taxes;
+
+    // The second pass may have supplied the line, some of the parts, or both —
+    // reconcile again so they still describe the same address.
+    this.reconcileSupplyAddress(result);
 
     // Fix date ordering after merge
     if (
@@ -823,9 +949,13 @@ Return ONLY the JSON object, no other text.`;
   private computeOverallConfidence(
     confidence: FieldConfidence,
   ): 'high' | 'medium' | 'low' {
-    const confValues = Object.values(confidence).filter(
-      (v) => v != null,
-    ) as string[];
+    // The five address parts are excluded on purpose. They describe the same
+    // one thing `supplyAddress` already stands for, and counting them would let
+    // a single well-read address outvote every other field on the bill.
+    const confValues = Object.entries(confidence)
+      .filter(([field]) => !ADDRESS_PART_FIELDS.has(field))
+      .map(([, value]) => value)
+      .filter((v) => v != null) as string[];
     if (confValues.length === 0) return 'low';
 
     const highCount = confValues.filter((v) => v === 'high').length;

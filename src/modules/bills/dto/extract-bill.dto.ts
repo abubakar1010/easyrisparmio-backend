@@ -21,6 +21,11 @@ export class FieldConfidence {
   billingPeriodStart?: 'high' | 'medium' | 'low' | null;
   billingPeriodEnd?: 'high' | 'medium' | 'low' | null;
   supplyAddress?: 'high' | 'medium' | 'low' | null;
+  supplyStreet?: 'high' | 'medium' | 'low' | null;
+  supplyStreetNumber?: 'high' | 'medium' | 'low' | null;
+  supplyCity?: 'high' | 'medium' | 'low' | null;
+  supplyPostalCode?: 'high' | 'medium' | 'low' | null;
+  supplyProvince?: 'high' | 'medium' | 'low' | null;
   codiceFiscale?: 'high' | 'medium' | 'low' | null;
   partitaIva?: 'high' | 'medium' | 'low' | null;
   contractNumber?: 'high' | 'medium' | 'low' | null;
@@ -40,7 +45,13 @@ export class BillExtractionResult {
   @ApiPropertyOptional() taxes?: number | null;
   @ApiPropertyOptional() billingPeriodStart?: string | null;
   @ApiPropertyOptional() billingPeriodEnd?: string | null;
-  @ApiPropertyOptional() supplyAddress?: string | null;
+  @ApiPropertyOptional({ description: 'Supply address rendered as one line, composed from the five fields below' })
+  supplyAddress?: string | null;
+  @ApiPropertyOptional() supplyStreet?: string | null;
+  @ApiPropertyOptional() supplyStreetNumber?: string | null;
+  @ApiPropertyOptional() supplyCity?: string | null;
+  @ApiPropertyOptional() supplyPostalCode?: string | null;
+  @ApiPropertyOptional() supplyProvince?: string | null;
   @ApiPropertyOptional() codiceFiscale?: string | null;
   @ApiPropertyOptional() partitaIva?: string | null;
   @ApiPropertyOptional() contractNumber?: string | null;

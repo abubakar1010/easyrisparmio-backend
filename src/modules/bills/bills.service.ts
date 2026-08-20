@@ -4,9 +4,10 @@ import {
   ForbiddenException,
   BadRequestException,
   Logger,
+  OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, IsNull, Not, Repository } from 'typeorm';
 import { EnergyBill } from './entities/energy-bill.entity';
 import { BillFile } from './entities/bill-file.entity';
 import { BillNote } from './entities/bill-note.entity';
@@ -38,6 +39,14 @@ import {
   BILL_STATUS_LABELS,
   type TransitionDirection,
 } from '../../common/utils/bill-status-transitions';
+import {
+  composeAddressLine,
+  hasAddressParts,
+  normalizePostalCode,
+  normalizeProvince,
+  parseAddressLine,
+  reconcileAddress,
+} from '../../common/utils/address.utils';
 import { BILL_STATUS_NOTIFICATIONS } from '../notifications/notification-messages';
 import { CaseEvent } from '../cases/entities/case-event.entity';
 import { CaseEventType } from '../../common/enums/case-event.enum';
@@ -47,7 +56,7 @@ import { readFileSync } from 'fs';
 import { join, extname } from 'path';
 
 @Injectable()
-export class BillsService {
+export class BillsService implements OnModuleInit {
   private readonly logger = new Logger(BillsService.name);
 
   constructor(
@@ -75,6 +84,60 @@ export class BillsService {
     private readonly visionOcrService: VisionOcrService,
   ) {}
 
+  /**
+   * Splits the supply address on bills stored before the five fields existed.
+   *
+   * Those rows hold the address only as the line OCR read off the bill, so
+   * without this the admin opens the editor on a bill whose address is known
+   * and finds every field of it blank. It cannot go in `pre-sync`, which runs
+   * before the columns are created.
+   *
+   * Idempotent: a row is only touched while all five fields are still empty,
+   * and only when the split actually yields something, so a line nothing can be
+   * made of is passed over instead of being retried on every boot.
+   */
+  async onModuleInit(): Promise<void> {
+    try {
+      const pending = await this.billRepository.find({
+        where: {
+          supplyAddress: Not(IsNull()),
+          supplyStreet: IsNull(),
+          supplyStreetNumber: IsNull(),
+          supplyCity: IsNull(),
+          supplyPostalCode: IsNull(),
+          supplyProvince: IsNull(),
+        },
+        select: ['id', 'supplyAddress'],
+      });
+
+      if (pending.length === 0) return;
+
+      const updates = pending
+        .map((bill) => ({ id: bill.id, parts: parseAddressLine(bill.supplyAddress) }))
+        .filter(({ parts }) => hasAddressParts(parts));
+
+      for (const { id, parts } of updates) {
+        await this.billRepository.update(id, {
+          supplyStreet: parts.street,
+          supplyStreetNumber: parts.streetNumber,
+          supplyCity: parts.city,
+          supplyPostalCode: parts.postalCode,
+          supplyProvince: parts.province,
+        });
+      }
+
+      this.logger.log(
+        `Split the supply address on ${updates.length} of ${pending.length} bill(s) stored before the address fields existed`,
+      );
+    } catch (error: any) {
+      // Never blocks startup: the bills are still readable through the line
+      // they already carry, and the admin can fill the fields in by hand.
+      this.logger.warn(
+        `Could not backfill supply address fields: ${error?.message ?? error}`,
+      );
+    }
+  }
+
   // ─── Upload ───────────────────────────────────────────────
 
   async uploadBill(
@@ -100,6 +163,11 @@ export class BillsService {
       billingPeriodStart: dto.billingPeriodStart ? new Date(dto.billingPeriodStart) : undefined,
       billingPeriodEnd: dto.billingPeriodEnd ? new Date(dto.billingPeriodEnd) : undefined,
       supplyAddress: dto.supplyAddress,
+      supplyStreet: dto.supplyStreet,
+      supplyStreetNumber: dto.supplyStreetNumber,
+      supplyCity: dto.supplyCity,
+      supplyPostalCode: dto.supplyPostalCode,
+      supplyProvince: dto.supplyProvince,
       codiceFiscale: dto.codiceFiscale,
       partitaIva: dto.partitaIva,
       contractNumber: dto.contractNumber,
@@ -118,6 +186,8 @@ export class BillsService {
         source: 'manual-entry',
       },
     });
+
+    this.reconcileSupplyAddress(bill);
 
     const savedBill = await this.billRepository.save(bill);
 
@@ -233,6 +303,11 @@ export class BillsService {
         bill.billingPeriodEnd = result.billingPeriodEnd
           ? new Date(result.billingPeriodEnd) : null;
         bill.supplyAddress = result.supplyAddress ?? null;
+        bill.supplyStreet = result.supplyStreet ?? null;
+        bill.supplyStreetNumber = result.supplyStreetNumber ?? null;
+        bill.supplyCity = result.supplyCity ?? null;
+        bill.supplyPostalCode = result.supplyPostalCode ?? null;
+        bill.supplyProvince = result.supplyProvince ?? null;
         bill.codiceFiscale = result.codiceFiscale ?? null;
         bill.partitaIva = result.partitaIva ?? null;
         bill.contractNumber = result.contractNumber ?? null;
@@ -256,6 +331,11 @@ export class BillsService {
           bill.billingPeriodEnd = new Date(result.billingPeriodEnd);
         }
         if (result.supplyAddress) bill.supplyAddress = result.supplyAddress;
+        if (result.supplyStreet) bill.supplyStreet = result.supplyStreet;
+        if (result.supplyStreetNumber) bill.supplyStreetNumber = result.supplyStreetNumber;
+        if (result.supplyCity) bill.supplyCity = result.supplyCity;
+        if (result.supplyPostalCode) bill.supplyPostalCode = result.supplyPostalCode;
+        if (result.supplyProvince) bill.supplyProvince = result.supplyProvince;
         if (result.codiceFiscale) bill.codiceFiscale = result.codiceFiscale;
         if (result.partitaIva) bill.partitaIva = result.partitaIva;
         if (result.contractNumber) bill.contractNumber = result.contractNumber;
@@ -298,6 +378,36 @@ export class BillsService {
   }
 
   /**
+   * Fills in whichever half of the supply address is missing.
+   *
+   * A client may send the five fields, the single line, or both: the mobile app
+   * uploads a raw file and gets the address back from OCR already split, while
+   * an older client only knows about `supplyAddress`. Deriving the missing half
+   * means a bill is never stored holding an address in a shape the admin form
+   * cannot show or edit.
+   *
+   * Only for the create paths. Editing goes through `adminUpdateBill`, which
+   * decides direction from what the admin actually touched — clearing the five
+   * fields there has to clear the line, not repopulate them from it.
+   */
+  private reconcileSupplyAddress(bill: EnergyBill): void {
+    const { line, parts } = reconcileAddress(bill.supplyAddress, {
+      street: bill.supplyStreet,
+      streetNumber: bill.supplyStreetNumber,
+      city: bill.supplyCity,
+      postalCode: bill.supplyPostalCode,
+      province: bill.supplyProvince,
+    });
+
+    bill.supplyAddress = line;
+    bill.supplyStreet = parts.street;
+    bill.supplyStreetNumber = parts.streetNumber;
+    bill.supplyCity = parts.city;
+    bill.supplyPostalCode = parts.postalCode;
+    bill.supplyProvince = parts.province;
+  }
+
+  /**
    * Resets all OCR-extractable fields to null so a re-upload starts fresh.
    */
   private clearExtractedData(bill: EnergyBill): void {
@@ -312,6 +422,11 @@ export class BillsService {
     bill.billingPeriodStart = null;
     bill.billingPeriodEnd = null;
     bill.supplyAddress = null;
+    bill.supplyStreet = null;
+    bill.supplyStreetNumber = null;
+    bill.supplyCity = null;
+    bill.supplyPostalCode = null;
+    bill.supplyProvince = null;
     bill.codiceFiscale = null;
     bill.partitaIva = null;
     bill.contractNumber = null;
@@ -395,7 +510,7 @@ export class BillsService {
 
     if (query.search) {
       qb.andWhere(
-        '(user.email ILIKE :search OR user.firstName ILIKE :search OR user.lastName ILIKE :search OR bill.podNumber ILIKE :search OR bill.pdrNumber ILIKE :search)',
+        '(user.email ILIKE :search OR user.firstName ILIKE :search OR user.lastName ILIKE :search OR bill.podNumber ILIKE :search OR bill.pdrNumber ILIKE :search OR bill.supplierName ILIKE :search OR supplier.name ILIKE :search)',
         { search: `%${query.search}%` },
       );
     }
@@ -423,6 +538,12 @@ export class BillsService {
 
   // ─── Admin Update Bill ────────────────────────────────────
 
+  /** The five fields the supply address is stored as, in display order. */
+  private static readonly SUPPLY_ADDRESS_PARTS = [
+    'supplyStreet', 'supplyStreetNumber', 'supplyCity',
+    'supplyPostalCode', 'supplyProvince',
+  ] as const;
+
   private static readonly FIELD_LABELS_IT: Record<string, string> = {
     billType: 'Tipo bolletta',
     podNumber: 'Numero POD',
@@ -436,6 +557,11 @@ export class BillsService {
     billingPeriodStart: 'Inizio periodo',
     billingPeriodEnd: 'Fine periodo',
     supplyAddress: 'Indirizzo fornitura',
+    supplyStreet: 'Indirizzo fornitura — via',
+    supplyStreetNumber: 'Indirizzo fornitura — civico',
+    supplyCity: 'Indirizzo fornitura — comune',
+    supplyPostalCode: 'Indirizzo fornitura — CAP',
+    supplyProvince: 'Indirizzo fornitura — provincia',
     codiceFiscale: 'Codice Fiscale',
     partitaIva: 'Partita IVA',
     contractNumber: 'Numero contratto',
@@ -466,6 +592,11 @@ export class BillsService {
       const oldVal = (bill as any)[key];
       let newVal = dto[key];
 
+      // Normalise before the diff, so re-saving " MI " is not recorded as a
+      // change and a CAP that is not five digits is refused rather than stored.
+      if (key === 'supplyProvince') newVal = normalizeProvince(newVal);
+      else if (key === 'supplyPostalCode') newVal = normalizePostalCode(newVal);
+
       if (dateFields.includes(key)) {
         const oldNorm = oldVal ? new Date(oldVal).toISOString().split('T')[0] : null;
         const newNorm = newVal ? new Date(newVal).toISOString().split('T')[0] : null;
@@ -485,6 +616,39 @@ export class BillsService {
         changes[key] = { old: oldStr, new: newStr };
         (bill as any)[key] = newVal;
       }
+    }
+
+    // The five fields and the rendered line are two views of one address, so
+    // whichever the admin edited drives the other. The direction matters:
+    // clearing the five fields has to clear the line too, and re-splitting the
+    // line instead would put straight back what was just removed.
+    const setDerived = (field: string, value: string | null): void => {
+      const previous = (bill as any)[field] ?? null;
+      if (previous === value) return;
+      changes[field] = { old: previous, new: value };
+      (bill as any)[field] = value;
+    };
+
+    if (BillsService.SUPPLY_ADDRESS_PARTS.some((field) => field in changes)) {
+      setDerived(
+        'supplyAddress',
+        composeAddressLine({
+          street: bill.supplyStreet,
+          streetNumber: bill.supplyStreetNumber,
+          city: bill.supplyCity,
+          postalCode: bill.supplyPostalCode,
+          province: bill.supplyProvince,
+        }),
+      );
+    } else if ('supplyAddress' in changes) {
+      // Only older clients still send the line on its own. Splitting it keeps
+      // the five fields from going stale against an address that just moved.
+      const parsed = parseAddressLine(bill.supplyAddress);
+      setDerived('supplyStreet', parsed.street);
+      setDerived('supplyStreetNumber', parsed.streetNumber);
+      setDerived('supplyCity', parsed.city);
+      setDerived('supplyPostalCode', parsed.postalCode);
+      setDerived('supplyProvince', parsed.province);
     }
 
     if (Object.keys(changes).length === 0) {
@@ -644,6 +808,11 @@ export class BillsService {
       savedBill.billingPeriodEnd = extractedData.billingPeriodEnd
         ? new Date(extractedData.billingPeriodEnd) : savedBill.billingPeriodEnd;
       savedBill.supplyAddress = extractedData.supplyAddress || savedBill.supplyAddress;
+      savedBill.supplyStreet = extractedData.supplyStreet || savedBill.supplyStreet;
+      savedBill.supplyStreetNumber = extractedData.supplyStreetNumber || savedBill.supplyStreetNumber;
+      savedBill.supplyCity = extractedData.supplyCity || savedBill.supplyCity;
+      savedBill.supplyPostalCode = extractedData.supplyPostalCode || savedBill.supplyPostalCode;
+      savedBill.supplyProvince = extractedData.supplyProvince || savedBill.supplyProvince;
       savedBill.codiceFiscale = extractedData.codiceFiscale || savedBill.codiceFiscale;
       savedBill.partitaIva = extractedData.partitaIva || savedBill.partitaIva;
       savedBill.contractNumber = extractedData.contractNumber || savedBill.contractNumber;
@@ -661,6 +830,11 @@ export class BillsService {
         source: 'openai-vision',
         model: 'gpt-4o',
       };
+
+      // `extractedData` is normally handed straight back from POST /bills/extract
+      // and already consistent, but it arrives as a JSON string the admin client
+      // assembles, so the line and the five fields are squared up again here.
+      this.reconcileSupplyAddress(savedBill);
 
       savedBill.status = BillStatus.VERIFICATION_REVIEW;
       await this.billRepository.save(savedBill);
@@ -712,6 +886,11 @@ export class BillsService {
       pendingBill.billingPeriodStart = bill.billingPeriodStart || pendingBill.billingPeriodStart;
       pendingBill.billingPeriodEnd = bill.billingPeriodEnd || pendingBill.billingPeriodEnd;
       pendingBill.supplyAddress = bill.supplyAddress || pendingBill.supplyAddress;
+      pendingBill.supplyStreet = bill.supplyStreet || pendingBill.supplyStreet;
+      pendingBill.supplyStreetNumber = bill.supplyStreetNumber || pendingBill.supplyStreetNumber;
+      pendingBill.supplyCity = bill.supplyCity || pendingBill.supplyCity;
+      pendingBill.supplyPostalCode = bill.supplyPostalCode || pendingBill.supplyPostalCode;
+      pendingBill.supplyProvince = bill.supplyProvince || pendingBill.supplyProvince;
       pendingBill.codiceFiscale = bill.codiceFiscale || pendingBill.codiceFiscale;
       pendingBill.partitaIva = bill.partitaIva || pendingBill.partitaIva;
       pendingBill.contractNumber = bill.contractNumber || pendingBill.contractNumber;

@@ -24,6 +24,8 @@ import { UserRole } from '../../common/enums/role.enum';
 import { DocumentType } from '../../common/enums/user.enum';
 import { BillStatus, BillType } from '../../common/enums/bill.enum';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AdminNotificationsService } from '../notifications/admin-notifications.service';
+import { BILL_STATUS_NOTIFICATIONS } from '../notifications/notification-messages';
 import { NotificationType } from '../../common/enums/notification.enum';
 import { SupplierStatus } from '../../common/enums/supplier.enum';
 import { OfferPaymentMethod } from '../../common/enums/offer.enum';
@@ -65,6 +67,7 @@ export class CasesService {
     @InjectRepository(SentOffer)
     private readonly sentOfferRepository: Repository<SentOffer>,
     private readonly notificationsService: NotificationsService,
+    private readonly adminNotifications: AdminNotificationsService,
   ) {}
 
   async createCase(
@@ -147,9 +150,48 @@ export class CasesService {
     bill.status = BillStatus.OFFER_ACCEPTED;
     await this.billRepository.save(bill);
 
+    // The bill is moved straight to OFFER_ACCEPTED here instead of going
+    // through BillsService.transitionBillStatus, so the customer notification
+    // that transition would have raised has to be sent explicitly. Without
+    // this the customer hears nothing back after accepting an offer.
+    const billNotification =
+      BILL_STATUS_NOTIFICATIONS[BillStatus.OFFER_ACCEPTED];
+    if (billNotification) {
+      try {
+        await this.notificationsService.sendNotification({
+          userId,
+          messageKey: billNotification.messageKey,
+          type: billNotification.type,
+          data: { billId: bill.id, caseId: saved.id },
+        });
+      } catch (error) {
+        this.logger.warn(
+          `Failed to send offer accepted notification: ${error?.message || error}`,
+        );
+      }
+    }
+
     await this.logEvent(saved.id, CaseEventType.STATUS_CHANGE, 'Case created', {
       newStatus: CaseStatus.NEW,
       actorId: userId,
+    });
+
+    await this.adminNotifications.notifyAdmins({
+      messageKey: 'admin_offer_accepted',
+      type: NotificationType.ADMIN_OFFER_ACCEPTED,
+      bodyParams: [
+        await this.adminNotifications.describeUser(userId),
+        offer.supplier?.name || 'fornitore',
+        saved.caseNumber,
+      ],
+      data: {
+        caseId: saved.id,
+        billId: saved.billId,
+        offerId: saved.selectedOfferId,
+        userId,
+        entityType: 'case',
+        entityId: saved.id,
+      },
     });
 
     return this.getCaseById(saved.id, { id: userId, role: UserRole.ADMIN });
@@ -477,6 +519,26 @@ export class CasesService {
         );
       }
 
+      // Other admins hear about the move; the one who made it does not.
+      await this.adminNotifications.notifyAdmins({
+        messageKey: 'admin_case_status_changed',
+        type: NotificationType.ADMIN_CASE,
+        bodyParams: [
+          switchCase.caseNumber,
+          dto.status,
+          await this.adminNotifications.describeUser(actorId),
+        ],
+        data: {
+          caseId: id,
+          billId: switchCase.billId,
+          userId: switchCase.userId,
+          oldStatus,
+          newStatus: dto.status,
+          entityType: 'case',
+          entityId: id,
+        },
+        actorId,
+      });
     }
 
     // Log agent assignment event
@@ -518,6 +580,26 @@ export class CasesService {
     await this.logEvent(caseId, CaseEventType.DOCUMENT_UPLOADED, `Document uploaded: ${fileName}`, {
       actorId: uploadedById,
       metadata: { documentType, fileName },
+    });
+
+    // An admin uploading on the customer's behalf is not news to themselves.
+    await this.adminNotifications.notifyAdmins({
+      messageKey: 'admin_document_uploaded',
+      type: NotificationType.ADMIN_DOCUMENT,
+      bodyParams: [
+        await this.adminNotifications.describeUser(uploadedById),
+        documentType,
+        switchCase.caseNumber,
+      ],
+      data: {
+        caseId,
+        documentId: saved.id,
+        documentType,
+        userId: switchCase.userId,
+        entityType: 'case',
+        entityId: caseId,
+      },
+      actorId: uploadedById,
     });
 
     return saved;

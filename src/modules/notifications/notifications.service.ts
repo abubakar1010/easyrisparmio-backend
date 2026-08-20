@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { getApps } from 'firebase-admin/app';
@@ -10,7 +11,7 @@ import { SendNotificationDto } from './dto/send-notification.dto';
 import { QueryNotificationsDto } from './dto/query-notifications.dto';
 import { QueryAdminNotificationsDto } from './dto/query-admin-notifications.dto';
 import { PaginatedResponseDto } from '../../common/dto/pagination.dto';
-import { Platform, } from '../../common/enums/notification.enum';
+import { Platform } from '../../common/enums/notification.enum';
 import { LanguagePref } from '../../common/enums/language.enum';
 import { getNotificationText, MessageKey } from './notification-messages';
 
@@ -25,6 +26,7 @@ export class NotificationsService {
     private readonly pushTokenRepository: Repository<PushToken>,
     @InjectRepository(UserPreference)
     private readonly preferenceRepository: Repository<UserPreference>,
+    private readonly configService: ConfigService,
   ) {}
 
   private async getUserLanguage(userId: string): Promise<'it' | 'en'> {
@@ -80,11 +82,12 @@ export class NotificationsService {
 
     // Fire-and-forget FCM push delivery (per-user text for i18n)
     try {
-      if (perUserText.size > 0) {
-        await this.sendPushToUsersI18n(userIds, perUserText, dto.data);
-      } else {
-        await this.sendPushToUsers(userIds, dto.title!, dto.body!, dto.data);
-      }
+      const fallbackText = { title: dto.title || '', body: dto.body || '' };
+      await this.deliverPush(
+        userIds,
+        (uid) => perUserText.get(uid) || fallbackText,
+        dto.data,
+      );
     } catch (error) {
       this.logger.warn(`FCM push delivery failed: ${error?.message || error}`);
     }
@@ -236,61 +239,41 @@ export class NotificationsService {
     await this.pushTokenRepository.save(pushToken);
   }
 
-  private async sendPushToUsers(
-    userIds: string[],
-    title: string,
-    body: string,
+  /** FCM rejects non-string `data` values, so everything is serialised. */
+  private buildDataPayload(
     data?: Record<string, any>,
-  ): Promise<void> {
-    const apps = getApps();
-    if (!apps.length) return;
-
-    const tokens = await this.pushTokenRepository.find({
-      where: { userId: In(userIds), isActive: true },
-    });
-
-    if (!tokens.length) return;
-
-    const messaging = getMessaging(apps[0]);
-    const messages = tokens.map((pt) => ({
-      token: pt.token,
-      notification: { title, body },
-      data: data
-        ? Object.fromEntries(
-            Object.entries(data).map(([k, v]) => [
-              k,
-              typeof v === 'string' ? v : JSON.stringify(v),
-            ]),
-          )
-        : undefined,
-    }));
-
-    const result = await messaging.sendEach(messages);
-
-    // Deactivate tokens that are permanently invalid
-    const invalidTokenIds: string[] = [];
-    result.responses.forEach((r, i) => {
-      if (
-        !r.success &&
-        r.error?.code === 'messaging/registration-token-not-registered'
-      ) {
-        invalidTokenIds.push(tokens[i].id);
-      }
-    });
-
-    if (invalidTokenIds.length) {
-      await this.pushTokenRepository.update(invalidTokenIds, {
-        isActive: false,
-      });
-      this.logger.log(
-        `Deactivated ${invalidTokenIds.length} invalid push token(s)`,
-      );
-    }
+  ): Record<string, string> | undefined {
+    if (!data) return undefined;
+    return Object.fromEntries(
+      Object.entries(data).map(([k, v]) => [
+        k,
+        typeof v === 'string' ? v : JSON.stringify(v),
+      ]),
+    );
   }
 
-  private async sendPushToUsersI18n(
+  /**
+   * Where clicking a desktop notification lands.
+   *
+   * Deliberately always the notification centre rather than the entity: the
+   * entity-to-route mapping lives in the dashboard, and duplicating it here
+   * would leave two copies to drift apart. The dashboard deep-links onward.
+   */
+  private webPushLink(): string {
+    const raw = this.configService.get<string>('app.dashboardUrl') || '';
+    const base = raw.endsWith('/') ? raw.slice(0, -1) : raw;
+    return `${base}/notifications`;
+  }
+
+  /**
+   * Delivers a push to every active device of every listed user.
+   *
+   * `textFor` is resolved per token, so one code path serves both a single
+   * shared title/body and a per-recipient translation.
+   */
+  private async deliverPush(
     userIds: string[],
-    perUserText: Map<string, { title: string; body: string }>,
+    textFor: (userId: string) => { title: string; body: string },
     data?: Record<string, any>,
   ): Promise<void> {
     const apps = getApps();
@@ -302,39 +285,36 @@ export class NotificationsService {
 
     if (!tokens.length) return;
 
-    const dataPayload = data
-      ? Object.fromEntries(
-          Object.entries(data).map(([k, v]) => [
-            k,
-            typeof v === 'string' ? v : JSON.stringify(v),
-          ]),
-        )
-      : undefined;
-
+    const dataPayload = this.buildDataPayload(data);
     const messaging = getMessaging(apps[0]);
+
     const messages = tokens.map((pt) => {
-      const text = perUserText.get(pt.userId) || {
-        title: 'Notification',
-        body: '',
-      };
+      const text = textFor(pt.userId);
       return {
         token: pt.token,
         notification: { title: text.title, body: text.body },
         data: dataPayload,
+        // Browsers ignore FCM's click_action; a web target needs the link in
+        // the webpush block instead.
+        ...(pt.platform === Platform.WEB
+          ? { webpush: { fcmOptions: { link: this.webPushLink() } } }
+          : {}),
       };
     });
 
     const result = await messaging.sendEach(messages);
 
-    const invalidTokenIds: string[] = [];
-    result.responses.forEach((r, i) => {
+    // Drop tokens FCM reports as permanently gone (uninstalled app, revoked
+    // browser permission) so they stop costing a send every time.
+    const invalidTokenIds = result.responses.reduce<string[]>((ids, r, i) => {
       if (
         !r.success &&
         r.error?.code === 'messaging/registration-token-not-registered'
       ) {
-        invalidTokenIds.push(tokens[i].id);
+        ids.push(tokens[i].id);
       }
-    });
+      return ids;
+    }, []);
 
     if (invalidTokenIds.length) {
       await this.pushTokenRepository.update(invalidTokenIds, {

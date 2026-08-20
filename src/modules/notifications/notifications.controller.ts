@@ -31,7 +31,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserRole } from '../../common/enums/role.enum';
-import { Platform } from '../../common/enums/notification.enum';
+import { RegisterPushTokenDto } from './dto/register-push-token.dto';
 
 @ApiTags('Notifications')
 @Controller('notifications')
@@ -253,25 +253,7 @@ export class NotificationsController {
       'If the token already exists, it is updated with the current user and platform. ' +
       'Each device should register its token on app startup.',
   })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      required: ['token', 'platform'],
-      properties: {
-        token: {
-          type: 'string',
-          description: 'FCM device push token',
-          example: 'fMI-EXAMPLE-TOKEN_abc123xyz...',
-        },
-        platform: {
-          type: 'string',
-          enum: ['ios', 'android'],
-          description: 'Device platform',
-          example: 'ios',
-        },
-      },
-    },
-  })
+  @ApiBody({ type: RegisterPushTokenDto })
   @ApiCreatedResponse({
     description: 'Push token registered successfully',
     content: {
@@ -319,10 +301,13 @@ export class NotificationsController {
   })
   registerPushToken(
     @CurrentUser('id') userId: string,
-    @Body('token') token: string,
-    @Body('platform') platform: Platform,
+    @Body() dto: RegisterPushTokenDto,
   ) {
-    return this.notificationsService.registerPushToken(userId, token, platform);
+    return this.notificationsService.registerPushToken(
+      userId,
+      dto.token,
+      dto.platform,
+    );
   }
 
   @Delete('push-token/:token')

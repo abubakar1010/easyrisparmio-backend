@@ -16,3 +16,4 @@ export * from './alert.enum';
 export * from './reconciliation.enum';
 export * from './referral.enum';
 export * from './supplier.enum';
+export * from './legal.enum';

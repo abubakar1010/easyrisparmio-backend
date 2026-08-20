@@ -32,6 +32,7 @@ import { ReconciliationModule } from './modules/reconciliation/reconciliation.mo
 import { ReferralsModule } from './modules/referrals/referrals.module';
 import { AgreementsModule } from './modules/agreements/agreements.module';
 import { StaticPagesModule } from './modules/static-pages/static-pages.module';
+import { LegalModule } from './modules/legal/legal.module';
 import { EmailModule } from './modules/email/email.module';
 import { DeepLinkModule } from './modules/deep-link/deep-link.module';
 
@@ -124,6 +125,7 @@ import { DeepLinkModule } from './modules/deep-link/deep-link.module';
     ReferralsModule,
     AgreementsModule,
     StaticPagesModule,
+    LegalModule,
     DeepLinkModule,
   ],
 })

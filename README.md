@@ -31,7 +31,7 @@ Serves a mobile app (personal and business users) and an admin web panel for man
 | ORM              | TypeORM                             |
 | Authentication   | Passport.js (JWT + Local strategy)  |
 | Social Login     | Firebase Admin SDK                  |
-| Email            | Nodemailer (SMTP) / Resend (API)    |
+| Email            | Nodemailer (SMTP, authenticated)     |
 | Validation       | class-validator / class-transformer |
 | Documentation    | Swagger (OpenAPI)                   |
 | Rate Limiting    | @nestjs/throttler                   |
@@ -71,17 +71,48 @@ cp .env.example .env
 
 Edit `.env` with your database credentials, JWT secrets, and other configuration values.
 
-### 4. Start local services (PostgreSQL + MailHog)
+### 4. Start PostgreSQL
 
 ```bash
 docker compose up -d
 ```
 
-This starts:
-- **PostgreSQL** on port `5433`
-- **MailHog** SMTP on port `1026`, Web UI on [http://localhost:4000](http://localhost:4000)
+This starts **PostgreSQL** on port `5433`.
 
-### 5. Run the development server
+### 5. Configure email delivery
+
+OTP codes for registration and password reset go out over authenticated SMTP.
+There is no separate development transport — the same relay is used everywhere.
+
+For Gmail or Google Workspace:
+
+1. Turn on 2-Step Verification for the sending account.
+2. Create an App Password at **myaccount.google.com → Security → App passwords**.
+3. Put the account and that 16-character password in `.env`:
+
+```ini
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=noreply@yourdomain.it
+SMTP_PASSWORD=xxxxxxxxxxxxxxxx
+```
+
+Gmail rewrites the `From` header to `SMTP_USER` unless the address is a verified
+**Send mail as** alias, so leave `EMAIL_FROM` empty unless you have added and
+verified one under Gmail → Settings → Accounts and Import.
+
+Confirm delivery before going further:
+
+```bash
+npm run email:test -- you@example.com
+```
+
+Leaving `SMTP_HOST` empty is supported in development only: OTP codes are then
+printed to the server console instead of being delivered. In any other
+environment an unconfigured relay makes the OTP endpoints return 503.
+
+### 6. Run the development server
 
 ```bash
 npm run start:dev
@@ -100,8 +131,8 @@ See [`.env.example`](.env.example) for all available variables. Key groups:
 | `APP_*`           | Port, environment, app name                         |
 | `DATABASE_URL`    | PostgreSQL connection string                        |
 | `JWT_*`           | Access & refresh token secrets and expiration        |
-| `SMTP_*`          | SMTP config (MailHog for dev)                       |
-| `RESEND_API_KEY`  | Resend API key (production email)                   |
+| `SMTP_*`          | Relay host, port, TLS mode and credentials           |
+| `EMAIL_FROM`      | Sender address; defaults to `SMTP_USER` when empty   |
 | `FIREBASE_*`      | Firebase service account for social login            |
 | `ADMIN_EMAIL/PASSWORD` | Auto-seeded admin credentials                  |
 
@@ -163,7 +194,7 @@ src/
 │   ├── commissions/         # Agent commission tracking & tiers
 │   ├── contracts/           # Customer contract management
 │   ├── dashboard/           # Admin analytics & KPIs
-│   ├── email/               # Email service (SMTP/Resend)
+│   ├── email/               # Email service (SMTP)
 │   ├── file-upload/         # File upload handling
 │   ├── meters/              # Utility meter management (POD/PDR)
 │   ├── notifications/       # Push & in-app notifications

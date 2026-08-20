@@ -1,6 +1,6 @@
 # Authentication
 
-EasyRisparmio supports two authentication methods: **email/password** and **social login** (Google, Facebook, Apple via Firebase). OTP codes are delivered via **Resend** email service. All auth endpoints are prefixed with `/api/v1/auth`.
+EasyRisparmio supports two authentication methods: **email/password** and **social login** (Google, Facebook, Apple via Firebase). OTP codes are delivered by email over authenticated SMTP. All auth endpoints are prefixed with `/api/v1/auth`.
 
 ## Table of Contents
 
@@ -114,7 +114,7 @@ When `role` is `business`, the business-specific fields are conditionally valida
 }
 ```
 
-After registration, a 6-digit OTP is generated and **sent to the user's email via Resend**. The user must call `POST /auth/verify-otp` to activate their account.
+After registration, a 6-digit OTP is generated and **sent to the user's email over authenticated SMTP**. The user must call `POST /auth/verify-otp` to activate their account.
 
 **Error Responses:**
 
@@ -261,7 +261,7 @@ The `authProvider` field indicates how the user originally created their account
 
 ## OTP Verification
 
-Used for email verification after registration, phone verification, and password reset. OTP codes are sent via **Resend** email service.
+Used for email verification after registration, phone verification, and password reset. OTP codes are sent by email over authenticated SMTP.
 
 ```
 POST /api/v1/auth/verify-otp
@@ -551,8 +551,12 @@ All responses follow the standard format:
 | `JWT_SECRET` | Yes | - | Secret key for signing JWT access tokens (use a strong random string) |
 | `JWT_EXPIRES_IN_SECONDS` | No | `900` | Access token expiry in seconds (15 min) |
 | `JWT_REFRESH_EXPIRATION_DAYS` | No | `7` | Refresh token expiry in days |
-| `RESEND_API_KEY` | Yes* | - | Resend API key for sending OTP emails |
-| `EMAIL_FROM` | No | `EasyRisparmio <noreply@easyresparmio.it>` | Sender address for emails |
+| `SMTP_HOST` | Yes* | - | Relay hostname, e.g. `smtp.gmail.com`. Empty in development prints codes to the console |
+| `SMTP_PORT` | No | `587` | `587` for STARTTLS, `465` for implicit TLS |
+| `SMTP_SECURE` | No | `true` on port `465` | Implicit TLS from the first byte |
+| `SMTP_USER` | Yes* | - | Relay account. Omit only for an unauthenticated local relay |
+| `SMTP_PASSWORD` | Yes* | - | Relay password. For Gmail, a 16-character App Password |
+| `EMAIL_FROM` | No | value of `SMTP_USER` | Sender address. Gmail rewrites it unless it is a verified "Send mail as" alias |
 | `FIREBASE_PROJECT_ID` | No** | - | Firebase project ID |
 | `FIREBASE_CLIENT_EMAIL` | No** | - | Firebase service account email |
 | `FIREBASE_PRIVATE_KEY` | No** | - | Firebase service account private key (with `\n` for newlines) |
@@ -560,7 +564,7 @@ All responses follow the standard format:
 | `ADMIN_PASSWORD` | No*** | - | Admin user password for auto-seeding |
 | `OTP_EXPIRY_MINUTES` | No | `10` | OTP code expiry in minutes |
 
-\* If not configured, OTP codes are logged to console (development mode). Email delivery will not work.
+\* Without `SMTP_HOST` (and `SMTP_USER` for an authenticated relay), OTP codes are logged to the console in development. In any other environment the OTP endpoints return 503 rather than claiming a code was sent.
 \** Required for social login to work. If missing, the app starts normally but social login returns 500.
 \*** Required for admin account creation. If missing, no admin is seeded.
 
@@ -573,7 +577,7 @@ All responses follow the standard format:
 - **Password never exposed:** `passwordHash` is stripped from all API responses
 - **OTP generation:** Uses `crypto.randomInt()` (cryptographically secure), not `Math.random()`
 - **OTP brute-force protection:** Maximum 5 failed attempts per OTP code; code is locked after exceeding limit
-- **OTP delivery:** Sent via Resend email service with branded HTML templates
+- **OTP delivery:** Sent over authenticated SMTP with branded HTML templates and a plain-text alternative
 - **Token generation:** Refresh tokens use `crypto.randomUUID()` (cryptographically secure)
 - **Token rotation:** Performed within a database transaction to prevent race conditions and session loss
 - **Device tracking:** Client IP and User-Agent stored with refresh tokens for security auditing

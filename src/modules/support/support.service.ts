@@ -8,6 +8,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AdminNotificationsService } from '../notifications/admin-notifications.service';
 import { NotificationType } from '../../common/enums/notification.enum';
 import { SupportTicket } from './entities/support-ticket.entity';
 import { TicketMessage } from './entities/ticket-message.entity';
@@ -43,6 +44,7 @@ export class SupportService {
     @InjectRepository(SupportTopic)
     private readonly topicRepository: Repository<SupportTopic>,
     private readonly notificationsService: NotificationsService,
+    private readonly adminNotifications: AdminNotificationsService,
   ) {}
 
   // ─── Topic Methods ──────────────────────────────────────────
@@ -156,6 +158,22 @@ export class SupportService {
       message: dto.message,
     });
     await this.messageRepository.save(message);
+
+    await this.adminNotifications.notifyAdmins({
+      messageKey: 'admin_ticket_created',
+      type: NotificationType.ADMIN_SUPPORT,
+      bodyParams: [
+        await this.adminNotifications.describeUser(userId),
+        savedTicket.subject,
+      ],
+      data: {
+        ticketId: savedTicket.id,
+        userId,
+        priority: savedTicket.priority,
+        entityType: 'ticket',
+        entityId: savedTicket.id,
+      },
+    });
 
     return this.getTicketById(savedTicket.id, userId, UserRole.ADMIN);
   }
@@ -302,12 +320,35 @@ export class SupportService {
 
     const saved = await this.messageRepository.save(message);
 
+    const bodyPreview =
+      dto.message.length > 100
+        ? dto.message.substring(0, 100) + '...'
+        : dto.message;
+
+    // A reply from the customer is work arriving for the admins. Previously
+    // only the admin-to-customer direction notified anyone.
+    if (userRole !== UserRole.ADMIN) {
+      await this.adminNotifications.notifyAdmins({
+        messageKey: 'admin_ticket_replied',
+        type: NotificationType.ADMIN_SUPPORT,
+        bodyParams: [
+          await this.adminNotifications.describeUser(senderId),
+          ticket.subject,
+          bodyPreview,
+        ],
+        data: {
+          ticketId,
+          messageId: saved.id,
+          userId: ticket.userId,
+          entityType: 'ticket',
+          entityId: ticketId,
+        },
+      });
+    }
+
     // Notify ticket owner when admin replies
     if (userRole === UserRole.ADMIN && ticket.userId !== senderId) {
       try {
-        const bodyPreview = dto.message.length > 100
-          ? dto.message.substring(0, 100) + '...'
-          : dto.message;
         await this.notificationsService.sendNotification({
           userId: ticket.userId,
           messageKey: 'support_reply',

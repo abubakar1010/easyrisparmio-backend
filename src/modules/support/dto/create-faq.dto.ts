@@ -1,13 +1,19 @@
 import { IsString, IsNotEmpty, IsOptional, IsInt, IsBoolean, IsEnum, Min, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserTarget } from '../../../common/enums/offer.enum';
+import { FaqCategory } from '../../../common/enums/support.enum';
 
 export class CreateFaqDto {
-  @ApiProperty({ description: 'FAQ category', example: 'billing', maxLength: 100 })
-  @IsString()
+  @ApiProperty({
+    enum: FaqCategory,
+    description:
+      'FAQ category. Closed set — each value maps to a card on the mobile support screen, ' +
+      'so an FAQ filed under anything else would never be shown to users.',
+    example: FaqCategory.BILLS,
+  })
+  @IsEnum(FaqCategory)
   @IsNotEmpty()
-  @MaxLength(100)
-  category: string;
+  category: FaqCategory;
 
   @ApiProperty({ description: 'FAQ question', example: 'How does the switching process work?', maxLength: 500 })
   @IsString()

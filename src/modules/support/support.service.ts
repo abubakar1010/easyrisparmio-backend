@@ -27,6 +27,7 @@ import { TicketStatus, TicketPriority } from '../../common/enums/support.enum';
 import { PaginatedResponseDto } from '../../common/dto/pagination.dto';
 import { UserRole } from '../../common/enums/role.enum';
 import { UserTarget } from '../../common/enums/offer.enum';
+import { FaqCategory } from '../../common/enums/support.enum';
 
 @Injectable()
 export class SupportService {
@@ -380,6 +381,11 @@ export class SupportService {
 
     const [data, total] = await qb.getManyAndCount();
     return new PaginatedResponseDto(data, total, query.page, query.limit);
+  }
+
+  /** The closed set of categories an FAQ can be filed under. */
+  getFaqCategories(): FaqCategory[] {
+    return Object.values(FaqCategory);
   }
 
   async getFaqs(

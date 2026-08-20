@@ -171,17 +171,40 @@ Returns all messages ordered by creation date ascending. Same access control as 
 
 ## FAQ Endpoints
 
+### FAQ Categories
+
+FAQs are filed under a **closed set** of categories, defined by the `FaqCategory` enum
+(`src/common/enums/support.enum.ts`):
+
+| Value |
+|---|
+| `Cambio Fornitore` |
+| `Bollette` |
+| `Documenti` |
+
+Each value maps to a card on the mobile support screen (`support_screen.dart`), which
+requests FAQs by this exact string. An FAQ filed under any other category would never be
+shown to a user, so create/update reject anything outside the set. Adding a category means
+adding the enum value **and** a matching card in the mobile app.
+
+```
+GET /api/v1/support/faqs/categories
+```
+
+No authentication required. Returns the list above — build admin category pickers from this
+endpoint rather than from the categories already present in the data.
+
 ### List FAQs (Public)
 
 ```
-GET /api/v1/support/faqs?category=billing&locale=it&targetAudience=personal
+GET /api/v1/support/faqs?category=Bollette&locale=it&targetAudience=personal
 ```
 
 No authentication required. Returns active FAQs sorted by category and display order.
 
 | Query | Description |
 |---|---|
-| `category` | Optional. Exact-match filter on the FAQ category. |
+| `category` | Optional. Exact-match filter on the FAQ category (see the closed set above). |
 | `locale` | Optional, defaults to `it`. Falls back to `it` when the requested locale has no FAQs at all. |
 | `targetAudience` | Optional, one of `personal` / `business` / `both`. `personal` and `business` also return the FAQs targeted at `both`; omitting it (or passing `both`) returns every audience. Invalid values are rejected with 400. |
 
@@ -195,7 +218,7 @@ Content-Type: application/json
 
 ```json
 {
-  "category": "billing",
+  "category": "Cambio Fornitore",
   "question": "How does the switching process work?",
   "answer": "The switching process takes 2-4 weeks. We handle all paperwork.",
   "sortOrder": 1,
@@ -206,7 +229,7 @@ Content-Type: application/json
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `category` | string | Yes | FAQ category (max 100) |
+| `category` | enum | Yes | One of the [FAQ categories](#faq-categories); anything else is rejected with 400 |
 | `question` | string | Yes | Question text (max 500) |
 | `answer` | string | Yes | Answer text |
 | `sortOrder` | int | No | Display order (default: 0) |
@@ -244,6 +267,7 @@ Permanently deletes the FAQ.
 | PATCH | `/support/tickets/:id` | JWT | ADMIN | Update status / assign agent |
 | POST | `/support/tickets/:id/messages` | JWT | Any (access check) | Add message to ticket |
 | GET | `/support/tickets/:id/messages` | JWT | Any (access check) | Get ticket conversation |
+| GET | `/support/faqs/categories` | None | Public | List the available FAQ categories |
 | GET | `/support/faqs` | None | Public | List active FAQs |
 | POST | `/support/faqs` | JWT | ADMIN | Create FAQ |
 | PATCH | `/support/faqs/:id` | JWT | ADMIN | Update FAQ |

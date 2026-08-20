@@ -3,9 +3,15 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { PaginationDto } from '../../../common/dto/pagination.dto';
 import { UserTarget } from '../../../common/enums/offer.enum';
+import { FaqCategory } from '../../../common/enums/support.enum';
 
 export class QueryFaqsDto extends PaginationDto {
-  @ApiPropertyOptional({ description: 'Filter by FAQ category', example: 'billing' })
+  @ApiPropertyOptional({
+    enum: FaqCategory,
+    description:
+      'Filter by FAQ category. Not restricted to the enum — rows created before a category ' +
+      'was retired must stay filterable so an admin can find and re-file them.',
+  })
   @IsOptional()
   @IsString()
   category?: string;

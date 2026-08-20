@@ -35,6 +35,7 @@ import { UpdateTopicDto } from './dto/update-topic.dto';
 import { QueryTicketsDto } from './dto/query-tickets.dto';
 import { QueryFaqsDto } from './dto/query-faqs.dto';
 import { UserTarget } from '../../common/enums/offer.enum';
+import { FaqCategory } from '../../common/enums/support.enum';
 import { QueryTopicsDto } from './dto/query-topics.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -83,7 +84,7 @@ const MESSAGE_EXAMPLE = {
 
 const FAQ_EXAMPLE = {
   id: 'fq1a2b3c-d5e6-7890-abcd-ef1234567890',
-  category: 'billing',
+  category: FaqCategory.SUPPLIER_SWITCH,
   question: 'How does the switching process work?',
   answer: 'The switching process takes 2-4 weeks. We handle all paperwork with your new supplier and ensure no service interruption.',
   sortOrder: 1,
@@ -626,6 +627,25 @@ export class SupportController {
     return this.supportService.getAdminFaqs(query);
   }
 
+  @Get('faqs/categories')
+  @ApiOperation({
+    summary: 'Get the available FAQ categories (public)',
+    description:
+      'Returns the closed set of categories an FAQ can be filed under. Clients should build their ' +
+      'category pickers from this list so an FAQ can never be created under a category no screen renders.',
+  })
+  @ApiOkResponse({
+    description: 'List of FAQ categories',
+    content: {
+      'application/json': {
+        example: { success: true, data: Object.values(FaqCategory) },
+      },
+    },
+  })
+  getFaqCategories() {
+    return this.supportService.getFaqCategories();
+  }
+
   @Get('faqs')
   @ApiOperation({
     summary: 'Get FAQs (public)',
@@ -633,7 +653,7 @@ export class SupportController {
       'Returns active FAQs sorted by category and display order. No authentication required. ' +
       'Optionally filter by category and target audience.',
   })
-  @ApiQuery({ name: 'category', required: false, description: 'Filter by FAQ category', example: 'billing' })
+  @ApiQuery({ name: 'category', required: false, enum: FaqCategory, description: 'Filter by FAQ category' })
   @ApiQuery({ name: 'locale', required: false, description: 'Language locale (it or en, defaults to it)', example: 'it' })
   @ApiQuery({
     name: 'targetAudience',

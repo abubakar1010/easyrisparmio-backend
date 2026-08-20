@@ -10,11 +10,13 @@ import { EnergyBill } from '../bills/entities/energy-bill.entity';
 import { OtpCode } from '../auth/entities/otp-code.entity';
 import { RefreshToken } from '../auth/entities/refresh-token.entity';
 import { ActivityLogModule } from '../activity-log/activity-log.module';
+import { LegalModule } from '../legal/legal.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, BusinessProfile, UserAddress, UserPreference, EnergyBill, OtpCode, RefreshToken]),
     ActivityLogModule,
+    LegalModule,
   ],
   controllers: [UsersController],
   providers: [UsersService],

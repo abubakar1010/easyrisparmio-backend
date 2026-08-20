@@ -24,6 +24,14 @@ export class BusinessProfile extends BaseEntity {
   @Column({ name: 'company_type', type: 'varchar', length: 100, nullable: true })
   companyType: string;
 
+  /**
+   * Position the account holder occupies in the company, as picked in the
+   * mobile "switch to business" sheet. Free text rather than an enum: the
+   * sheet offers a shortlist plus "Other", and the list is expected to grow.
+   */
+  @Column({ name: 'job_role', type: 'varchar', length: 100, nullable: true })
+  jobRole: string | null;
+
   @Column({ name: 'ateco_code', type: 'varchar', length: 10, nullable: true })
   atecoCode: string;
 

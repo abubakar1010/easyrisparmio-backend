@@ -1,10 +1,11 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Not, QueryFailedError, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { randomInt } from 'crypto';
 
@@ -18,12 +19,18 @@ import { RefreshToken } from '../auth/entities/refresh-token.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
+import { UpgradeToBusinessDto } from './dto/upgrade-to-business.dto';
 import { QueryUsersDto } from './dto/query-users.dto';
 import { PaginatedResponseDto } from '../../common/dto/pagination.dto';
 import { UserRole } from '../../common/enums/role.enum';
 import { UserStatus, OtpType } from '../../common/enums/user.enum';
 import { AddressType } from '../../common/enums/address.enum';
 import { EmailService } from '../email/email.service';
+import { LegalService } from '../legal/legal.service';
+import {
+  LegalAcceptanceSource,
+  LegalSlug,
+} from '../../common/enums/legal.enum';
 
 @Injectable()
 export class UsersService {
@@ -43,6 +50,8 @@ export class UsersService {
     @InjectRepository(RefreshToken)
     private readonly refreshTokenRepository: Repository<RefreshToken>,
     private readonly emailService: EmailService,
+    private readonly legalService: LegalService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async create(data: Partial<User>): Promise<User> {
@@ -327,15 +336,172 @@ export class UsersService {
     // Update business profile fields if applicable
     if (user.role === UserRole.BUSINESS) {
       const businessData: Partial<BusinessProfile> = {};
+      // companyName and partitaIva were missing here, so the app could PATCH
+      // them, get a 200, and see nothing change.
+      if (dto.companyName !== undefined) businessData.companyName = dto.companyName;
+      if (dto.partitaIva !== undefined) businessData.partitaIva = dto.partitaIva;
       if (dto.pecEmail !== undefined) businessData.pecEmail = dto.pecEmail;
       if (dto.legalRepresentative !== undefined) businessData.legalRepresentative = dto.legalRepresentative;
       if (dto.companyType !== undefined) businessData.companyType = dto.companyType;
       if (dto.atecoCode !== undefined) businessData.atecoCode = dto.atecoCode;
 
-      if (Object.keys(businessData).length > 0 && user.businessProfile) {
-        Object.assign(user.businessProfile, businessData);
-        await this.businessProfileRepository.save(user.businessProfile);
+      if (Object.keys(businessData).length > 0) {
+        if (dto.partitaIva !== undefined) {
+          const takenBy = await this.businessProfileRepository.findOne({
+            where: { partitaIva: dto.partitaIva, userId: Not(userId) },
+            select: { id: true },
+          });
+          if (takenBy) {
+            throw new ConflictException(
+              'This Partita IVA is already registered to another account',
+            );
+          }
+        }
+
+        if (user.businessProfile) {
+          Object.assign(user.businessProfile, businessData);
+          await this.businessProfileRepository.save(user.businessProfile);
+        } else if (businessData.companyName && businessData.partitaIva) {
+          // A business account can end up without a company row — an admin
+          // setting the role by hand, or an account left behind by the old
+          // non-transactional registration. Let the app repair it instead of
+          // silently dropping the edit.
+          await this.businessProfileRepository.save(
+            this.businessProfileRepository.create({
+              userId,
+              ...businessData,
+            } as Partial<BusinessProfile>),
+          );
+        } else {
+          throw new BadRequestException(
+            'Company name and Partita IVA are both required to create the company profile',
+          );
+        }
       }
+    }
+
+    return (await this.findById(userId))!;
+  }
+
+  // ─── Self-service account type switching ──────────────────
+
+  /**
+   * Turns a personal account into a business one: stores the company details
+   * and flips the role. Idempotent — a business user re-submitting the sheet
+   * updates the details it already has instead of erroring, so a double tap or
+   * a retry after a dropped response cannot leave the account half-switched.
+   *
+   * The role change and the profile write share a transaction: a user whose
+   * role says `business` but who has no company row would fail every business
+   * flow downstream with no way to fix it from the app.
+   */
+  async upgradeToBusiness(
+    userId: string,
+    dto: UpgradeToBusinessDto,
+  ): Promise<User> {
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    if (user.role === UserRole.ADMIN) {
+      throw new BadRequestException(
+        'Administrator accounts cannot be switched to business',
+      );
+    }
+
+    // A Partita IVA identifies exactly one company, and the column is unique.
+    // Checking first turns what would surface as a 500 into a message the app
+    // can put under the field.
+    const takenBy = await this.businessProfileRepository.findOne({
+      where: { partitaIva: dto.partitaIva, userId: Not(userId) },
+      select: { id: true },
+    });
+    if (takenBy) {
+      throw new ConflictException(
+        'This Partita IVA is already registered to another account',
+      );
+    }
+
+    try {
+      await this.dataSource.transaction(async (manager) => {
+        const existing = await manager.findOne(BusinessProfile, {
+          where: { userId },
+        });
+
+        if (existing) {
+          existing.companyName = dto.companyName;
+          existing.partitaIva = dto.partitaIva;
+          // Left untouched when the sheet omits the optional role, so a value
+          // captured earlier is not wiped by a later edit.
+          if (dto.jobRole !== undefined) {
+            existing.jobRole = dto.jobRole || null;
+          }
+          await manager.save(BusinessProfile, existing);
+        } else {
+          await manager.save(
+            BusinessProfile,
+            manager.create(BusinessProfile, {
+              userId,
+              companyName: dto.companyName,
+              partitaIva: dto.partitaIva,
+              jobRole: dto.jobRole || null,
+            }),
+          );
+        }
+
+        await manager.update(User, { id: userId }, { role: UserRole.BUSINESS });
+      });
+    } catch (error) {
+      // Lost the race against a concurrent registration of the same VAT.
+      if (
+        error instanceof QueryFailedError &&
+        (error as QueryFailedError & { code?: string }).code === '23505'
+      ) {
+        throw new ConflictException(
+          'This Partita IVA is already registered to another account',
+        );
+      }
+      throw error;
+    }
+
+    // The upgrade sheet's checkbox binds the account to the business terms, so
+    // it is recorded at the version in force. Personal-account documents are
+    // left alone: those acceptances already exist from registration.
+    await this.legalService.recordAcceptanceFor(
+      userId,
+      UserRole.BUSINESS,
+      [LegalSlug.BUSINESS_TERMS_CONDITIONS],
+      LegalAcceptanceSource.BUSINESS_UPGRADE,
+    );
+
+    return (await this.findById(userId))!;
+  }
+
+  /**
+   * Flips a business account back to personal. The company row is deliberately
+   * kept: switching back to business is then one tap with the details already
+   * filled in, and cases opened while the account was a business keep the
+   * company they were opened under.
+   *
+   * Idempotent for the same reason as the upgrade — a personal account calling
+   * this gets its profile back, not an error.
+   */
+  async switchToPersonal(userId: string): Promise<User> {
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    if (user.role === UserRole.ADMIN) {
+      throw new BadRequestException(
+        'Administrator accounts cannot be switched to personal',
+      );
+    }
+
+    if (user.role !== UserRole.PERSONAL) {
+      await this.userRepository.update(
+        { id: userId },
+        { role: UserRole.PERSONAL },
+      );
     }
 
     return (await this.findById(userId))!;

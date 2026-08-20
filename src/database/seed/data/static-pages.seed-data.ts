@@ -1,16 +1,20 @@
 import { DataSource } from 'typeorm';
 import { StaticPage } from '../../../modules/static-pages/entities/static-page.entity';
+import { LegalAudience } from '../../../common/enums/legal.enum';
 
 export async function seedStaticPages(ds: DataSource): Promise<void> {
   const repo = ds.getRepository(StaticPage);
 
-  const pagesData = [
+  const pagesData: Array<Partial<StaticPage>> = [
     // ── Privacy Policy (Italian) ──
     {
       slug: 'privacy-policy',
       title: 'Informativa sulla Privacy',
       locale: 'it',
       isActive: true,
+      version: '1.0',
+      requiresAcceptance: true,
+      audience: LegalAudience.ALL,
       content: `
 <h2>Informativa sulla Privacy</h2>
 <p>La presente Informativa sulla Privacy descrive come EasyRisparmio ("noi", "nostro" o "la Società") raccoglie, utilizza e protegge i dati personali degli utenti in conformità con il Regolamento Generale sulla Protezione dei Dati (GDPR - Regolamento UE 2016/679) e il Codice in materia di protezione dei dati personali (D.Lgs. 196/2003, come modificato dal D.Lgs. 101/2018).</p>
@@ -65,6 +69,9 @@ export async function seedStaticPages(ds: DataSource): Promise<void> {
       title: 'Privacy Policy',
       locale: 'en',
       isActive: true,
+      version: '1.0',
+      requiresAcceptance: true,
+      audience: LegalAudience.ALL,
       content: `
 <h2>Privacy Policy</h2>
 <p>This Privacy Policy describes how EasyRisparmio ("we", "our" or "the Company") collects, uses, and protects users' personal data in compliance with the General Data Protection Regulation (GDPR - EU Regulation 2016/679) and the Italian Data Protection Code (Legislative Decree 196/2003, as amended by Legislative Decree 101/2018).</p>
@@ -119,6 +126,9 @@ export async function seedStaticPages(ds: DataSource): Promise<void> {
       title: 'Termini e Condizioni',
       locale: 'it',
       isActive: true,
+      version: '1.0',
+      requiresAcceptance: true,
+      audience: LegalAudience.ALL,
       content: `
 <h2>Termini e Condizioni di Utilizzo</h2>
 <p>I presenti Termini e Condizioni regolano l'utilizzo dell'applicazione mobile e della piattaforma web EasyRisparmio. Utilizzando i nostri servizi, l'utente accetta integralmente le presenti condizioni.</p>
@@ -167,6 +177,9 @@ export async function seedStaticPages(ds: DataSource): Promise<void> {
       title: 'Terms and Conditions',
       locale: 'en',
       isActive: true,
+      version: '1.0',
+      requiresAcceptance: true,
+      audience: LegalAudience.ALL,
       content: `
 <h2>Terms and Conditions of Use</h2>
 <p>These Terms and Conditions govern the use of the EasyRisparmio mobile application and web platform. By using our services, the user fully accepts these conditions.</p>
@@ -206,6 +219,122 @@ export async function seedStaticPages(ds: DataSource): Promise<void> {
 
 <h3>8. Applicable Law and Jurisdiction</h3>
 <p>These Terms are governed by Italian law. For any dispute, the court of the consumer's place of residence shall have jurisdiction, pursuant to Legislative Decree 206/2005 (Consumer Code).</p>
+`.trim(),
+    },
+
+    // ── Business Terms & Conditions (Italian) ──
+    {
+      slug: 'business-terms-conditions',
+      title: 'Termini e Condizioni Business',
+      locale: 'it',
+      isActive: true,
+      version: '1.0',
+      requiresAcceptance: true,
+      audience: LegalAudience.BUSINESS,
+      content: `
+<h2>Termini e Condizioni Business</h2>
+<p>I presenti Termini e Condizioni Business ("Condizioni Business") disciplinano l'utilizzo della piattaforma EasyRisparmio da parte di soggetti titolari di Partita IVA — imprese individuali, societa, liberi professionisti ed enti — e integrano i Termini e Condizioni generali, che restano applicabili per quanto non espressamente derogato.</p>
+
+<h3>1. Ambito di Applicazione</h3>
+<p>Le presenti Condizioni si applicano a ogni account registrato o convertito in profilo business. L'utente dichiara di agire nell'esercizio della propria attivita imprenditoriale, commerciale, artigianale o professionale e non in qualita di consumatore ai sensi dell'art. 3 del D.Lgs. 206/2005.</p>
+
+<h3>2. Titolarita dell'Account e Poteri di Rappresentanza</h3>
+<p>Chi registra un account business dichiara e garantisce di avere il potere di rappresentare l'impresa indicata e di impegnarla contrattualmente. L'impresa risponde di ogni attivita svolta tramite l'account, comprese le richieste di cambio fornitore avviate dai propri incaricati.</p>
+<ul>
+  <li>La Partita IVA fornita deve essere valida, attiva e riferita all'impresa titolare dell'account</li>
+  <li>Una stessa Partita IVA puo essere associata a un solo account</li>
+  <li>Le variazioni di ragione sociale, sede legale o rappresentante legale devono essere comunicate tempestivamente</li>
+</ul>
+
+<h3>3. Fornitura di Energia per Uso Non Domestico</h3>
+<p>Le offerte presentate agli account business riguardano forniture per uso non domestico. Prezzi, componenti fiscali, accise e aliquote IVA differiscono da quelle applicate alle utenze domestiche, cosi come le condizioni di recesso e le garanzie richieste dal fornitore.</p>
+<p>Per ogni punto di fornitura l'utente e tenuto a fornire codice POD (energia elettrica) o PDR (gas), potenza impegnata, consumi storici e destinazione d'uso corretti. Dati non veritieri possono comportare il rifiuto della pratica da parte del fornitore o la riapplicazione retroattiva di tariffe diverse.</p>
+
+<h3>4. Punti di Fornitura Multipli</h3>
+<p>L'account business puo gestire piu punti di fornitura. Ogni pratica di switching e trattata autonomamente: tempistiche, esiti ed eventuali contestazioni riguardano il singolo POD o PDR e non l'insieme delle utenze aziendali.</p>
+
+<h3>5. Diritto di Recesso</h3>
+<p>Il diritto di recesso di quattordici giorni previsto dal Codice del Consumo non si applica ai contratti conclusi da soggetti che agiscono nell'esercizio della propria attivita professionale. Restano ferme le facolta di recesso previste dal contratto di fornitura sottoscritto con il fornitore e dalla delibera ARERA applicabile.</p>
+
+<h3>6. Ruolo di EasyRisparmio e Remunerazione</h3>
+<p>EasyRisparmio opera come intermediario e segnalatore. Il contratto di fornitura e stipulato direttamente tra l'impresa e il fornitore prescelto. Il servizio e gratuito per l'utente: EasyRisparmio percepisce una provvigione dal fornitore a fronte delle attivazioni andate a buon fine, circostanza che l'utente dichiara di conoscere e accettare.</p>
+
+<h3>7. Documentazione e Verifiche</h3>
+<p>Per l'attivazione delle pratiche business puo essere richiesta documentazione aggiuntiva: visura camerale, documento del legale rappresentante, ultima bolletta, dichiarazione di accisa e, ove previsto, attestazione di regolarita contributiva. L'utente autorizza EasyRisparmio a trasmettere tale documentazione al fornitore selezionato ai soli fini della pratica.</p>
+
+<h3>8. Fatturazione Elettronica e PEC</h3>
+<p>L'utente si impegna a fornire codice destinatario SDI o indirizzo PEC corretti per la fatturazione elettronica. EasyRisparmio non risponde di ritardi o mancati recapiti dovuti a recapiti telematici errati o non attivi.</p>
+
+<h3>9. Trattamento dei Dati Aziendali</h3>
+<p>I dati dell'impresa e dei suoi referenti sono trattati secondo l'Informativa sulla Privacy. Per gli account business il trattamento include la comunicazione dei dati ai fornitori di energia ai fini della valutazione del merito creditizio e della stipula del contratto di fornitura.</p>
+
+<h3>10. Limitazione di Responsabilita</h3>
+<p>Le analisi, i confronti e le stime di risparmio hanno carattere indicativo e si basano sui dati forniti dall'utente e sulle condizioni di mercato al momento dell'elaborazione. EasyRisparmio non risponde del mancato conseguimento del risparmio stimato, ne di variazioni di prezzo, indicizzazioni PUN/GME o inadempimenti imputabili al fornitore.</p>
+<p>Nei rapporti con utenti business, e salvo dolo o colpa grave, la responsabilita complessiva di EasyRisparmio e in ogni caso limitata all'importo delle provvigioni percepite in relazione alla pratica contestata.</p>
+
+<h3>11. Modifiche alle Condizioni</h3>
+<p>EasyRisparmio puo modificare le presenti Condizioni Business. Le modifiche sostanziali sono pubblicate con una nuova versione del documento e sottoposte nuovamente all'accettazione dell'utente al primo accesso successivo alla pubblicazione. Il mancato consenso impedisce l'ulteriore utilizzo dei servizi business.</p>
+
+<h3>12. Legge Applicabile e Foro Competente</h3>
+<p>Le presenti Condizioni sono regolate dalla legge italiana. Per ogni controversia derivante dal rapporto tra EasyRisparmio e l'utente business sara competente in via esclusiva il Foro di Milano.</p>
+`.trim(),
+    },
+
+    // ── Business Terms & Conditions (English) ──
+    {
+      slug: 'business-terms-conditions',
+      title: 'Business Terms and Conditions',
+      locale: 'en',
+      isActive: true,
+      version: '1.0',
+      requiresAcceptance: true,
+      audience: LegalAudience.BUSINESS,
+      content: `
+<h2>Business Terms and Conditions</h2>
+<p>These Business Terms and Conditions ("Business Terms") govern use of the EasyRisparmio platform by VAT-registered entities — sole traders, companies, self-employed professionals and organisations — and supplement the general Terms and Conditions, which continue to apply except where expressly varied here.</p>
+
+<h3>1. Scope</h3>
+<p>These Business Terms apply to every account registered as, or converted to, a business profile. The user declares that they are acting in the course of their business, commercial, craft or professional activity and not as a consumer within the meaning of art. 3 of Legislative Decree 206/2005.</p>
+
+<h3>2. Account Ownership and Authority</h3>
+<p>Whoever registers a business account represents and warrants that they are authorised to act for the company named and to bind it contractually. The company is responsible for all activity carried out through the account, including switching requests started by its staff.</p>
+<ul>
+  <li>The Partita IVA provided must be valid, active and belong to the account holder</li>
+  <li>A given Partita IVA may be linked to one account only</li>
+  <li>Changes of company name, registered office or legal representative must be notified promptly</li>
+</ul>
+
+<h3>3. Non-Domestic Energy Supply</h3>
+<p>Offers shown to business accounts relate to non-domestic supply. Prices, tax components, excise duties and VAT rates differ from those applied to household utilities, as do withdrawal terms and any security the supplier requires.</p>
+<p>For each delivery point the user must provide an accurate POD (electricity) or PDR (gas) code, contracted power, historical consumption and intended use. Inaccurate data may cause the supplier to reject the case or to reapply different tariffs retroactively.</p>
+
+<h3>4. Multiple Delivery Points</h3>
+<p>A business account may manage several delivery points. Each switching case is handled independently: timescales, outcomes and any disputes concern the individual POD or PDR, not the company's utilities as a whole.</p>
+
+<h3>5. Right of Withdrawal</h3>
+<p>The fourteen-day right of withdrawal under the Italian Consumer Code does not apply to contracts entered into by parties acting in the course of their professional activity. Any withdrawal rights set out in the supply contract signed with the supplier, and under the applicable ARERA resolution, remain unaffected.</p>
+
+<h3>6. EasyRisparmio's Role and Remuneration</h3>
+<p>EasyRisparmio acts as an intermediary and introducer. The supply contract is entered into directly between the company and the chosen supplier. The service is free of charge to the user: EasyRisparmio receives a commission from the supplier for successful activations, which the user acknowledges and accepts.</p>
+
+<h3>7. Documentation and Checks</h3>
+<p>Business cases may require additional documentation: a chamber of commerce extract, the legal representative's identity document, the most recent bill, an excise declaration and, where applicable, proof of social security compliance. The user authorises EasyRisparmio to pass this documentation to the selected supplier solely for the purposes of the case.</p>
+
+<h3>8. Electronic Invoicing and PEC</h3>
+<p>The user undertakes to provide a correct SDI recipient code or PEC address for electronic invoicing. EasyRisparmio is not liable for delays or failed delivery caused by incorrect or inactive electronic addresses.</p>
+
+<h3>9. Processing of Company Data</h3>
+<p>Company data and that of its contacts is processed in accordance with the Privacy Policy. For business accounts, processing includes disclosure to energy suppliers for creditworthiness assessment and for entering into the supply contract.</p>
+
+<h3>10. Limitation of Liability</h3>
+<p>Analyses, comparisons and savings estimates are indicative and are based on the data supplied by the user and on market conditions at the time of processing. EasyRisparmio is not liable for savings that do not materialise, nor for price changes, PUN/GME indexation or defaults attributable to the supplier.</p>
+<p>In dealings with business users, and save for wilful misconduct or gross negligence, EasyRisparmio's total liability is in any event limited to the commission received in relation to the case in dispute.</p>
+
+<h3>11. Changes to These Terms</h3>
+<p>EasyRisparmio may amend these Business Terms. Material changes are published as a new version of the document and put to the user for acceptance again on their next sign-in after publication. Declining prevents further use of the business services.</p>
+
+<h3>12. Governing Law and Jurisdiction</h3>
+<p>These Terms are governed by Italian law. The courts of Milan have exclusive jurisdiction over any dispute arising from the relationship between EasyRisparmio and the business user.</p>
 `.trim(),
     },
 
@@ -280,9 +409,31 @@ export async function seedStaticPages(ds: DataSource): Promise<void> {
     const existing = await repo.findOne({
       where: { slug: data.slug, locale: data.locale },
     });
+
     if (!existing) {
-      await repo.save(repo.create(data));
+      await repo.save(
+        repo.create({
+          ...data,
+          publishedAt: data.requiresAcceptance ? new Date() : null,
+        }),
+      );
       console.log(`  Created static page: ${data.slug} (${data.locale})`);
+      continue;
+    }
+
+    // Pages seeded before consent tracking existed carry no publication date.
+    // Backfilling the version metadata — and nothing else — turns them into
+    // proper agreements without touching text an admin may have since edited,
+    // and skips any page that has already been published.
+    if (data.requiresAcceptance && existing.publishedAt === null) {
+      existing.version = existing.version || data.version || '1.0';
+      existing.requiresAcceptance = true;
+      existing.audience = data.audience!;
+      existing.publishedAt = existing.createdAt ?? new Date();
+      await repo.save(existing);
+      console.log(
+        `  Static page updated with version metadata: ${data.slug} (${data.locale}) v${existing.version}`,
+      );
     } else {
       console.log(`  Static page already exists: ${data.slug} (${data.locale})`);
     }

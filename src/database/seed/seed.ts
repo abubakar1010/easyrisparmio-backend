@@ -66,6 +66,7 @@ const TABLES_IN_REVERSE_ORDER = [
   'user_addresses',
   'business_profiles',
   'admin_settings',
+  'user_legal_acceptances',
   'static_pages',
   'faqs',
   'otp_codes',

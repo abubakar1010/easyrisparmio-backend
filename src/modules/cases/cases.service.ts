@@ -38,6 +38,11 @@ import {
   CASE_ADDRESS_BLOCK_LABELS,
   CASE_ADDRESS_FIELDS,
 } from './dto/case-addresses.dto';
+import {
+  CaseContractDetailsDto,
+  CASE_CONTRACT_DETAIL_FIELDS,
+  CASE_CONTRACT_DETAIL_LABELS,
+} from './dto/case-contract-details.dto';
 
 
 @Injectable()
@@ -99,7 +104,7 @@ export class CasesService {
         'Cannot create a case for an offer from a supplier that is pending deletion',
       );
     }
-    this.assertPaymentMethodAcceptedBy(offer, dto.paymentMethod);
+    this.assertPaymentMethodAcceptedBy(offer, dto.paymentMethod ?? undefined);
 
     // The offer has to be one that was actually proposed for this bill. A case
     // pinned to any other bill marks a bill nobody chose as accepted and leaves
@@ -129,18 +134,13 @@ export class CasesService {
       toSupplierId: offer.supplierId,
       residentialSameAsSupply: dto.residentialSameAsSupply ?? false,
       shippingSameAsSupply: dto.shippingSameAsSupply ?? false,
-      paymentMethod: dto.paymentMethod || null,
-      invoiceDelivery: dto.invoiceDelivery || null,
-      invoiceEmail: dto.invoiceEmail || null,
-      iban: dto.iban || null,
-      ibanHolderFirstName: dto.ibanHolderFirstName || null,
-      ibanHolderLastName: dto.ibanHolderLastName || null,
-      ibanHolderTaxCode: dto.ibanHolderTaxCode || null,
     });
 
-    // The three addresses go through the same writer the admin's edits use, so
-    // the app cannot create a case shaped differently from one the CRM saved.
+    // The addresses and the payment details go through the same writers the
+    // admin's edits use, so the app cannot create a case shaped differently
+    // from one the CRM saved.
     this.applyAddressFields(switchCase, dto);
+    this.applyContractDetailFields(switchCase, dto);
 
     const saved = await this.caseRepository.save(switchCase);
 
@@ -275,6 +275,16 @@ export class CasesService {
     return Object.assign(switchCase, { estimatedSavings });
   }
 
+  /**
+   * Corrects a case, field by field.
+   *
+   * Everything the case holds is editable here — the workflow fields only the
+   * CRM writes (status, priority, type, assignment, notes, activation dates),
+   * the three addresses, the payment and invoicing details, and the offer the
+   * switch is filed against. Each group that moved is written to the case's own
+   * timeline, with the exact before-and-after values in the event metadata, so
+   * a correction is always attributable.
+   */
   async updateCase(
     id: string,
     dto: UpdateCaseDto,
@@ -287,25 +297,76 @@ export class CasesService {
     }
 
     const oldStatus = switchCase.status;
+    const oldOfferId = switchCase.selectedOfferId;
 
-    const { activationDate, expiryDate, ...rest } = dto;
+    const { activationDate, expiryDate, selectedOfferId, ...rest } = dto;
 
-    // The addresses are held back from the blind assign: they need normalising
-    // and the same-as-supply blocks need squaring up afterwards.
-    const addressKeys = new Set<string>([
+    // The offer decides which supplier the case is filed against, so it is
+    // resolved before anything is written: a bad offer id must leave the case
+    // untouched rather than half-corrected. A blank one is not a correction —
+    // a case always points at the offer it is switching to.
+    let newOffer: Offer | null = null;
+    if (selectedOfferId && selectedOfferId !== oldOfferId) {
+      newOffer = await this.offerRepository.findOne({
+        where: { id: selectedOfferId },
+        relations: ['supplier'],
+      });
+      if (!newOffer) {
+        throw new NotFoundException('Offer not found');
+      }
+      if (newOffer.supplier?.status === SupplierStatus.PENDING_DELETION) {
+        throw new BadRequestException(
+          'Cannot move a case onto an offer from a supplier that is pending deletion',
+        );
+      }
+    }
+
+    // The addresses and the contract details are held back from the blind
+    // assign: they need normalising, the same-as-supply blocks need squaring up
+    // afterwards, and both are logged as corrections.
+    const handledKeys = new Set<string>([
       ...CASE_ADDRESS_BLOCKS.flatMap((block) =>
         CASE_ADDRESS_FIELDS.map((field) => `${block}${field}`),
       ),
       'residentialSameAsSupply',
       'shippingSameAsSupply',
+      ...CASE_CONTRACT_DETAIL_FIELDS,
     ]);
+    // Status, type and priority are columns the case is never without, so a
+    // null on any of them is a caller mistake rather than a request to clear it.
+    const NEVER_NULL = new Set(['status', 'caseType', 'priority']);
     Object.assign(
       switchCase,
       Object.fromEntries(
-        Object.entries(rest).filter(([key]) => !addressKeys.has(key)),
+        Object.entries(rest).filter(
+          ([key, value]) =>
+            !handledKeys.has(key) && !(value === null && NEVER_NULL.has(key)),
+        ),
       ),
     );
     const addressChanges = this.applyAddressFields(switchCase, dto);
+    const contractChanges = this.applyContractDetailFields(switchCase, dto);
+
+    if (newOffer) {
+      switchCase.selectedOfferId = newOffer.id;
+      switchCase.toSupplierId = newOffer.supplierId;
+    }
+
+    // Whichever half of the pair moved, the two still have to agree: an offer
+    // sold as direct-debit-only cannot be left on a case paying by postal order.
+    if (newOffer || dto.paymentMethod !== undefined) {
+      const offer =
+        newOffer ??
+        (await this.offerRepository.findOne({
+          where: { id: switchCase.selectedOfferId },
+        }));
+      if (offer) {
+        this.assertPaymentMethodAcceptedBy(
+          offer,
+          switchCase.paymentMethod ?? undefined,
+        );
+      }
+    }
 
     // A utility the customer can see must carry the dates it is described by.
     // The same rule is enforced on the transition endpoint; this is the other
@@ -353,6 +414,45 @@ export class CasesService {
         actorId,
         metadata: { changes: addressChanges },
       });
+    }
+
+    // The payment and invoicing details are what the supplier sets the contract
+    // up from, so they are audited exactly the way the addresses are.
+    if (Object.keys(contractChanges).length > 0) {
+      const fieldsTouched = CASE_CONTRACT_DETAIL_FIELDS.filter(
+        (field) => field in contractChanges,
+      ).map((field) => CASE_CONTRACT_DETAIL_LABELS[field]);
+
+      await this.logEvent(
+        id,
+        CaseEventType.SYSTEM_EVENT,
+        'Payment and invoicing details updated',
+        {
+          description: `${fieldsTouched.join(', ')} corrected by an admin`,
+          actorId,
+          metadata: { changes: contractChanges },
+        },
+      );
+    }
+
+    if (newOffer) {
+      const supplierName = newOffer.supplier?.name;
+      await this.logEvent(
+        id,
+        CaseEventType.SYSTEM_EVENT,
+        'Selected offer changed',
+        {
+          description: supplierName
+            ? `Case moved onto "${newOffer.name}" (${supplierName}) by an admin`
+            : `Case moved onto "${newOffer.name}" by an admin`,
+          actorId,
+          metadata: {
+            changes: {
+              selectedOfferId: { old: oldOfferId, new: newOffer.id },
+            },
+          },
+        },
+      );
     }
 
     // Log status change event and notify user
@@ -621,6 +721,49 @@ export class CasesService {
       for (const field of CASE_ADDRESS_FIELDS) {
         set(`${block}${field}`, (switchCase as any)[`supply${field}`] ?? null);
       }
+    }
+
+    return changes;
+  }
+
+  /**
+   * Writes the payment and invoicing details onto a case.
+   *
+   * The counterpart of {@link applyAddressFields}, and it exists for the same
+   * reason: the app filing a request and the admin correcting it afterwards
+   * both come through one writer, so a value stored by either is normalised the
+   * same way. A field left out of the DTO is untouched; a field sent as `null`
+   * or blank is cleared, which is how an admin blanks an IBAN that was entered
+   * against the wrong account.
+   *
+   * The IBAN is stored without the spaces it is usually printed with and in
+   * upper case, so two people typing the same account cannot produce two
+   * different-looking values the supplier then has to reconcile.
+   *
+   * Returns the fields that actually changed, for the case timeline.
+   */
+  private applyContractDetailFields(
+    switchCase: SwitchCase,
+    dto: Partial<CaseContractDetailsDto>,
+  ): Record<string, { old: unknown; new: unknown }> {
+    const changes: Record<string, { old: unknown; new: unknown }> = {};
+
+    for (const field of CASE_CONTRACT_DETAIL_FIELDS) {
+      const incoming = (dto as any)[field];
+      if (incoming === undefined) continue;
+
+      const value =
+        typeof incoming === 'string'
+          ? (field === 'iban'
+              ? incoming.replace(/\s+/g, '').toUpperCase()
+              : incoming.trim()) || null
+          : (incoming ?? null);
+
+      const previous = (switchCase as any)[field] ?? null;
+      if (previous === value) continue;
+
+      changes[field] = { old: previous, new: value };
+      (switchCase as any)[field] = value;
     }
 
     return changes;

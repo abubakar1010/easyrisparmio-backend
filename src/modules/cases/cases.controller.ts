@@ -204,11 +204,16 @@ export class CasesController {
   @ApiOperation({
     summary: 'Update case (admin)',
     description:
-      'Updates case status, priority, agent assignment, notes, activation dates, or any of the ' +
-      'three addresses (supply, residence, shipping) field by field. All fields are optional. ' +
-      'Status changes, agent assignments and address corrections are logged as case events for audit trail. ' +
+      'Updates any of the case data: status, type, priority, agent assignment, notes, activation dates, ' +
+      'the selected offer, the payment and invoicing details (payment method, invoice delivery, invoice ' +
+      'email, IBAN and its holder), or any of the three addresses (supply, residence, shipping) field by ' +
+      'field. All fields are optional, and sending `null` clears a nullable one. ' +
+      'Status changes, agent assignments, offer changes, address corrections and payment/invoicing ' +
+      'corrections are logged as case events for audit trail. ' +
       'While `residentialSameAsSupply` or `shippingSameAsSupply` is true that block is kept as a copy of ' +
-      'the supply address, so correcting the supply address moves it too.',
+      'the supply address, so correcting the supply address moves it too. ' +
+      'Changing the offer moves the destination supplier with it, and the payment method must stay one ' +
+      'the offer accepts.',
   })
   @ApiBody({ type: UpdateCaseDto })
   @ApiOkResponse({
@@ -231,7 +236,11 @@ export class CasesController {
     @CurrentUser('id') adminId: string,
   ) {
     const result = await this.casesService.updateCase(id, dto, adminId);
-    void this.activityLogService.log(adminId, 'Case Updated', 'case', id, { status: dto.status, priority: dto.priority });
+    void this.activityLogService.log(adminId, 'Case Updated', 'case', id, {
+      fields: Object.keys(dto),
+      status: dto.status,
+      priority: dto.priority,
+    });
     return result;
   }
 

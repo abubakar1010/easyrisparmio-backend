@@ -69,6 +69,15 @@ export class RegisterDataDto {
     example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
   })
   verificationToken: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Present when the account was created but the verification code could not be mailed. ' +
+      'The account is valid — send the user to the OTP screen and let them use "resend code", ' +
+      'which is not held back by the usual 60-second cooldown in this case.',
+    example: 'We could not send the verification code. Use "resend code" to try again.',
+  })
+  emailWarning?: string;
 }
 
 export class RegisterResponseDto {

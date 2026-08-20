@@ -1,6 +1,7 @@
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, Length, ValidateIf } from 'class-validator';
+import { IsEmail, IsEnum, IsNotEmpty, IsString, Length, Matches, ValidateIf } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { OtpType } from '../../../common/enums/user.enum';
+import { NormalizeEmail } from '../../../common/transformers/normalize-email.transformer';
 
 export class VerifyOtpDto {
   @ApiPropertyOptional({
@@ -9,6 +10,7 @@ export class VerifyOtpDto {
     example: 'mario.rossi@email.com',
   })
   @ValidateIf((o) => !o.verificationToken)
+  @NormalizeEmail()
   @IsEmail()
   @IsNotEmpty()
   email?: string;
@@ -32,6 +34,7 @@ export class VerifyOtpDto {
   @IsString()
   @IsNotEmpty()
   @Length(6, 6)
+  @Matches(/^\d{6}$/, { message: 'code must be exactly 6 digits' })
   code: string;
 
   @ApiProperty({

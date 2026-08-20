@@ -8,11 +8,12 @@ import { UserAddress } from './entities/user-address.entity';
 import { UserPreference } from './entities/user-preference.entity';
 import { EnergyBill } from '../bills/entities/energy-bill.entity';
 import { OtpCode } from '../auth/entities/otp-code.entity';
+import { RefreshToken } from '../auth/entities/refresh-token.entity';
 import { ActivityLogModule } from '../activity-log/activity-log.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, BusinessProfile, UserAddress, UserPreference, EnergyBill, OtpCode]),
+    TypeOrmModule.forFeature([User, BusinessProfile, UserAddress, UserPreference, EnergyBill, OtpCode, RefreshToken]),
     ActivityLogModule,
   ],
   controllers: [UsersController],

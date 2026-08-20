@@ -514,8 +514,9 @@ export class AuthController {
     description:
       'Resends a 6-digit OTP code to the user\'s email. Accepts either `verificationToken` (preferred) or `email`. ' +
       'Supports `email_verification` and `password_reset` types. ' +
-      'Enforces a 60-second cooldown between requests. ' +
-      'Response does not reveal whether the email exists (prevents user enumeration).',
+      'Enforces a 60-second per-account cooldown: a request inside the window is accepted and ignored ' +
+      'rather than rejected, so the reply cannot be used to tell a registered address from an unknown one. ' +
+      'Clients should run their own 60-second countdown on the resend control.',
   })
   @ApiBody({ type: ResendOtpDto })
   @ApiOkResponse({
@@ -533,29 +534,31 @@ export class AuthController {
     },
   })
   @ApiBadRequestResponse({
-    description: 'Cooldown not elapsed or invalid OTP type',
+    description: 'Invalid OTP type',
     type: ErrorResponseDto,
     content: {
       'application/json': {
-        examples: {
-          cooldown: {
-            summary: 'Cooldown period active',
-            value: {
-              success: false,
-              statusCode: 400,
-              message: ['Please wait 45 seconds before requesting a new code'],
-              timestamp: '2026-06-09T12:00:00.000Z',
-            },
-          },
-          invalid_type: {
-            summary: 'Invalid OTP type',
-            value: {
-              success: false,
-              statusCode: 400,
-              message: ['Phone verification OTP cannot be resent via this endpoint'],
-              timestamp: '2026-06-09T12:00:00.000Z',
-            },
-          },
+        example: {
+          success: false,
+          statusCode: 400,
+          message: ['Phone verification OTP cannot be resent via this endpoint'],
+          timestamp: '2026-06-09T12:00:00.000Z',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 503,
+    description:
+      'The code could not be handed to the mail transport. Nothing was sent and no cooldown was started — the client may retry.',
+    type: ErrorResponseDto,
+    content: {
+      'application/json': {
+        example: {
+          success: false,
+          statusCode: 503,
+          message: ['We could not send the email right now. Please try again in a moment.'],
+          timestamp: '2026-06-09T12:00:00.000Z',
         },
       },
     },
@@ -573,11 +576,16 @@ export class AuthController {
     summary: 'Request password reset OTP',
     description:
       'Sends a 6-digit OTP to the user\'s email for password reset. ' +
-      'Always returns the same response regardless of whether the email exists (prevents user enumeration).',
+      'A **200 does not mean an email was sent** — unknown addresses, suspended accounts and requests ' +
+      'inside the 60-second per-account cooldown all get the same reply, so that the endpoint cannot be ' +
+      'used to discover who has an account. Clients must show the returned message verbatim and must not ' +
+      'promise the user that a code is on its way. ' +
+      'A mail transport that refuses the message is the one failure that *is* reported, as **503**.',
   })
   @ApiBody({ type: ForgotPasswordDto })
   @ApiOkResponse({
-    description: 'Password reset OTP sent (or not, response is always the same)',
+    description:
+      'Request accepted. A code was sent only if the address belongs to an active account outside its cooldown.',
     type: MessageResponseDto,
     content: {
       'application/json': {
@@ -586,6 +594,22 @@ export class AuthController {
           data: {
             message: 'If the email is registered, a password reset code has been sent',
           },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 503,
+    description:
+      'The code could not be handed to the mail transport. Nothing was sent and no cooldown was started — the client may retry.',
+    type: ErrorResponseDto,
+    content: {
+      'application/json': {
+        example: {
+          success: false,
+          statusCode: 503,
+          message: ['We could not send the email right now. Please try again in a moment.'],
+          timestamp: '2026-06-09T12:00:00.000Z',
         },
       },
     },
@@ -600,8 +624,14 @@ export class AuthController {
   @ApiOperation({
     summary: 'Reset password using OTP code',
     description:
-      'Resets the user\'s password using a valid OTP code from `forgot-password`. ' +
-      'After a successful reset, all existing refresh tokens for the user are revoked for security.',
+      'Resets the user\'s password. Two ways in, and a client picks **one**:\n\n' +
+      '- **`resetToken`** (preferred) — exchange the code at `/auth/verify-otp` with ' +
+      '`type: password_reset` first and post the token it returns. The token is single-use, ' +
+      'expires in 10 minutes, and is tied to the code it came from.\n' +
+      '- **`email` + `code`** — post the raw code straight here, without calling verify-otp.\n\n' +
+      'Calling verify-otp and *then* posting `email` + `code` fails: verify-otp spends the code. ' +
+      'After a successful reset every refresh token is revoked, every pending reset code is deleted, ' +
+      'and an account still awaiting email verification is activated.',
   })
   @ApiBody({ type: ResetPasswordDto })
   @ApiOkResponse({
@@ -738,11 +768,13 @@ export class AuthController {
     description:
       'Allows an authenticated user to change their password by providing the current password ' +
       'and a new password. The new password must meet complexity requirements. ' +
-      'Social login accounts without a password cannot use this endpoint.',
+      'Social login accounts without a password cannot use this endpoint. ' +
+      'All existing refresh tokens are revoked — **the response carries a fresh token pair, and the ' +
+      'client must store it**, or the next refresh will fail and the user will be signed out.',
   })
   @ApiBody({ type: ChangePasswordDto })
   @ApiOkResponse({
-    description: 'Password changed successfully',
+    description: 'Password changed. Previous refresh tokens revoked; a new pair is returned.',
     type: MessageResponseDto,
     content: {
       'application/json': {
@@ -750,6 +782,8 @@ export class AuthController {
           success: true,
           data: {
             message: 'Password changed successfully',
+            accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+            refreshToken: '770a0601-a4bc-63f6-c938-668877662222',
           },
         },
       },

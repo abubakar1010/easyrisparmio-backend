@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   Logger,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -11,7 +12,7 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThan, DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { randomInt, randomUUID, timingSafeEqual } from 'crypto';
+import { randomInt, randomUUID } from 'crypto';
 
 import { User } from '../users/entities/user.entity';
 import { BusinessProfile } from '../users/entities/business-profile.entity';
@@ -30,6 +31,28 @@ import { ReferralsService } from '../referrals/referrals.service';
 import { EmailService } from '../email/email.service';
 
 const MAX_OTP_ATTEMPTS = 5;
+const OTP_TTL_MINUTES = 10;
+const OTP_COOLDOWN_SECONDS = 60;
+/** Long enough to type a password, short enough that a leaked token is stale. */
+const RESET_TOKEN_TTL = '10m';
+const RESET_TOKEN_PURPOSE = 'password_reset';
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * bcrypt hash of a string no OTP can ever be, compared against whenever there
+ * is no real hash to check. Without it, "no account" and "no code pending"
+ * return in a fraction of the time a wrong-code guess takes, and that gap is
+ * enough to enumerate accounts through an endpoint whose replies are otherwise
+ * deliberately identical.
+ */
+const ABSENT_OTP_HASH = bcrypt.hashSync('otp-that-cannot-exist', 10);
+
+/** Same wording on every branch — see `forgotPassword`. */
+const FORGOT_PASSWORD_REPLY =
+  'If the email is registered, a password reset code has been sent';
+const RESEND_OTP_REPLY =
+  'If the email is registered, a new verification code has been sent';
 
 @Injectable()
 export class AuthService {
@@ -103,7 +126,20 @@ export class AuthService {
       }
     }
 
-    await this.generateAndSaveOtp(user, OtpType.EMAIL_VERIFICATION);
+    // The account row is already committed, so a mail outage must not turn into
+    // a failed registration: the address would be taken and the user could
+    // never sign up again with it. Report the problem and let them retry
+    // through resend-otp, which `generateAndSaveOtp` has left uncooled.
+    let emailWarning: string | undefined;
+    try {
+      await this.generateAndSaveOtp(user, OtpType.EMAIL_VERIFICATION);
+    } catch (error) {
+      this.logger.error(
+        `Registration succeeded but the verification email to user ${user.id} failed: ${error?.message || error}`,
+      );
+      emailWarning =
+        'We could not send the verification code. Use "resend code" to try again.';
+    }
 
     const verificationToken = this.generateVerificationToken(user.email);
     const { passwordHash: _, ...result } = user;
@@ -112,6 +148,7 @@ export class AuthService {
       user: result,
       verificationToken,
       ...(referralWarning && { referralWarning }),
+      ...(emailWarning && { emailWarning }),
     };
   }
 
@@ -134,7 +171,20 @@ export class AuthService {
     meta?: { ipAddress?: string; deviceInfo?: string },
   ) {
     if (user.status === UserStatus.PENDING_VERIFICATION) {
-      await this.generateAndSaveOtp(user, OtpType.EMAIL_VERIFICATION);
+      // Subject to the same cooldown as resend-otp. Knowing the password is not
+      // much of a gate when the person hammering this endpoint is the one who
+      // knows it, and every attempt would otherwise post another mail.
+      // A delivery failure must not mask the 403 — the client still needs the
+      // verification token to reach the OTP screen.
+      if (!(await this.otpCooldownRemaining(user.id, OtpType.EMAIL_VERIFICATION))) {
+        try {
+          await this.generateAndSaveOtp(user, OtpType.EMAIL_VERIFICATION);
+        } catch (error) {
+          this.logger.error(
+            `Could not send the verification email to user ${user.id} on login: ${error?.message || error}`,
+          );
+        }
+      }
       const verificationToken = this.generateVerificationToken(user.email);
       throw new ForbiddenException({
         message:
@@ -168,55 +218,22 @@ export class AuthService {
       throw new BadRequestException('Either email or verificationToken is required');
     }
     const user = await this.usersService.findByEmail(email);
-    if (!user) {
-      // Generic error to prevent user enumeration
+    // Generic error on every miss — including a suspended account — so this
+    // endpoint cannot be used to test whether an address is registered.
+    if (!user || user.status === UserStatus.SUSPENDED) {
+      await bcrypt.compare(dto.code, ABSENT_OTP_HASH);
       throw new BadRequestException('Invalid or expired OTP code');
     }
 
-    // Check if there are any unused, non-expired OTPs for this user+type
-    const otpCode = await this.otpCodeRepository.findOne({
-      where: {
-        userId: user.id,
-        type: dto.type,
-        used: false,
-        expiresAt: MoreThan(new Date()),
-      },
-      order: { createdAt: 'DESC' },
-    });
-
-    if (!otpCode) {
-      throw new BadRequestException('Invalid or expired OTP code');
-    }
-
-    // Check attempt limit before verifying
-    if (otpCode.attempts >= MAX_OTP_ATTEMPTS) {
-      // Lock out — invalidate the OTP
-      otpCode.used = true;
-      await this.otpCodeRepository.save(otpCode);
-      throw new BadRequestException(
-        'Too many failed attempts. Please request a new code.',
-      );
-    }
-
-    // Timing-safe comparison for the OTP code
-    const isMatch =
-      otpCode.code.length === dto.code.length &&
-      timingSafeEqual(Buffer.from(otpCode.code), Buffer.from(dto.code));
-
-    if (!isMatch) {
-      // Increment failed attempts
-      otpCode.attempts += 1;
-      await this.otpCodeRepository.save(otpCode);
-      throw new BadRequestException('Invalid or expired OTP code');
-    }
-
-    otpCode.used = true;
-    await this.otpCodeRepository.save(otpCode);
+    const otpCode = await this.consumeOtp(user, dto.type, dto.code);
 
     if (dto.type === OtpType.EMAIL_VERIFICATION) {
       await this.usersService.update(user.id, {
         emailVerified: true,
-        status: UserStatus.ACTIVE,
+        status:
+          user.status === UserStatus.PENDING_VERIFICATION
+            ? UserStatus.ACTIVE
+            : user.status,
       });
     }
 
@@ -226,12 +243,15 @@ export class AuthService {
       });
     }
 
-    // For password reset, return a short-lived reset token so the client
-    // can proceed to POST /auth/reset-password without the raw OTP code.
+    // For password reset, hand back a short-lived reset token so the client can
+    // POST /auth/reset-password without holding on to the raw code. The token
+    // names the OTP row it came from: that row is deleted once the reset lands,
+    // which is what stops the token being replayed to overwrite a password the
+    // user has since changed again.
     if (dto.type === OtpType.PASSWORD_RESET) {
       const resetToken = this.jwtService.sign(
-        { email, purpose: 'password_reset' },
-        { expiresIn: '5m' },
+        { sub: user.id, purpose: RESET_TOKEN_PURPOSE, otp: otpCode.id },
+        { expiresIn: RESET_TOKEN_TTL },
       );
       return { message: 'OTP verified successfully', resetToken };
     }
@@ -252,9 +272,9 @@ export class AuthService {
       throw new BadRequestException('Either email or verificationToken is required');
     }
     const user = await this.usersService.findByEmail(email);
-    if (!user) {
+    if (!user || user.status === UserStatus.SUSPENDED) {
       // Don't reveal whether email exists — return same success response
-      return { message: 'If the email is registered, a new verification code has been sent' };
+      return { message: RESEND_OTP_REPLY };
     }
 
     // For email verification, only allow if user is still pending
@@ -262,118 +282,163 @@ export class AuthService {
       dto.type === OtpType.EMAIL_VERIFICATION &&
       user.status !== UserStatus.PENDING_VERIFICATION
     ) {
-      return { message: 'If the email is registered, a new verification code has been sent' };
+      return { message: RESEND_OTP_REPLY };
     }
 
-    // Cooldown: check if the last OTP of this type was sent less than 60 seconds ago
-    const lastOtp = await this.otpCodeRepository.findOne({
-      where: { userId: user.id, type: dto.type },
-      order: { createdAt: 'DESC' },
-    });
-
-    if (lastOtp) {
-      const secondsSinceLastOtp =
-        (Date.now() - lastOtp.createdAt.getTime()) / 1000;
-      if (secondsSinceLastOtp < 60) {
-        const waitSeconds = Math.ceil(60 - secondsSinceLastOtp);
-        throw new BadRequestException(
-          `Please wait ${waitSeconds} seconds before requesting a new code`,
-        );
-      }
+    // Absorbed silently rather than reported: "please wait 45 seconds" was only
+    // ever returned for an address that exists, which made the cooldown itself
+    // an account-existence oracle on an endpoint whose replies are otherwise
+    // identical by design. Both clients run their own 60s countdown, so the
+    // resend button is disabled during the window anyway.
+    if (await this.otpCooldownRemaining(user.id, dto.type)) {
+      return { message: RESEND_OTP_REPLY };
     }
 
     await this.generateAndSaveOtp(user, dto.type);
 
-    return { message: 'If the email is registered, a new verification code has been sent' };
+    return { message: RESEND_OTP_REPLY };
   }
 
   async forgotPassword(dto: ForgotPasswordDto) {
     const user = await this.usersService.findByEmail(dto.email);
-    if (!user) {
-      // Don't reveal whether user exists
-      return { message: 'If the email is registered, a password reset code has been sent' };
+
+    // Unknown address, suspended account, still inside the cooldown — every
+    // branch answers with the same sentence. Anything that tells them apart
+    // turns this endpoint into an "is this person a customer" oracle.
+    //
+    // The one thing deliberately *not* hidden is a mail transport that refuses
+    // the message: `generateAndSaveOtp` throws and the caller gets a 503.
+    // Claiming "we sent you a code" when nothing was sent is the failure this
+    // flow is being fixed for, and a dead transport is dead for every address,
+    // so failing loudly says nothing about this one.
+    if (!user || user.status === UserStatus.SUSPENDED) {
+      return { message: FORGOT_PASSWORD_REPLY };
+    }
+
+    // Per-account, because the controller's throttle is per-IP and so does
+    // nothing to stop a rotating source from flooding one victim's inbox.
+    if (await this.otpCooldownRemaining(user.id, OtpType.PASSWORD_RESET)) {
+      return { message: FORGOT_PASSWORD_REPLY };
     }
 
     await this.generateAndSaveOtp(user, OtpType.PASSWORD_RESET);
 
-    return { message: 'If the email is registered, a password reset code has been sent' };
+    return { message: FORGOT_PASSWORD_REPLY };
   }
 
   async resetPassword(dto: ResetPasswordDto) {
-    let email: string;
+    const user = dto.resetToken
+      ? await this.userFromResetToken(dto.resetToken)
+      : await this.userFromOtpCode(dto);
 
-    if (dto.resetToken) {
-      // Secure flow: resetToken was issued by verify-otp after OTP was validated
-      try {
-        const payload = this.jwtService.verify(dto.resetToken);
-        if (payload.purpose !== 'password_reset') {
-          throw new BadRequestException('Invalid reset token');
-        }
-        email = payload.email;
-      } catch (err) {
-        if (err instanceof BadRequestException) throw err;
-        throw new BadRequestException('Invalid or expired reset token');
-      }
-    } else if (dto.email && dto.code) {
-      // Legacy flow: validate OTP directly
-      email = dto.email;
-      const user = await this.usersService.findByEmail(email);
-      if (!user) {
-        throw new BadRequestException('Invalid or expired OTP code');
-      }
-
-      const otpCode = await this.otpCodeRepository.findOne({
-        where: {
-          userId: user.id,
-          type: OtpType.PASSWORD_RESET,
-          used: false,
-          expiresAt: MoreThan(new Date()),
-        },
-        order: { createdAt: 'DESC' },
-      });
-
-      if (!otpCode) {
-        throw new BadRequestException('Invalid or expired OTP code');
-      }
-
-      if (otpCode.attempts >= MAX_OTP_ATTEMPTS) {
-        otpCode.used = true;
-        await this.otpCodeRepository.save(otpCode);
-        throw new BadRequestException(
-          'Too many failed attempts. Please request a new code.',
-        );
-      }
-
-      if (
-        otpCode.code.length !== dto.code.length ||
-        !timingSafeEqual(Buffer.from(otpCode.code), Buffer.from(dto.code))
-      ) {
-        otpCode.attempts += 1;
-        await this.otpCodeRepository.save(otpCode);
-        throw new BadRequestException('Invalid or expired OTP code');
-      }
-
-      otpCode.used = true;
-      await this.otpCodeRepository.save(otpCode);
-    } else {
-      throw new BadRequestException('Either resetToken or email+code is required');
+    if (user.status === UserStatus.SUSPENDED) {
+      throw new UnauthorizedException(
+        'Your account has been suspended. Please contact support for assistance.',
+      );
     }
 
-    const user = await this.usersService.findByEmail(email);
-    if (!user) {
-      throw new BadRequestException('Invalid request');
+    if (
+      user.passwordHash &&
+      (await bcrypt.compare(dto.newPassword, user.passwordHash))
+    ) {
+      throw new BadRequestException(
+        'New password must be different from your current password',
+      );
     }
 
     const passwordHash = await bcrypt.hash(dto.newPassword, 10);
-    await this.usersService.update(user.id, { passwordHash });
+    await this.usersService.update(user.id, {
+      passwordHash,
+      // Reading the code proves control of the mailbox exactly as the
+      // verification OTP does, so an account that never finished sign-up is
+      // activated here instead of being stranded with a working password it
+      // still cannot log in with.
+      emailVerified: true,
+      status:
+        user.status === UserStatus.PENDING_VERIFICATION
+          ? UserStatus.ACTIVE
+          : user.status,
+    });
 
-    // Revoke all existing refresh tokens for security
+    // Nothing minted before the reset survives it — that is the entire point of
+    // a reset on an account someone else has got into. The OTP rows go with it,
+    // which is what makes the reset token single-use.
+    await this.otpCodeRepository.delete({
+      userId: user.id,
+      type: OtpType.PASSWORD_RESET,
+    });
     await this.refreshTokenRepository.update(
       { userId: user.id, revoked: false },
       { revoked: true },
     );
 
     return { message: 'Password reset successfully' };
+  }
+
+  /**
+   * Preferred path: verify-otp minted the token once the code checked out, so
+   * no code is replayed over the wire here.
+   */
+  private async userFromResetToken(resetToken: string): Promise<User> {
+    let payload: { sub?: string; purpose?: string; otp?: string };
+    try {
+      payload = this.jwtService.verify(resetToken);
+    } catch {
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+
+    // `purpose` is what keeps an ordinary access token — same secret, same
+    // issuer, and it carries a `sub` too — from being posted here as a reset
+    // token by anyone who has merely stolen a session.
+    if (
+      payload?.purpose !== RESET_TOKEN_PURPOSE ||
+      !payload.sub ||
+      !payload.otp ||
+      !UUID_PATTERN.test(payload.otp)
+    ) {
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+
+    // The OTP row this token was minted from is deleted by a successful reset,
+    // so a replay inside the token's lifetime finds nothing and is refused.
+    const otpRow = await this.otpCodeRepository.findOne({
+      where: {
+        id: payload.otp,
+        userId: payload.sub,
+        type: OtpType.PASSWORD_RESET,
+        used: true,
+      },
+    });
+    if (!otpRow) {
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+
+    const user = await this.usersService.findById(payload.sub);
+    if (!user) {
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+    return user;
+  }
+
+  /**
+   * Legacy path for callers that post the code straight to reset-password
+   * rather than exchanging it at verify-otp first. A client cannot do both:
+   * verify-otp marks the code used, so a code already exchanged for a reset
+   * token is rejected here.
+   */
+  private async userFromOtpCode(dto: ResetPasswordDto): Promise<User> {
+    if (!dto.email || !dto.code) {
+      throw new BadRequestException('Either resetToken or email+code is required');
+    }
+
+    const user = await this.usersService.findByEmail(dto.email);
+    if (!user || user.status === UserStatus.SUSPENDED) {
+      await bcrypt.compare(dto.code, ABSENT_OTP_HASH);
+      throw new BadRequestException('Invalid or expired OTP code');
+    }
+
+    await this.consumeOtp(user, OtpType.PASSWORD_RESET, dto.code);
+    return user;
   }
 
   async refreshToken(
@@ -489,7 +554,17 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(dto.newPassword, 10);
     await this.usersService.update(user.id, { passwordHash });
 
-    return { message: 'Password changed successfully' };
+    // Same reasoning as reset-password: someone who learned the old password
+    // may well be holding a refresh token minted with it, and changing the
+    // password has to be the thing that evicts them. A fresh pair is returned
+    // so the caller who did the changing is not logged out by their own action.
+    await this.refreshTokenRepository.update(
+      { userId: user.id, revoked: false },
+      { revoked: true },
+    );
+    const tokens = await this.generateTokens(user);
+
+    return { message: 'Password changed successfully', ...tokens };
   }
 
   async socialLogin(
@@ -625,6 +700,14 @@ export class AuthService {
     };
   }
 
+  /**
+   * Issues a fresh OTP of `type`, mails it, and returns the plaintext code.
+   *
+   * Throws `ServiceUnavailableException` if the mail could not be handed to a
+   * transport, having first removed the row it just wrote — otherwise the dead
+   * code would sit there tripping the cooldown and locking the user out of
+   * retrying the very request that failed.
+   */
   private async generateAndSaveOtp(user: User, type: OtpType): Promise<string> {
     // Invalidate any existing unused OTPs of this type
     await this.otpCodeRepository.update(
@@ -632,18 +715,21 @@ export class AuthService {
       { used: true },
     );
 
-    // Cryptographically secure random 6-digit OTP
-    const code = randomInt(100000, 999999).toString();
-    const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+    // Cryptographically secure 6-digit OTP. Drawn from the full 000000–999999
+    // range and padded rather than `randomInt(100000, 999999)`, whose exclusive
+    // upper bound and no-leading-zeros floor between them cut the space by a
+    // tenth and made every code start with a non-zero digit.
+    const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
+    const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60_000);
 
-    const otpCode = this.otpCodeRepository.create({
-      code,
-      type,
-      expiresAt,
-      userId: user.id,
-    });
-    await this.otpCodeRepository.save(otpCode);
+    const otpCode = await this.otpCodeRepository.save(
+      this.otpCodeRepository.create({
+        codeHash: await bcrypt.hash(code, 10),
+        type,
+        expiresAt,
+        userId: user.id,
+      }),
+    );
 
     // Send OTP via email
     if (
@@ -654,10 +740,87 @@ export class AuthService {
         type === OtpType.EMAIL_VERIFICATION
           ? 'email_verification'
           : 'password_reset';
-      await this.emailService.sendOtpEmail(user.email, code, emailType);
+      try {
+        await this.emailService.sendOtpEmail(user.email, code, emailType);
+      } catch (error) {
+        await this.otpCodeRepository.delete({ id: otpCode.id });
+        this.logger.error(
+          `Could not deliver a ${type} code to user ${user.id}: ${error?.message || error}`,
+        );
+        throw new ServiceUnavailableException(
+          'We could not send the email right now. Please try again in a moment.',
+        );
+      }
     }
 
     return code;
+  }
+
+  /**
+   * Seconds left before `userId` may be sent another OTP of `type`, or 0.
+   */
+  private async otpCooldownRemaining(
+    userId: string,
+    type: OtpType,
+  ): Promise<number> {
+    const lastOtp = await this.otpCodeRepository.findOne({
+      where: { userId, type },
+      order: { createdAt: 'DESC' },
+    });
+    if (!lastOtp) return 0;
+
+    const elapsed = (Date.now() - lastOtp.createdAt.getTime()) / 1000;
+    return elapsed >= OTP_COOLDOWN_SECONDS
+      ? 0
+      : Math.ceil(OTP_COOLDOWN_SECONDS - elapsed);
+  }
+
+  /**
+   * Checks `code` against the newest live OTP of `type` and marks it used.
+   *
+   * Every failure — no code pending, wrong code, too many tries already —
+   * reports the same thing to the caller, so the only way to learn anything
+   * from this endpoint is to guess the code correctly.
+   */
+  private async consumeOtp(
+    user: User,
+    type: OtpType,
+    code: string,
+  ): Promise<OtpCode> {
+    const otpCode = await this.otpCodeRepository.findOne({
+      where: {
+        userId: user.id,
+        type,
+        used: false,
+        expiresAt: MoreThan(new Date()),
+      },
+      order: { createdAt: 'DESC' },
+    });
+
+    if (!otpCode) {
+      await bcrypt.compare(code, ABSENT_OTP_HASH);
+      throw new BadRequestException('Invalid or expired OTP code');
+    }
+
+    if (otpCode.attempts >= MAX_OTP_ATTEMPTS) {
+      // Lock out — invalidate the OTP
+      await this.otpCodeRepository.update({ id: otpCode.id }, { used: true });
+      throw new BadRequestException(
+        'Too many failed attempts. Please request a new code.',
+      );
+    }
+
+    if (!(await bcrypt.compare(code, otpCode.codeHash))) {
+      // Incremented in the database rather than read-modify-written: two
+      // guesses racing on the same row would otherwise both see `attempts = n`
+      // and both store `n + 1`, buying an extra try for every request in flight.
+      await this.otpCodeRepository.increment({ id: otpCode.id }, 'attempts', 1);
+      throw new BadRequestException('Invalid or expired OTP code');
+    }
+
+    await this.otpCodeRepository.update({ id: otpCode.id }, { used: true });
+    otpCode.used = true;
+    return otpCode;
   }
 
   generateVerificationToken(email: string): string {

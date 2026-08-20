@@ -138,6 +138,72 @@ async function renameReconciliationMatchColumn(ds: DataSource): Promise<void> {
 }
 
 /**
+ * Replaces `otp_codes.code` (the plaintext 6-digit code) with `code_hash`.
+ *
+ * `synchronize` would try to widen the existing NOT NULL `code` column and add
+ * `code_hash` NOT NULL next to it, which fails on a table that already has
+ * rows. In-flight OTPs are worthless anyway — they expire in ten minutes and
+ * their plaintext cannot be converted into a hash the new code will accept
+ * without keeping the plaintext around, which is the whole point of the change.
+ * So the outstanding codes are dropped and users request a new one.
+ */
+async function hashOtpCodes(ds: DataSource): Promise<void> {
+  if (!(await tableExists(ds, 'otp_codes'))) return;
+  if (await columnExists(ds, 'otp_codes', 'code_hash')) return;
+
+  await ds.query(`DELETE FROM otp_codes`);
+  await ds.query(`ALTER TABLE otp_codes DROP COLUMN IF EXISTS code`);
+  await ds.query(
+    `ALTER TABLE otp_codes ADD COLUMN code_hash character varying(120) NOT NULL DEFAULT ''`,
+  );
+  await ds.query(`ALTER TABLE otp_codes ALTER COLUMN code_hash DROP DEFAULT`);
+  logger.log(
+    'otp_codes now stores bcrypt hashes (code_hash); pending plaintext codes were discarded',
+  );
+}
+
+/**
+ * Lower-cases existing `users.email` so the case-insensitive lookups introduced
+ * alongside `NormalizeEmail` agree with what is already stored.
+ *
+ * Rows that would collide once folded are left exactly as they are and reported
+ * instead: two accounts differing only in the case of their address are two
+ * real accounts with their own bills and cases, and picking a winner here would
+ * silently orphan one of them. They keep working — `findByEmail` matches them
+ * case-insensitively and simply returns the first — and an operator can merge
+ * them by hand.
+ */
+async function lowercaseUserEmails(ds: DataSource): Promise<void> {
+  if (!(await tableExists(ds, 'users'))) return;
+
+  const collisions = await ds.query(
+    `SELECT lower(email) AS email, count(*)::int AS n
+       FROM users
+      GROUP BY lower(email)
+     HAVING count(*) > 1`,
+  );
+  const blocked: string[] = collisions.map((r: { email: string }) => r.email);
+
+  const result = await ds.query(
+    `UPDATE users
+        SET email = lower(email)
+      WHERE email <> lower(email)
+        AND lower(email) <> ALL($1::text[])`,
+    [blocked],
+  );
+  const updated = result?.[1] ?? 0;
+  if (updated > 0) {
+    logger.log(`Lower-cased ${updated} user email address(es)`);
+  }
+  if (blocked.length > 0) {
+    logger.warn(
+      `${blocked.length} email address(es) exist under more than one casing and were left untouched: ` +
+        `${blocked.join(', ')}. Merge them by hand — until then only one of each pair can log in.`,
+    );
+  }
+}
+
+/**
  * Never blocks startup: the worst case of a failure here is that synchronise
  * fails right after with a much louder message, which is the outcome we want.
  */
@@ -146,6 +212,8 @@ export async function runPreSyncMigrations(ds: DataSource): Promise<void> {
     await retireContractStatuses(ds);
     await moveContractDatesOntoCases(ds);
     await renameReconciliationMatchColumn(ds);
+    await hashOtpCodes(ds);
+    await lowercaseUserEmails(ds);
   } catch (error: any) {
     logger.error(`Pre-sync migration failed: ${error?.message ?? error}`);
     throw error;

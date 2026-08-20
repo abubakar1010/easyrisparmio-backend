@@ -1,6 +1,7 @@
 import { IsEmail, IsEnum, IsNotEmpty, IsString, ValidateIf } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { OtpType } from '../../../common/enums/user.enum';
+import { NormalizeEmail } from '../../../common/transformers/normalize-email.transformer';
 
 export class ResendOtpDto {
   @ApiPropertyOptional({
@@ -9,6 +10,7 @@ export class ResendOtpDto {
     example: 'mario.rossi@email.com',
   })
   @ValidateIf((o) => !o.verificationToken)
+  @NormalizeEmail()
   @IsEmail()
   @IsNotEmpty()
   email?: string;

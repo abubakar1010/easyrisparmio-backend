@@ -4,6 +4,20 @@ import { Resend } from 'resend';
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 
+/**
+ * Raised when an OTP could not be handed to a mail transport.
+ *
+ * Callers translate this into a 5xx rather than reporting success: the whole
+ * point of the OTP flows is that the user goes and reads the code, so a silent
+ * failure strands them on a code-entry screen for a message that never arrives.
+ */
+export class EmailDeliveryError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'EmailDeliveryError';
+  }
+}
+
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
@@ -130,6 +144,7 @@ export class EmailService {
         this.logger.error(
           `Failed to send OTP email to ${to} via SMTP: ${error.message}`,
         );
+        throw new EmailDeliveryError(error?.message ?? 'SMTP send failed');
       }
       return;
     }
@@ -137,24 +152,42 @@ export class EmailService {
     // Resend (production)
     if (this.resend) {
       try {
-        await this.resend.emails.send({
+        const { error } = await this.resend.emails.send({
           from: this.fromAddress,
           to,
           subject,
           html,
         });
+        // The Resend SDK reports delivery rejections in the response body
+        // rather than by throwing, so a bad API key or an unroutable address
+        // looks like success unless this is checked.
+        if (error) {
+          throw new Error(error.message || 'Resend rejected the message');
+        }
         this.logger.log(`OTP email sent to ${to} via Resend (${type})`);
       } catch (error) {
         this.logger.error(
           `Failed to send OTP email to ${to} via Resend: ${error.message}`,
         );
+        throw new EmailDeliveryError(error?.message ?? 'Resend send failed');
       }
       return;
     }
 
-    // No transport configured
-    this.logger.warn(
-      `[EMAIL NOT SENT — no transport] To: ${to} | Subject: ${subject} | OTP: ${code}`,
+    // No transport configured. In development that is the expected local setup
+    // and the code goes to the console; in any other environment it means the
+    // deployment is misconfigured and telling the user "we sent you a code"
+    // would be a lie, so it fails loudly instead.
+    if (this.configService.get('app.env') === 'development') {
+      this.logger.warn(
+        `[EMAIL NOT SENT — no transport] To: ${to} | Subject: ${subject} | OTP: ${code}`,
+      );
+      return;
+    }
+
+    this.logger.error(
+      `No email transport configured — cannot deliver ${type} OTP to ${to}`,
     );
+    throw new EmailDeliveryError('No email transport configured');
   }
 }

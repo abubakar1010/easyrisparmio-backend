@@ -15,9 +15,11 @@ import { UserRole } from '../../../common/enums/role.enum';
 import { UserStatus } from '../../../common/enums/user.enum';
 import { CreateAddressDto } from './create-address.dto';
 import { IsPhoneNumber } from '../../../common/validators/is-phone-number.validator';
+import { NormalizeEmail } from '../../../common/transformers/normalize-email.transformer';
 
 export class CreateUserDto {
   @ApiProperty({ example: 'mario.rossi@email.com' })
+  @NormalizeEmail()
   @IsEmail()
   @IsNotEmpty()
   email: string;
@@ -79,6 +81,7 @@ export class CreateUserDto {
 
   @ApiPropertyOptional({ example: 'rossi@pec.it' })
   @IsOptional()
+  @NormalizeEmail()
   @IsEmail()
   pecEmail?: string;
 

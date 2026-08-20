@@ -12,6 +12,7 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserRole } from '../../../common/enums/role.enum';
 import { IsPhoneNumber } from '../../../common/validators/is-phone-number.validator';
+import { NormalizeEmail } from '../../../common/transformers/normalize-email.transformer';
 
 export class RegisterDto {
   @ApiProperty({
@@ -19,6 +20,7 @@ export class RegisterDto {
     example: 'mario.rossi@email.com',
     required: true,
   })
+  @NormalizeEmail()
   @IsEmail()
   @IsNotEmpty()
   email: string;
@@ -132,6 +134,7 @@ export class RegisterDto {
     example: 'rossi@pec.it',
   })
   @IsOptional()
+  @NormalizeEmail()
   @IsEmail()
   pecEmail?: string;
 

@@ -14,6 +14,7 @@ import { UserAddress } from './entities/user-address.entity';
 import { UserPreference } from './entities/user-preference.entity';
 import { EnergyBill } from '../bills/entities/energy-bill.entity';
 import { OtpCode } from '../auth/entities/otp-code.entity';
+import { RefreshToken } from '../auth/entities/refresh-token.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
@@ -39,6 +40,8 @@ export class UsersService {
     private readonly billRepository: Repository<EnergyBill>,
     @InjectRepository(OtpCode)
     private readonly otpCodeRepository: Repository<OtpCode>,
+    @InjectRepository(RefreshToken)
+    private readonly refreshTokenRepository: Repository<RefreshToken>,
     private readonly emailService: EmailService,
   ) {}
 
@@ -146,11 +149,25 @@ export class UsersService {
     });
   }
 
+  /**
+   * Case-insensitive on purpose: every auth flow resolves the account through
+   * this method, and an address is not case-sensitive in its domain part — nor,
+   * for every mailbox provider that matters here, in its local part. Matching
+   * exactly meant a user who signed up as `Mario@x.it` and typed `mario@x.it`
+   * into forgot-password got the "if the email is registered..." reply and no
+   * email, with nothing in the logs to say why.
+   *
+   * `NormalizeEmail` folds incoming addresses at the DTO boundary and a pre-sync
+   * migration folded the stored ones; this keeps rows that predate both — or
+   * that a collision left untouched — reachable.
+   */
   async findByEmail(email: string): Promise<User | null> {
-    return this.userRepository.findOne({
-      where: { email },
-      relations: ['businessProfile'],
-    });
+    if (!email) return null;
+    return this.userRepository
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user.businessProfile', 'businessProfile')
+      .where('LOWER(user.email) = LOWER(:email)', { email: email.trim() })
+      .getOne();
   }
 
   async findByFirebaseUid(firebaseUid: string): Promise<User | null> {
@@ -272,6 +289,20 @@ export class UsersService {
     // Directly hash and set the new password
     user.passwordHash = await bcrypt.hash(newPassword, 10);
     await this.userRepository.save(user);
+
+    // An admin reaches for this when an account is in trouble, so the sessions
+    // opened with the old password have to go with it — otherwise whoever
+    // prompted the reset keeps a working refresh token for another seven days.
+    await this.refreshTokenRepository.update(
+      { userId: user.id, revoked: false },
+      { revoked: true },
+    );
+    // Same for any reset code in flight: it would still be redeemable against
+    // the account the admin has just secured.
+    await this.otpCodeRepository.update(
+      { userId: user.id, type: OtpType.PASSWORD_RESET, used: false },
+      { used: true },
+    );
 
     return { message: 'Password has been reset successfully' };
   }

@@ -1,11 +1,13 @@
 import { IsEmail, IsNotEmpty, IsOptional, IsString, Length, Matches, MinLength, ValidateIf } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { NormalizeEmail } from '../../../common/transformers/normalize-email.transformer';
 
 export class ForgotPasswordDto {
   @ApiProperty({
     description: 'Email address of the account to reset. Response does not reveal whether the email exists.',
     example: 'mario.rossi@email.com',
   })
+  @NormalizeEmail()
   @IsEmail()
   @IsNotEmpty()
   email: string;
@@ -25,6 +27,7 @@ export class ResetPasswordDto {
     example: 'mario.rossi@email.com',
   })
   @ValidateIf((o) => !o.resetToken)
+  @NormalizeEmail()
   @IsEmail()
   @IsNotEmpty()
   email?: string;
@@ -39,6 +42,7 @@ export class ResetPasswordDto {
   @IsString()
   @IsNotEmpty()
   @Length(6, 6)
+  @Matches(/^\d{6}$/, { message: 'code must be exactly 6 digits' })
   code?: string;
 
   @ApiProperty({

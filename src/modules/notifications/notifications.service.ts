@@ -19,6 +19,9 @@ import { getNotificationText, MessageKey } from './notification-messages';
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
 
+  /** Latches the missing-Firebase warning so it is logged once per process. */
+  private warnedNoFirebase = false;
+
   constructor(
     @InjectRepository(Notification)
     private readonly notificationRepository: Repository<Notification>,
@@ -277,7 +280,18 @@ export class NotificationsService {
     data?: Record<string, any>,
   ): Promise<void> {
     const apps = getApps();
-    if (!apps.length) return;
+    if (!apps.length) {
+      // A deployment with no Firebase credentials delivers nothing at all,
+      // and used to do it silently. Say it once, not once per notification.
+      if (!this.warnedNoFirebase) {
+        this.warnedNoFirebase = true;
+        this.logger.warn(
+          'Firebase is not initialised — no push notification will be delivered. ' +
+            'Check FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY.',
+        );
+      }
+      return;
+    }
 
     const tokens = await this.pushTokenRepository.find({
       where: { userId: In(userIds), isActive: true },
@@ -297,7 +311,14 @@ export class NotificationsService {
         // Browsers ignore FCM's click_action; a web target needs the link in
         // the webpush block instead.
         ...(pt.platform === Platform.WEB
-          ? { webpush: { fcmOptions: { link: this.webPushLink() } } }
+          ? {
+              webpush: {
+                fcmOptions: { link: this.webPushLink() },
+                // Push services are free to batch normal-urgency messages.
+                // The dashboard bell is meant to move as the event lands.
+                headers: { Urgency: 'high', TTL: '86400' },
+              },
+            }
           : {}),
       };
     });
@@ -306,15 +327,34 @@ export class NotificationsService {
 
     // Drop tokens FCM reports as permanently gone (uninstalled app, revoked
     // browser permission) so they stop costing a send every time.
-    const invalidTokenIds = result.responses.reduce<string[]>((ids, r, i) => {
-      if (
-        !r.success &&
-        r.error?.code === 'messaging/registration-token-not-registered'
-      ) {
-        ids.push(tokens[i].id);
+    const invalidTokenIds: string[] = [];
+    // Every other rejection — a VAPID key that does not match the project, a
+    // malformed payload, an expired service account — used to be dropped
+    // here, which left "push never arrives" with no evidence anywhere.
+    const rejections: string[] = [];
+
+    result.responses.forEach((r, i) => {
+      if (r.success) return;
+      const code = r.error?.code || 'unknown';
+      if (code === 'messaging/registration-token-not-registered') {
+        invalidTokenIds.push(tokens[i].id);
+        return;
       }
-      return ids;
-    }, []);
+      rejections.push(`${tokens[i].platform}:${code}`);
+    });
+
+    if (rejections.length) {
+      const tally = rejections.reduce<Record<string, number>>((acc, key) => {
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+      }, {});
+      const summary = Object.entries(tally)
+        .map(([key, count]) => `${key} x${count}`)
+        .join(', ');
+      this.logger.warn(
+        `FCM rejected ${rejections.length}/${messages.length} push message(s): ${summary}`,
+      );
+    }
 
     if (invalidTokenIds.length) {
       await this.pushTokenRepository.update(invalidTokenIds, {

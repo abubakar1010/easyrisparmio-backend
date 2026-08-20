@@ -9,9 +9,10 @@ import { SwitchCase } from '../cases/entities/switch-case.entity';
 import { Supplier } from '../suppliers/entities/supplier.entity';
 import { BillsModule } from '../bills/bills.module';
 import { ActivityLogModule } from '../activity-log/activity-log.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Offer, OfferPriceVersion, SentOffer, SwitchCase, Supplier]), BillsModule, ActivityLogModule],
+  imports: [TypeOrmModule.forFeature([Offer, OfferPriceVersion, SentOffer, SwitchCase, Supplier]), BillsModule, ActivityLogModule, NotificationsModule],
   controllers: [OffersController],
   providers: [OffersService],
   exports: [OffersService, TypeOrmModule],

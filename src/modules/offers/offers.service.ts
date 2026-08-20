@@ -25,6 +25,8 @@ import {
 import { OfferStatus } from '../../common/enums/offer-status.enum';
 import { SupplierStatus } from '../../common/enums/supplier.enum';
 import { CaseStatus, CLOSED_CASE_STATUSES } from '../../common/enums/case.enum';
+import { NotificationType } from '../../common/enums/notification.enum';
+import { AdminNotificationsService } from '../notifications/admin-notifications.service';
 
 @Injectable()
 export class OffersService {
@@ -39,6 +41,7 @@ export class OffersService {
     private readonly switchCaseRepository: Repository<SwitchCase>,
     @InjectRepository(Supplier)
     private readonly supplierRepository: Repository<Supplier>,
+    private readonly adminNotifications: AdminNotificationsService,
   ) {}
 
   resolveOfferLocale(offer: Offer, locale?: string): Offer {
@@ -101,7 +104,26 @@ export class OffersService {
       updatedBy: adminId,
     });
     try {
-      return await this.offerRepository.save(offer);
+      const saved = await this.offerRepository.save(offer);
+
+      await this.adminNotifications.notifyAdmins({
+        messageKey: 'admin_offer_created',
+        type: NotificationType.ADMIN_OFFER,
+        bodyParams: [
+          saved.name || saved.offerCode || saved.id,
+          supplier.name,
+          await this.adminNotifications.describeUser(adminId),
+        ],
+        data: {
+          offerId: saved.id,
+          supplierId: supplier.id,
+          entityType: 'offer',
+          entityId: saved.id,
+        },
+        actorId: adminId,
+      });
+
+      return saved;
     } catch (error: any) {
       if (error.code === '23505') {
         throw new ConflictException(
@@ -351,7 +373,27 @@ export class OffersService {
     this.validateStatusTransition(offer.offerStatus, dto.offerStatus, hasAccepted);
     offer.offerStatus = dto.offerStatus;
     offer.updatedBy = adminId;
-    return this.offerRepository.save(offer);
+    const saved = await this.offerRepository.save(offer);
+
+    await this.adminNotifications.notifyAdmins({
+      messageKey: 'admin_offer_status_changed',
+      type: NotificationType.ADMIN_OFFER,
+      bodyParams: [
+        saved.name || saved.offerCode || saved.id,
+        saved.offerStatus,
+        await this.adminNotifications.describeUser(adminId),
+      ],
+      data: {
+        offerId: saved.id,
+        supplierId: saved.supplierId,
+        newStatus: saved.offerStatus,
+        entityType: 'offer',
+        entityId: saved.id,
+      },
+      actorId: adminId,
+    });
+
+    return saved;
   }
 
   async compareOffers(ids: string[]): Promise<Offer[]> {

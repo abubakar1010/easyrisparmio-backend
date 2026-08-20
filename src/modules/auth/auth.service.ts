@@ -10,7 +10,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan, DataSource } from 'typeorm';
+import { Repository, MoreThan, DataSource, QueryFailedError } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { randomInt, randomUUID } from 'crypto';
 
@@ -90,29 +90,78 @@ export class AuthService {
       throw new ConflictException('Email already registered');
     }
 
+    // A Partita IVA identifies exactly one company and the column is unique.
+    // Checking before anything is written turns what used to be a 500 into a
+    // message the sign-up form can put under the field.
+    if (dto.role === UserRole.BUSINESS && dto.partitaIva) {
+      const taken = await this.businessProfileRepository.findOne({
+        where: { partitaIva: dto.partitaIva },
+        select: { id: true },
+      });
+      if (taken) {
+        throw new ConflictException(
+          'This Partita IVA is already registered to another account',
+        );
+      }
+    }
+
     const passwordHash = await bcrypt.hash(dto.password, 10);
 
-    const user = await this.usersService.create({
-      email: dto.email,
-      passwordHash,
-      firstName: dto.firstName,
-      lastName: dto.lastName,
-      phone: dto.phone,
-      role: dto.role,
-      status: UserStatus.PENDING_VERIFICATION,
-    });
+    // The account row and the company row are written together. Saving them
+    // separately meant a company row that failed — a Partita IVA claimed
+    // between the check above and here — left the account behind at
+    // `role: business` with no company, on an email that was now taken and
+    // could never be registered again.
+    let user: User;
+    try {
+      user = await this.dataSource.transaction(async (manager) => {
+        const created = await manager.save(
+          User,
+          manager.create(User, {
+            email: dto.email,
+            passwordHash,
+            firstName: dto.firstName,
+            lastName: dto.lastName,
+            phone: dto.phone,
+            role: dto.role,
+            status: UserStatus.PENDING_VERIFICATION,
+          }),
+        );
 
-    if (dto.role === UserRole.BUSINESS && dto.companyName) {
-      const businessProfile = this.businessProfileRepository.create({
-        userId: user.id,
-        companyName: dto.companyName,
-        partitaIva: dto.partitaIva,
-        pecEmail: dto.pecEmail,
-        legalRepresentative: dto.legalRepresentative,
-        companyType: dto.companyType,
-        atecoCode: dto.atecoCode,
+        if (dto.role === UserRole.BUSINESS && dto.companyName) {
+          await manager.save(
+            BusinessProfile,
+            manager.create(BusinessProfile, {
+              userId: created.id,
+              companyName: dto.companyName,
+              partitaIva: dto.partitaIva,
+              pecEmail: dto.pecEmail,
+              legalRepresentative: dto.legalRepresentative,
+              companyType: dto.companyType,
+              atecoCode: dto.atecoCode,
+            }),
+          );
+        }
+
+        return created;
       });
-      await this.businessProfileRepository.save(businessProfile);
+    } catch (error) {
+      // Lost a race on one of the unique columns. `detail` names the column, so
+      // the caller is told which one rather than getting a generic 500.
+      if (error instanceof QueryFailedError) {
+        const detail =
+          (error as QueryFailedError & { driverError?: { detail?: string } })
+            .driverError?.detail ?? '';
+        if (detail.includes('partita_iva')) {
+          throw new ConflictException(
+            'This Partita IVA is already registered to another account',
+          );
+        }
+        if (detail.includes('email')) {
+          throw new ConflictException('Email already registered');
+        }
+      }
+      throw error;
     }
 
     // The sign-up checkbox is consent, so it is recorded against the versions

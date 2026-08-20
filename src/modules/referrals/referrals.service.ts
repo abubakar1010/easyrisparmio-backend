@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, In } from 'typeorm';
+import { Repository, DataSource, In, LessThanOrEqual } from 'typeorm';
 import { randomInt } from 'crypto';
 import { Referral } from './entities/referral.entity';
 import { CreateReferralDto } from './dto/create-referral.dto';
@@ -17,6 +17,7 @@ import { PaginatedResponseDto } from '../../common/dto/pagination.dto';
 import { ReferralStatus } from '../../common/enums/referral.enum';
 import { UsersService } from '../users/users.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AdminNotificationsService } from '../notifications/admin-notifications.service';
 import { NotificationType } from '../../common/enums/notification.enum';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
@@ -31,6 +32,7 @@ export class ReferralsService {
     private readonly usersService: UsersService,
     private readonly configService: ConfigService,
     private readonly notificationsService: NotificationsService,
+    private readonly adminNotifications: AdminNotificationsService,
   ) {}
 
   // ─── User Methods ─────────────────────────────────────────
@@ -377,6 +379,21 @@ export class ReferralsService {
     } finally {
       await queryRunner.release();
     }
+
+    await this.adminNotifications.notifyAdmins({
+      messageKey: 'admin_referral_registered',
+      type: NotificationType.ADMIN_REFERRAL,
+      bodyParams: [
+        await this.adminNotifications.describeUser(referrer.id),
+        await this.adminNotifications.describeUser(referredUserId),
+      ],
+      data: {
+        referrerId: referrer.id,
+        userId: referredUserId,
+        referralCode,
+        entityType: 'referral',
+      },
+    });
   }
 
   // ─── Scheduled Tasks ───────────────────────────────────────
@@ -384,17 +401,41 @@ export class ReferralsService {
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async expireStaleReferrals(): Promise<void> {
     try {
-      const result = await this.referralRepository
-        .createQueryBuilder()
-        .update(Referral)
-        .set({ status: ReferralStatus.EXPIRED })
-        .where('status = :status', { status: ReferralStatus.PENDING })
-        .andWhere('expiresAt IS NOT NULL')
-        .andWhere('expiresAt <= :now', { now: new Date() })
-        .execute();
+      // Read the rows before updating them. The previous bulk UPDATE was a
+      // single statement, which meant nobody — neither the referrer nor an
+      // admin — was ever told a referral had lapsed.
+      const stale = await this.referralRepository.find({
+        where: {
+          status: ReferralStatus.PENDING,
+          expiresAt: LessThanOrEqual(new Date()),
+        },
+        select: { id: true, referrerId: true },
+      });
 
-      if (result.affected && result.affected > 0) {
-        this.logger.log(`Expired ${result.affected} stale referral(s)`);
+      if (!stale.length) {
+        return;
+      }
+
+      await this.referralRepository.update(
+        { id: In(stale.map((referral) => referral.id)) },
+        { status: ReferralStatus.EXPIRED },
+      );
+
+      this.logger.log(`Expired ${stale.length} stale referral(s)`);
+
+      for (const referral of stale) {
+        try {
+          await this.notificationsService.sendNotification({
+            userId: referral.referrerId,
+            messageKey: 'referral_expired',
+            type: NotificationType.REFERRAL_STATUS,
+            data: { referralId: referral.id, status: ReferralStatus.EXPIRED },
+          });
+        } catch (error) {
+          this.logger.warn(
+            `Failed to notify referrer ${referral.referrerId} of expiry: ${error?.message || error}`,
+          );
+        }
       }
     } catch (error) {
       this.logger.error(

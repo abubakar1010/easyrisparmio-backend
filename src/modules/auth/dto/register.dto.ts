@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEmail,
   IsEnum,
   IsNotEmpty,
@@ -103,6 +104,20 @@ export class RegisterDto {
   @IsString()
   @MaxLength(20)
   referralCode?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Whether the sign-up terms and privacy checkbox was ticked. When ' +
+      'true the current versions of the privacy policy, terms and — for business ' +
+      'accounts — business terms are recorded against the new account, so the ' +
+      'app does not immediately ask again. Omitted by older clients, which are ' +
+      'treated as having accepted since their UI gates registration on it.',
+    example: true,
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  acceptedTerms?: boolean;
 
   // ─── Business fields (required only when role is "business") ───
 

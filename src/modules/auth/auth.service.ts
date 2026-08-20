@@ -30,6 +30,8 @@ import { FirebaseService } from './firebase.service';
 import { ReferralsService } from '../referrals/referrals.service';
 import { EmailService } from '../email/email.service';
 import { AdminNotificationsService } from '../notifications/admin-notifications.service';
+import { LegalService } from '../legal/legal.service';
+import { LegalAcceptanceSource } from '../../common/enums/legal.enum';
 import { NotificationType } from '../../common/enums/notification.enum';
 
 const MAX_OTP_ATTEMPTS = 5;
@@ -74,6 +76,7 @@ export class AuthService {
     private readonly referralsService: ReferralsService,
     private readonly emailService: EmailService,
     private readonly adminNotifications: AdminNotificationsService,
+    private readonly legalService: LegalService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -110,6 +113,19 @@ export class AuthService {
         atecoCode: dto.atecoCode,
       });
       await this.businessProfileRepository.save(businessProfile);
+    }
+
+    // The sign-up checkbox is consent, so it is recorded against the versions
+    // in force right now rather than as a bare boolean. Without this the user
+    // would tick the box and then be met by the re-acceptance gate on first
+    // launch, asking for the very thing they just agreed to.
+    if (dto.acceptedTerms !== false) {
+      await this.legalService.recordAcceptanceFor(
+        user.id,
+        dto.role,
+        this.legalService.registrationSlugsFor(dto.role),
+        LegalAcceptanceSource.REGISTRATION,
+      );
     }
 
     // Process referral code if provided

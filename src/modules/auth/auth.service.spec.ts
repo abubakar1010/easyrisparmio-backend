@@ -172,6 +172,7 @@ describe('AuthService — password reset', () => {
       {} as any, // referralsService
       { sendOtpEmail } as any,
       { notifyAdmins: jest.fn() } as any, // adminNotifications
+      {} as any, // legalService
       {} as any, // dataSource
     );
   });

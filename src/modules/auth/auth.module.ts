@@ -15,12 +15,14 @@ import { BusinessProfile } from '../users/entities/business-profile.entity';
 import { UsersModule } from '../users/users.module';
 import { ReferralsModule } from '../referrals/referrals.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { LegalModule } from '../legal/legal.module';
 
 @Module({
   imports: [
     UsersModule,
     ReferralsModule,
     NotificationsModule,
+    LegalModule,
     PassportModule,
     TypeOrmModule.forFeature([RefreshToken, OtpCode, BusinessProfile]),
     JwtModule.registerAsync({

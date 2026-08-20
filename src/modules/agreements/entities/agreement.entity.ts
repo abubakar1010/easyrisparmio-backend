@@ -20,6 +20,19 @@ export class Agreement extends BaseEntity {
   @Column({ name: 'discount_description', type: 'text', nullable: true })
   discountDescription: string | null;
 
+  @Column({ name: 'discount_headline', type: 'varchar', length: 60, nullable: true })
+  discountHeadline: string | null;
+
+  @Column({ name: 'discount_code', type: 'varchar', length: 50, nullable: true })
+  discountCode: string | null;
+
+  /**
+   * Admin-authored "how to use" steps shown on the agreement detail screen.
+   * Null (or empty) means the mobile app falls back to its generic steps.
+   */
+  @Column({ name: 'how_to_use', type: 'jsonb', nullable: true })
+  howToUse: string[] | null;
+
   @Column({ name: 'terms_url', type: 'varchar', length: 500, nullable: true })
   termsUrl: string | null;
 

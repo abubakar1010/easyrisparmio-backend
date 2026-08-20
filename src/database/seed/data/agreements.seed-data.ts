@@ -20,6 +20,13 @@ export async function seedAgreements(
         'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=400&h=400&fit=crop&q=80',
       discountDescription:
         '20% di sconto su tutto il menu pizza. Codice: EASY20',
+      discountHeadline: '20%',
+      discountCode: 'EASY20',
+      howToUse: [
+        'Mostra il codice EASY20 al personale prima di ordinare',
+        'Lo sconto del 20% viene applicato sul totale delle pizze',
+        'Valido tutti i giorni, esclusi festivi e asporto',
+      ],
       termsUrl: 'https://www.damichele.net',
       address: 'Via Cesare Sersale 1, 80139 Napoli NA, Italia',
       isActive: true,
@@ -38,6 +45,13 @@ export async function seedAgreements(
         'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&h=400&fit=crop&q=80',
       discountDescription:
         '15% di sconto sul conto pranzo e cena. Codice: BOTTURA15',
+      discountHeadline: '15%',
+      discountCode: 'BOTTURA15',
+      howToUse: [
+        'Prenota il tavolo indicando la convenzione EasyRisparmio',
+        'Comunica il codice BOTTURA15 al momento della prenotazione',
+        'Lo sconto del 15% viene applicato sul conto finale',
+      ],
       termsUrl: 'https://www.osteriafrancescana.it',
       address: 'Via Stella 22, 41121 Modena MO, Italia',
       isActive: true,
@@ -56,6 +70,14 @@ export async function seedAgreements(
         'https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=400&h=400&fit=crop&q=80',
       discountDescription:
         '25% di sconto sul servizio catering aziendale. Codice: EATBIZ25',
+      discountHeadline: '25%',
+      discountCode: 'EATBIZ25',
+      howToUse: [
+        'Richiedi un preventivo catering dal sito Eataly',
+        'Indica il codice EATBIZ25 e la partita IVA della tua azienda',
+        'Lo sconto del 25% viene applicato sul preventivo confermato',
+        'Valido per ordini catering con almeno 5 giorni di preavviso',
+      ],
       termsUrl: 'https://www.eataly.net',
       address: 'Piazza XXV Aprile 10, 20121 Milano MI, Italia',
       isActive: true,
@@ -74,6 +96,13 @@ export async function seedAgreements(
         'https://images.unsplash.com/photo-1501443762994-82bd5dace89a?w=400&h=400&fit=crop&q=80',
       discountDescription:
         '10% di sconto su tutti i gusti e le vaschette. Codice: GROM10',
+      discountHeadline: '10%',
+      discountCode: 'GROM10',
+      howToUse: [
+        'Mostra il codice GROM10 alla cassa prima di pagare',
+        'Lo sconto si applica su coni, coppette e vaschette',
+        'Valido in tutti i punti vendita Grom in Italia',
+      ],
       termsUrl: 'https://www.grom.it',
       address: 'Via della Maddalena 30, 10122 Torino TO, Italia',
       isActive: true,
@@ -92,6 +121,13 @@ export async function seedAgreements(
         'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400&h=400&fit=crop&q=80',
       discountDescription:
         '30% di sconto sul primo ordine in qualsiasi sede. Codice: ROSSO30',
+      discountHeadline: '30%',
+      discountCode: 'ROSSO30',
+      howToUse: [
+        'Mostra il codice ROSSO30 al personale al primo ordine',
+        'Lo sconto del 30% si applica una sola volta per cliente',
+        'Valido in tutte le sedi Rossopomodoro in Italia',
+      ],
       termsUrl: 'https://www.rossopomodoro.it',
       address: 'Via Partenope 1, 80121 Napoli NA, Italia',
       isActive: true,
@@ -110,6 +146,13 @@ export async function seedAgreements(
         'https://images.unsplash.com/photo-1559339352-11d035aa65de?w=400&h=400&fit=crop&q=80',
       discountDescription:
         'Bottiglia di vino inclusa per tavoli business da 4+ persone. Codice: CRACCO4BIZ',
+      discountHeadline: 'Vino incluso',
+      discountCode: 'CRACCO4BIZ',
+      howToUse: [
+        'Prenota un tavolo business da almeno 4 persone',
+        'Comunica il codice CRACCO4BIZ alla prenotazione',
+        'La bottiglia di vino selezionata dal sommelier è inclusa nel coperto',
+      ],
       termsUrl: 'https://www.ristorantecracco.it',
       address: 'Galleria Vittorio Emanuele II, 20121 Milano MI, Italia',
       isActive: true,
@@ -128,6 +171,13 @@ export async function seedAgreements(
         'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400&h=400&fit=crop&q=80',
       discountDescription:
         'Colazione gratuita con prenotazione brunch weekend. Codice: FLORIAN0',
+      discountHeadline: 'Colazione gratis',
+      discountCode: 'FLORIAN0',
+      howToUse: [
+        'Prenota il brunch del weekend dal sito Caffè Florian',
+        'Indica il codice FLORIAN0 nelle note della prenotazione',
+        'La colazione completa viene servita in omaggio prima del brunch',
+      ],
       termsUrl: 'https://www.caffeflorian.com',
       address: 'Piazza San Marco 57, 30124 Venezia VE, Italia',
       isActive: true,
@@ -146,6 +196,13 @@ export async function seedAgreements(
         'https://images.unsplash.com/photo-1544025162-d76694265947?w=400&h=400&fit=crop&q=80',
       discountDescription:
         '15% di sconto sul menu degustazione da 8 portate. Codice: CALANDRE15',
+      discountHeadline: '15%',
+      discountCode: 'CALANDRE15',
+      howToUse: [
+        'Prenota il menu degustazione da 8 portate',
+        'Comunica il codice CALANDRE15 alla prenotazione',
+        'Lo sconto del 15% viene applicato sul conto finale',
+      ],
       termsUrl: 'https://www.alajmo.it/le-calandre',
       address: 'Via Liguria 1, 35030 Sarmeola di Rubano PD, Italia',
       isActive: false,
@@ -164,6 +221,14 @@ export async function seedAgreements(
         'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=400&h=400&fit=crop&q=80',
       discountDescription:
         'Quota di iscrizione gratuita (valore 150€) + 20% di sconto sull’abbonamento annuale. Codice: EASYFIT20',
+      discountHeadline: '20% + iscrizione gratis',
+      discountCode: 'EASYFIT20',
+      howToUse: [
+        'Presentati in reception in uno dei club aderenti',
+        'Mostra il codice EASYFIT20 dall\'app EasyRisparmio',
+        'La quota di iscrizione viene azzerata e lo sconto applicato all\'abbonamento annuale',
+        'Offerta valida per nuovi iscritti, non cumulabile con altre promozioni',
+      ],
       termsUrl: 'https://www.virginactive.it',
       address: 'Viale Bligny 39, 20136 Milano MI, Italia',
       isActive: true,
@@ -182,6 +247,14 @@ export async function seedAgreements(
         'https://images.unsplash.com/photo-1545262810-77515befe149?w=400&h=400&fit=crop&q=80',
       discountDescription:
         '5 centesimi di sconto al litro su benzina e diesel self-service, fino a 100 litri al mese. Codice: EASYQ8',
+      discountHeadline: '5 cent/litro',
+      discountCode: 'EASYQ8',
+      howToUse: [
+        'Inserisci il codice EASYQ8 nella sezione promozioni della app Q8',
+        'Rifornisci presso una stazione Q8 o Q8 Easy aderente',
+        'Lo sconto viene scalato automaticamente sul pagamento',
+        'Massimo 100 litri al mese per utente',
+      ],
       termsUrl: 'https://www.q8.it',
       address: 'Viale dell’Oceano Indiano 13, 00144 Roma RM, Italia',
       isActive: true,
@@ -200,6 +273,13 @@ export async function seedAgreements(
         'https://images.unsplash.com/photo-1574258495973-f010dfbb5371?w=400&h=400&fit=crop&q=80',
       discountDescription:
         '30% di sconto sulle lenti da vista e controllo della vista gratuito in negozio. Codice: EASYVISTA30',
+      discountHeadline: '30%',
+      discountCode: 'EASYVISTA30',
+      howToUse: [
+        'Prenota il controllo della vista gratuito in negozio',
+        'Mostra il codice EASYVISTA30 al banco al momento dell\'acquisto',
+        'Lo sconto del 30% si applica alle lenti da vista, montatura esclusa',
+      ],
       termsUrl: 'https://www.salmoiraghievigano.it',
       address: 'Corso Vittorio Emanuele II 30, 20122 Milano MI, Italia',
       isActive: true,
@@ -218,6 +298,13 @@ export async function seedAgreements(
         'https://images.unsplash.com/photo-1517649763962-0c623066013b?w=400&h=400&fit=crop&q=80',
       discountDescription:
         '15% di sconto su abbigliamento e attrezzatura, in negozio e online. Spesa minima 50€. Codice: EASYSPORT15',
+      discountHeadline: '15%',
+      discountCode: 'EASYSPORT15',
+      howToUse: [
+        'In negozio: mostra il codice EASYSPORT15 alla cassa',
+        'Online: inserisci il codice nel carrello prima del pagamento',
+        'Spesa minima 50 euro, prodotti già in promozione esclusi',
+      ],
       termsUrl: 'https://www.decathlon.it',
       address: 'Via Enrico Fermi 8, 20090 Assago MI, Italia',
       isActive: true,
@@ -236,6 +323,14 @@ export async function seedAgreements(
         'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?w=400&h=400&fit=crop&q=80',
       discountDescription:
         '20% di sconto sulle tariffe business e secondo guidatore incluso senza costi aggiuntivi. Codice: EASYBIZCAR',
+      discountHeadline: '20%',
+      discountCode: 'EASYBIZCAR',
+      howToUse: [
+        'Prenota dal sito Europcar selezionando la tariffa business',
+        'Inserisci il codice EASYBIZCAR nel campo convenzioni',
+        'Il secondo guidatore va aggiunto al ritiro, senza costi',
+        'Necessaria partita IVA aziendale al momento del ritiro',
+      ],
       termsUrl: 'https://www.europcar.it',
       address: 'Via Antonio Cechov 50, 20151 Milano MI, Italia',
       isActive: true,
@@ -252,9 +347,26 @@ export async function seedAgreements(
       where: { title: data.title },
       withDeleted: true,
     });
+
     if (!existing) {
       await repo.save(repo.create(data));
       console.log(`  Created agreement: ${data.title}`);
+      continue;
+    }
+
+    // Backfill only the columns added after these rows were first seeded, so a
+    // re-run fills in the new content without clobbering admin edits.
+    const backfill: Partial<Agreement> = {};
+    if (!existing.discountHeadline) backfill.discountHeadline = data.discountHeadline;
+    if (!existing.discountCode) backfill.discountCode = data.discountCode;
+    if (!existing.howToUse?.length) backfill.howToUse = data.howToUse;
+
+    if (Object.keys(backfill).length > 0) {
+      Object.assign(existing, backfill);
+      await repo.save(existing);
+      console.log(
+        `  Backfilled agreement: ${data.title} (${Object.keys(backfill).join(', ')})`,
+      );
     } else {
       console.log(`  Agreement already exists: ${data.title}`);
     }

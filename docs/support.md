@@ -174,10 +174,16 @@ Returns all messages ordered by creation date ascending. Same access control as 
 ### List FAQs (Public)
 
 ```
-GET /api/v1/support/faqs?category=billing
+GET /api/v1/support/faqs?category=billing&locale=it&targetAudience=personal
 ```
 
-No authentication required. Returns active FAQs sorted by category and display order. Optional filter by category.
+No authentication required. Returns active FAQs sorted by category and display order.
+
+| Query | Description |
+|---|---|
+| `category` | Optional. Exact-match filter on the FAQ category. |
+| `locale` | Optional, defaults to `it`. Falls back to `it` when the requested locale has no FAQs at all. |
+| `targetAudience` | Optional, one of `personal` / `business` / `both`. `personal` and `business` also return the FAQs targeted at `both`; omitting it (or passing `both`) returns every audience. Invalid values are rejected with 400. |
 
 ### Create FAQ (Admin)
 

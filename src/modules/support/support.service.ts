@@ -6,7 +6,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../../common/enums/notification.enum';
 import { SupportTicket } from './entities/support-ticket.entity';
@@ -26,6 +26,7 @@ import { QueryTopicsDto } from './dto/query-topics.dto';
 import { TicketStatus, TicketPriority } from '../../common/enums/support.enum';
 import { PaginatedResponseDto } from '../../common/dto/pagination.dto';
 import { UserRole } from '../../common/enums/role.enum';
+import { UserTarget } from '../../common/enums/offer.enum';
 
 @Injectable()
 export class SupportService {
@@ -381,11 +382,22 @@ export class SupportService {
     return new PaginatedResponseDto(data, total, query.page, query.limit);
   }
 
-  async getFaqs(category?: string, locale?: string): Promise<Faq[]> {
+  async getFaqs(
+    category?: string,
+    locale?: string,
+    targetAudience?: UserTarget,
+  ): Promise<Faq[]> {
     const where: any = { isActive: true };
     if (category) {
       where.category = category;
     }
+
+    // A `personal` / `business` caller also gets the FAQs targeted at `both`.
+    // No value (or an explicit `both`) means "no audience filter" — show everything.
+    if (targetAudience && targetAudience !== UserTarget.BOTH) {
+      where.targetAudience = In([targetAudience, UserTarget.BOTH]);
+    }
+
     where.locale = locale || 'it';
 
     const results = await this.faqRepository.find({

@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
   ParseUUIDPipe,
+  ParseEnumPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -33,6 +34,7 @@ import { CreateTopicDto } from './dto/create-topic.dto';
 import { UpdateTopicDto } from './dto/update-topic.dto';
 import { QueryTicketsDto } from './dto/query-tickets.dto';
 import { QueryFaqsDto } from './dto/query-faqs.dto';
+import { UserTarget } from '../../common/enums/offer.enum';
 import { QueryTopicsDto } from './dto/query-topics.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -629,10 +631,19 @@ export class SupportController {
     summary: 'Get FAQs (public)',
     description:
       'Returns active FAQs sorted by category and display order. No authentication required. ' +
-      'Optionally filter by category.',
+      'Optionally filter by category and target audience.',
   })
   @ApiQuery({ name: 'category', required: false, description: 'Filter by FAQ category', example: 'billing' })
   @ApiQuery({ name: 'locale', required: false, description: 'Language locale (it or en, defaults to it)', example: 'it' })
+  @ApiQuery({
+    name: 'targetAudience',
+    required: false,
+    enum: UserTarget,
+    description:
+      'Audience of the caller. `personal` / `business` return the FAQs for that audience plus the ones targeted at `both`. ' +
+      'Omitted (or `both`) returns every audience.',
+    example: UserTarget.PERSONAL,
+  })
   @ApiOkResponse({
     description: 'List of active FAQs',
     content: {
@@ -656,8 +667,10 @@ export class SupportController {
   getFaqs(
     @Query('category') category?: string,
     @Query('locale') locale?: string,
+    @Query('targetAudience', new ParseEnumPipe(UserTarget, { optional: true }))
+    targetAudience?: UserTarget,
   ) {
-    return this.supportService.getFaqs(category, locale);
+    return this.supportService.getFaqs(category, locale, targetAudience);
   }
 
   @Post('faqs')

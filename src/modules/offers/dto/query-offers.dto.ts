@@ -1,6 +1,5 @@
 import { IsEnum, IsOptional, IsBoolean, IsUUID } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
 import { PaginationDto } from '../../../common/dto/pagination.dto';
 import {
   EnergyType,
@@ -9,6 +8,7 @@ import {
   UserTarget,
 } from '../../../common/enums/offer.enum';
 import { OfferStatus } from '../../../common/enums/offer-status.enum';
+import { ToBoolean } from '../../../common/transformers/to-boolean.transformer';
 
 export class QueryOffersDto extends PaginationDto {
   @ApiPropertyOptional({ enum: EnergyType, description: 'Filter by energy type' })
@@ -38,7 +38,7 @@ export class QueryOffersDto extends PaginationDto {
 
   @ApiPropertyOptional({ description: 'Filter by active status' })
   @IsOptional()
-  @Transform(({ value }) => value === 'true' || value === true)
+  @ToBoolean()
   @IsBoolean()
   isActive?: boolean;
 

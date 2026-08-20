@@ -1,7 +1,7 @@
 import { IsOptional, IsString, IsBoolean } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
 import { PaginationDto } from '../../../common/dto/pagination.dto';
+import { ToBoolean } from '../../../common/transformers/to-boolean.transformer';
 
 export class QueryStaticPagesDto extends PaginationDto {
   @ApiPropertyOptional({ description: 'Filter by slug', example: 'privacy-policy' })
@@ -16,7 +16,7 @@ export class QueryStaticPagesDto extends PaginationDto {
 
   @ApiPropertyOptional({ description: 'Filter by active status', example: true })
   @IsOptional()
-  @Transform(({ value }) => value === 'true' || value === true)
+  @ToBoolean()
   @IsBoolean()
   isActive?: boolean;
 }

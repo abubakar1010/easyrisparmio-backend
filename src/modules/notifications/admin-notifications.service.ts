@@ -87,6 +87,29 @@ export class AdminNotificationsService {
   }
 
   /**
+   * Display name for a user id, for admin-facing copy. Falls back to the email,
+   * then to a generic label, so a notification body is never left blank.
+   *
+   * Lives here rather than in each producer because this service already holds
+   * the only `User` repository the notification path needs.
+   */
+  async describeUser(userId?: string | null): Promise<string> {
+    if (!userId) return 'Sistema';
+    try {
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+        select: { id: true, firstName: true, lastName: true, email: true },
+      });
+      if (!user) return 'Utente sconosciuto';
+      return (
+        `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email
+      );
+    } catch {
+      return 'Utente sconosciuto';
+    }
+  }
+
+  /**
    * Forget the memoised admin list. Call this whenever an admin is created,
    * suspended or deleted so the next event addresses the right people.
    */

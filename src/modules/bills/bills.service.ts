@@ -142,18 +142,6 @@ export class BillsService implements OnModuleInit {
 
   // ─── Upload ───────────────────────────────────────────────
 
-  /** Display name for a user id, for admin-facing notification copy. */
-  private async userDisplayName(userId: string): Promise<string> {
-    const user = await this.userRepository.findOne({
-      where: { id: userId },
-      select: { id: true, firstName: true, lastName: true, email: true },
-    });
-    if (!user) return 'Cliente';
-    return (
-      `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email
-    );
-  }
-
   async uploadBill(
     userId: string,
     fileUrl: string,
@@ -213,7 +201,10 @@ export class BillsService implements OnModuleInit {
     await this.adminNotifications.notifyAdmins({
       messageKey: 'admin_bill_uploaded',
       type: NotificationType.ADMIN_BILL,
-      bodyParams: [await this.userDisplayName(userId), savedBill.billType],
+      bodyParams: [
+        await this.adminNotifications.describeUser(userId),
+        savedBill.billType,
+      ],
       data: {
         billId: savedBill.id,
         userId,
@@ -392,7 +383,10 @@ export class BillsService implements OnModuleInit {
       await this.adminNotifications.notifyAdmins({
         messageKey: 'admin_bill_analyzed',
         type: NotificationType.ADMIN_BILL,
-        bodyParams: [await this.userDisplayName(bill.userId), bill.billType],
+        bodyParams: [
+          await this.adminNotifications.describeUser(bill.userId),
+          bill.billType,
+        ],
         data: {
           billId: bill.id,
           userId: bill.userId,
@@ -416,7 +410,10 @@ export class BillsService implements OnModuleInit {
       await this.adminNotifications.notifyAdmins({
         messageKey: 'admin_bill_analysis_failed',
         type: NotificationType.ADMIN_BILL,
-        bodyParams: [await this.userDisplayName(bill.userId), error.message],
+        bodyParams: [
+          await this.adminNotifications.describeUser(bill.userId),
+          error.message,
+        ],
         data: {
           billId: bill.id,
           userId: bill.userId,
@@ -791,7 +788,7 @@ export class BillsService implements OnModuleInit {
     await this.adminNotifications.notifyAdmins({
       messageKey: 'admin_bill_email_requested',
       type: NotificationType.ADMIN_BILL,
-      bodyParams: [await this.userDisplayName(userId)],
+      bodyParams: [await this.adminNotifications.describeUser(userId)],
       data: {
         billId: savedBill.id,
         userId,
@@ -1335,7 +1332,7 @@ export class BillsService implements OnModuleInit {
     await this.adminNotifications.notifyAdmins({
       messageKey: 'admin_verification_submitted',
       type: NotificationType.ADMIN_VERIFICATION,
-      bodyParams: [await this.userDisplayName(userId)],
+      bodyParams: [await this.adminNotifications.describeUser(userId)],
       data: {
         billId: bill.id,
         userId,
@@ -1478,7 +1475,7 @@ export class BillsService implements OnModuleInit {
       bodyParams: [
         activeCase?.caseNumber || bill.id,
         BILL_STATUS_LABELS[targetStatus] || targetStatus,
-        await this.userDisplayName(adminId),
+        await this.adminNotifications.describeUser(adminId),
       ],
       data: {
         billId: bill.id,

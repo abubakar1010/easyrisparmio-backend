@@ -13,6 +13,11 @@ import {
   LIVE_UTILITY_CASE_STATUSES,
 } from '../../common/enums/case.enum';
 import { AlertStatus } from '../../common/enums/alert.enum';
+import {
+  roundMoney,
+  roundPercent,
+  roundTo,
+} from '../../common/utils/precision.util';
 
 @Injectable()
 export class DashboardService {
@@ -122,9 +127,9 @@ export class DashboardService {
         ),
         processing_time AS (
           SELECT
-            ROUND(AVG(EXTRACT(EPOCH FROM (ce.created_at - sc.created_at)) / 86400)::numeric, 1) AS avg_days,
-            ROUND(AVG(EXTRACT(EPOCH FROM (ce.created_at - sc.created_at)) / 86400) FILTER (WHERE ce.created_at >= dr.current_month_start)::numeric, 1) AS curr_avg,
-            ROUND(AVG(EXTRACT(EPOCH FROM (ce.created_at - sc.created_at)) / 86400) FILTER (WHERE ce.created_at >= dr.prev_month_start AND ce.created_at < dr.prev_month_end)::numeric, 1) AS prev_avg
+            ROUND(AVG(EXTRACT(EPOCH FROM (ce.created_at - sc.created_at)) / 86400)::numeric, 2) AS avg_days,
+            ROUND(AVG(EXTRACT(EPOCH FROM (ce.created_at - sc.created_at)) / 86400) FILTER (WHERE ce.created_at >= dr.current_month_start)::numeric, 2) AS curr_avg,
+            ROUND(AVG(EXTRACT(EPOCH FROM (ce.created_at - sc.created_at)) / 86400) FILTER (WHERE ce.created_at >= dr.prev_month_start AND ce.created_at < dr.prev_month_end)::numeric, 2) AS prev_avg
           FROM case_events ce
           JOIN switch_cases sc ON ce.case_id = sc.id
           CROSS JOIN date_ranges dr
@@ -170,13 +175,13 @@ export class DashboardService {
           COALESCE((
             SELECT ROUND(
               COUNT(*) FILTER (WHERE status = 'activated')::numeric * 100.0 /
-              NULLIF(COUNT(*) FILTER (WHERE status != 'cancelled')::numeric, 0), 1)
+              NULLIF(COUNT(*) FILTER (WHERE status != 'cancelled')::numeric, 0), 2)
             FROM switch_cases
             WHERE created_at >= m.month_start AND created_at < m.month_start + INTERVAL '1 month'
               AND deleted_at IS NULL
           ), 0) AS conversion_rate,
           COALESCE((
-            SELECT ROUND(AVG(EXTRACT(EPOCH FROM (ce.created_at - sc.created_at)) / 86400)::numeric, 1)
+            SELECT ROUND(AVG(EXTRACT(EPOCH FROM (ce.created_at - sc.created_at)) / 86400)::numeric, 2)
             FROM case_events ce
             JOIN switch_cases sc ON ce.case_id = sc.id
             WHERE ce.event_type = 'status_change' AND ce.new_status = 'activated'
@@ -206,12 +211,14 @@ export class DashboardService {
     const prevActivated = row.prev_activated || 0;
 
     const conversionRate = totalEligible > 0
-      ? parseFloat(((totalActivated / totalEligible) * 100).toFixed(1))
+      ? roundPercent((totalActivated / totalEligible) * 100)
       : 0;
     const currConvRate = currEligible > 0 ? (currActivated / currEligible) * 100 : 0;
     const prevConvRate = prevEligible > 0 ? (prevActivated / prevEligible) * 100 : 0;
 
-    const processingAvg = parseFloat(row.processing_avg) || 0;
+    // An AVG over days is the one figure here that is neither money nor a rate,
+    // and unrounded it reaches the dashboard as 4.333333333333333 days.
+    const processingAvg = roundTo(row.processing_avg, 2);
     const processingCurr = parseFloat(row.processing_curr) || 0;
     const processingPrev = parseFloat(row.processing_prev) || 0;
 
@@ -228,12 +235,12 @@ export class DashboardService {
       },
       conversionRate: {
         value: conversionRate,
-        delta: parseFloat((currConvRate - prevConvRate).toFixed(1)),
+        delta: roundPercent(currConvRate - prevConvRate),
         sparkline: sparklineRows.map((r: any) => parseFloat(r.conversion_rate) || 0),
       },
       avgProcessingTime: {
         value: processingAvg,
-        delta: parseFloat((processingCurr - processingPrev).toFixed(1)),
+        delta: roundTo(processingCurr - processingPrev, 2),
         sparkline: sparklineRows.map((r: any) => parseFloat(r.processing_time) || 0),
       },
     };
@@ -304,7 +311,7 @@ export class DashboardService {
       activation,
       rejected: row.rejected || 0,
       conversionRate: requestReceived > 0
-        ? parseFloat(((activation / requestReceived) * 100).toFixed(1))
+        ? roundPercent((activation / requestReceived) * 100)
         : 0,
     };
   }
@@ -366,7 +373,7 @@ export class DashboardService {
 
     const row = result[0] || {};
     return {
-      totalSavings: parseFloat(row.totalSavings) || 0,
+      totalSavings: roundMoney(row.totalSavings),
       activeUtilities: row.activeUtilities || 0,
     };
   }
@@ -375,7 +382,7 @@ export class DashboardService {
 
   private calcDelta(current: number, previous: number): number {
     if (previous === 0) return current > 0 ? 100 : 0;
-    return parseFloat((((current - previous) / previous) * 100).toFixed(1));
+    return roundPercent(((current - previous) / previous) * 100);
   }
 
   // ─── Admin Settings ──────────────────────────────────────

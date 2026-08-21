@@ -15,6 +15,7 @@ import { QueryMyReferralsDto } from './dto/query-my-referrals.dto';
 import { UpdateReferralStatusDto } from './dto/update-referral-status.dto';
 import { PaginatedResponseDto } from '../../common/dto/pagination.dto';
 import { ReferralStatus } from '../../common/enums/referral.enum';
+import { roundMoney } from '../../common/utils/precision.util';
 import { UsersService } from '../users/users.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AdminNotificationsService } from '../notifications/admin-notifications.service';
@@ -66,7 +67,7 @@ export class ReferralsService {
     for (const row of stats) {
       statMap[row.status] = {
         count: parseInt(row.count, 10),
-        totalRewards: parseFloat(row.totalRewards),
+        totalRewards: roundMoney(row.totalRewards),
       };
     }
 
@@ -207,7 +208,7 @@ export class ReferralsService {
     for (const row of result) {
       statMap[row.status] = {
         count: parseInt(row.count, 10),
-        totalRewards: parseFloat(row.totalRewards),
+        totalRewards: roundMoney(row.totalRewards),
       };
     }
 

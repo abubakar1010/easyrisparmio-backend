@@ -20,9 +20,10 @@ const CONTRACT = {
   invoiceDelivery: 'digital',
   invoiceEmail: 'mario.rossi@example.com',
   iban: 'IT60X0542811101000000123456',
+  ibanSameAsContract: true,
   ibanHolderFirstName: 'Mario',
   ibanHolderLastName: 'Rossi',
-  ibanHolderTaxCode: 'RSSMRA80A01H501Z',
+  ibanHolderTaxCode: 'RSSMRA85T10A562S',
 };
 
 async function errorsFor<T extends object>(
@@ -59,6 +60,37 @@ describe('case contract detail DTOs', () => {
         invoiceEmail: 'not-an-email',
       });
       expect(errors.map((e) => e.property)).toContain('invoiceEmail');
+    });
+  });
+
+  /**
+   * The holder's tax ID is what the SDD mandate is filed against. A mistyped
+   * one is only found out when the supplier bounces the mandate — long after
+   * the customer has been told the switch was submitted — so it is checked
+   * against its own check digit here rather than merely for its shape.
+   */
+  describe('ibanHolderTaxCode', () => {
+    it.each([
+      ['a Codice Fiscale', 'RSSMRA85T10A562S'],
+      ['a bare Partita IVA', '00743110157'],
+      ['a Partita IVA with its IT prefix', 'IT00743110157'],
+    ])('accepts %s', async (_label, ibanHolderTaxCode) => {
+      const errors = await errorsFor(CreateCaseDto, { ...BASE, ibanHolderTaxCode });
+      expect(errors).toHaveLength(0);
+    });
+
+    it.each([
+      ['a Codice Fiscale with the wrong check character', 'RSSMRA85T10A562A'],
+      ['a Partita IVA with the wrong check digit', '12345678901'],
+      ['a string that is neither', 'NOT A TAX CODE'],
+    ])('refuses %s', async (_label, ibanHolderTaxCode) => {
+      const errors = await errorsFor(CreateCaseDto, { ...BASE, ibanHolderTaxCode });
+      expect(errors.map((e) => e.property)).toContain('ibanHolderTaxCode');
+    });
+
+    it('still accepts null, which is how an admin clears one', async () => {
+      const errors = await errorsFor(UpdateCaseDto, { ibanHolderTaxCode: null });
+      expect(errors).toHaveLength(0);
     });
   });
 
@@ -103,6 +135,16 @@ describe('case contract detail DTOs', () => {
     it('refuses a selected offer that is not a UUID', async () => {
       const errors = await errorsFor(UpdateCaseDto, { selectedOfferId: 'offer-1' });
       expect(errors.map((e) => e.property)).toContain('selectedOfferId');
+    });
+
+    it('takes the holder flag on its own, so an admin can correct just that', async () => {
+      const errors = await errorsFor(UpdateCaseDto, { ibanSameAsContract: false });
+      expect(errors).toHaveLength(0);
+    });
+
+    it('refuses a holder flag that is not a boolean', async () => {
+      const errors = await errorsFor(UpdateCaseDto, { ibanSameAsContract: 'yes' });
+      expect(errors.map((e) => e.property)).toContain('ibanSameAsContract');
     });
   });
 });

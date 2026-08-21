@@ -169,6 +169,13 @@ export class SwitchCase extends BaseEntity {
   @Column({ type: 'varchar', length: 34, nullable: true })
   iban: string | null;
 
+  // Whether the account the direct debit is taken from belongs to the contract
+  // holder. Stored rather than inferred from the holder fields being blank —
+  // a third-party mandate needs that holder's own signature, and null here
+  // means the question predates the case, not that the answer was "no".
+  @Column({ name: 'iban_same_as_contract', type: 'boolean', nullable: true })
+  ibanSameAsContract: boolean | null;
+
   @Column({ name: 'iban_holder_first_name', type: 'varchar', length: 100, nullable: true })
   ibanHolderFirstName: string | null;
 

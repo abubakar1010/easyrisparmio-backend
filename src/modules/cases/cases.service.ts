@@ -108,6 +108,7 @@ export class CasesService {
       );
     }
     this.assertPaymentMethodAcceptedBy(offer, dto.paymentMethod ?? undefined);
+    this.assertDirectDebitDetails(dto);
 
     // The offer has to be one that was actually proposed for this bill. A case
     // pinned to any other bill marks a bill nobody chose as accepted and leaves
@@ -255,6 +256,10 @@ export class CasesService {
       where: { id },
       relations: [
         'user',
+        // A business customer's Partita IVA lives on the business profile, and
+        // the relation is not eager — without it the CRM has no VAT number to
+        // check the holder's tax ID against.
+        'user.businessProfile',
         'assignedAgent',
         'selectedOffer',
         'selectedOffer.supplier',
@@ -712,6 +717,32 @@ export class CasesService {
     }
   }
 
+  /**
+   * A direct debit cannot be set up without an account to take it from and a
+   * tax ID to file the mandate against, so a case is never opened missing
+   * either. The customer is told the switch was submitted the moment this
+   * returns, and a mandate the supplier bounces cannot be un-told.
+   *
+   * This lives here rather than on the DTO because `UpdateCaseDto` shares the
+   * same base class: a conditional requirement declared there would reject an
+   * admin who sets the payment method on a case that already stores an IBAN.
+   */
+  private assertDirectDebitDetails(dto: CreateCaseDto): void {
+    if (dto.paymentMethod !== PaymentMethod.RID_BANCARIO) return;
+
+    const missing: string[] = [];
+    if (!dto.iban?.trim()) missing.push('IBAN');
+    if (!dto.ibanHolderTaxCode?.trim()) {
+      missing.push('holder Codice Fiscale or Partita IVA');
+    }
+
+    if (missing.length > 0) {
+      throw new BadRequestException(
+        `Direct debit requires ${missing.join(' and ')}`,
+      );
+    }
+  }
+
   private applyDeliveryPointCorrection(
     bill: EnergyBill,
     deliveryPoint?: string,
@@ -818,10 +849,6 @@ export class CasesService {
    * or blank is cleared, which is how an admin blanks an IBAN that was entered
    * against the wrong account.
    *
-   * The IBAN is stored without the spaces it is usually printed with and in
-   * upper case, so two people typing the same account cannot produce two
-   * different-looking values the supplier then has to reconcile.
-   *
    * Returns the fields that actually changed, for the case timeline.
    */
   private applyContractDetailFields(
@@ -834,9 +861,14 @@ export class CasesService {
       const incoming = (dto as any)[field];
       if (incoming === undefined) continue;
 
+      // The IBAN and the tax ID are identifiers, not prose: they are stored
+      // without the spaces they are usually printed with and in upper case, so
+      // two people typing the same account — or the same Codice Fiscale — cannot
+      // produce two different-looking values the supplier then has to reconcile.
+      const isIdentifier = field === 'iban' || field === 'ibanHolderTaxCode';
       const value =
         typeof incoming === 'string'
-          ? (field === 'iban'
+          ? (isIdentifier
               ? incoming.replace(/\s+/g, '').toUpperCase()
               : incoming.trim()) || null
           : (incoming ?? null);

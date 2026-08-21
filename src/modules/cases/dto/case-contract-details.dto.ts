@@ -1,6 +1,14 @@
-import { IsOptional, IsString, IsEnum, IsEmail, MaxLength } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsEnum,
+  IsEmail,
+  IsBoolean,
+  MaxLength,
+} from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { PaymentMethod, InvoiceDelivery } from '../../../common/enums/payment.enum';
+import { IsItalianTaxId } from '../../../common/validators/is-italian-tax-id.validator';
 import { CaseAddressesDto } from './case-addresses.dto';
 
 /**
@@ -43,22 +51,47 @@ export class CaseContractDetailsDto extends CaseAddressesDto {
   @MaxLength(34)
   iban?: string | null;
 
-  @ApiPropertyOptional({ description: 'IBAN holder first name (if different from contract holder)', example: 'Mario' })
+  /**
+   * Whether the account the direct debit is taken from belongs to the contract
+   * holder. Recorded rather than inferred from the holder fields being blank:
+   * a third-party mandate needs the holder's own signature, so the CRM has to
+   * be able to tell "this is the customer's account" from "these details happen
+   * to match". Null on cases filed before it was asked.
+   */
+  @ApiPropertyOptional({
+    description: 'Whether the IBAN holder is the contract holder',
+    example: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  ibanSameAsContract?: boolean | null;
+
+  @ApiPropertyOptional({ description: 'IBAN holder first name', example: 'Mario' })
   @IsOptional()
   @IsString()
   @MaxLength(100)
   ibanHolderFirstName?: string | null;
 
-  @ApiPropertyOptional({ description: 'IBAN holder last name (if different from contract holder)', example: 'Rossi' })
+  @ApiPropertyOptional({ description: 'IBAN holder last name', example: 'Rossi' })
   @IsOptional()
   @IsString()
   @MaxLength(100)
   ibanHolderLastName?: string | null;
 
-  @ApiPropertyOptional({ description: 'IBAN holder tax code (codice fiscale)', example: 'RSSMRA80A01H501Z' })
+  /**
+   * The holder's Italian tax ID — a Codice Fiscale for a person, a Partita IVA
+   * for a company. Checked against its own check digit, not just its shape: a
+   * mandate filed with a mistyped code is rejected by the supplier, and by then
+   * the customer has already been told the switch was submitted.
+   */
+  @ApiPropertyOptional({
+    description: 'IBAN holder tax ID — Codice Fiscale or Partita IVA',
+    example: 'RSSMRA85T10A562S',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(16)
+  @IsItalianTaxId()
   ibanHolderTaxCode?: string | null;
 }
 
@@ -68,6 +101,7 @@ export const CASE_CONTRACT_DETAIL_FIELDS = [
   'invoiceDelivery',
   'invoiceEmail',
   'iban',
+  'ibanSameAsContract',
   'ibanHolderFirstName',
   'ibanHolderLastName',
   'ibanHolderTaxCode',
@@ -82,6 +116,7 @@ export const CASE_CONTRACT_DETAIL_LABELS: Record<CaseContractDetailField, string
   invoiceDelivery: 'Invoice delivery',
   invoiceEmail: 'Invoice email',
   iban: 'IBAN',
+  ibanSameAsContract: 'IBAN holder is the contract holder',
   ibanHolderFirstName: 'IBAN holder first name',
   ibanHolderLastName: 'IBAN holder last name',
   ibanHolderTaxCode: 'IBAN holder tax code',

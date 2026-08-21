@@ -4,12 +4,15 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  IsPartitaIva,
+  normalizeTaxId,
+} from '../../../common/validators/is-italian-tax-id.validator';
 
 /**
  * Payload for the self-service account upgrade a personal user performs from
@@ -37,11 +40,11 @@ export class UpgradeToBusinessDto {
     example: '12345678901',
   })
   @Transform(({ value }) =>
-    typeof value === 'string' ? value.replace(/\s/g, '').replace(/^IT/i, '') : value,
+    typeof value === 'string' ? normalizeTaxId(value).replace(/^IT/, '') : value,
   )
   @IsString()
   @IsNotEmpty()
-  @Matches(/^\d{11}$/, { message: 'Partita IVA must be exactly 11 digits' })
+  @IsPartitaIva()
   partitaIva: string;
 
   @ApiPropertyOptional({

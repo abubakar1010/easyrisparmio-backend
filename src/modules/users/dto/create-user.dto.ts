@@ -6,16 +6,20 @@ import {
   IsString,
   MaxLength,
   MinLength,
-  Matches,
   ValidateNested,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserRole } from '../../../common/enums/role.enum';
 import { UserStatus } from '../../../common/enums/user.enum';
 import { CreateAddressDto } from './create-address.dto';
 import { IsPhoneNumber } from '../../../common/validators/is-phone-number.validator';
 import { NormalizeEmail } from '../../../common/transformers/normalize-email.transformer';
+import {
+  IsCodiceFiscale,
+  IsPartitaIva,
+  normalizeTaxId,
+} from '../../../common/validators/is-italian-tax-id.validator';
 
 export class CreateUserDto {
   @ApiProperty({ example: 'mario.rossi@email.com' })
@@ -60,11 +64,19 @@ export class CreateUserDto {
   status?: UserStatus;
 
   @ApiPropertyOptional({ example: 'RSSMRA85M01H501Z', description: 'Codice Fiscale (16 chars)' })
+  // Stored the way it is compared: upper case, no separators. Otherwise the
+  // same code saved as 'rssmra…' and as 'RSSMRA…' are two different values,
+  // and the app re-writes the profile on every request it fills in.
+  @Transform(({ value }) =>
+    typeof value === 'string' ? normalizeTaxId(value) : value,
+  )
   @IsOptional()
   @IsString()
-  @Matches(/^[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]$/i, {
-    message: 'Invalid Codice Fiscale format',
-  })
+  // The check character, not just the shape. A shape-only rule here and a
+  // full one on the case means the account is allowed to store a code the
+  // direct debit step then refuses — which reads to the customer as the form
+  // rejecting a tax code the app itself already accepted.
+  @IsCodiceFiscale()
   codiceFiscale?: string;
 
   @ApiPropertyOptional({ example: 'Rossi S.r.l.', description: 'Required for business users' })
@@ -74,9 +86,12 @@ export class CreateUserDto {
   companyName?: string;
 
   @ApiPropertyOptional({ example: '12345678901', description: 'Partita IVA (11 digits)' })
+  @Transform(({ value }) =>
+    typeof value === 'string' ? normalizeTaxId(value).replace(/^IT/, '') : value,
+  )
   @IsOptional()
   @IsString()
-  @Matches(/^\d{11}$/, { message: 'Partita IVA must be exactly 11 digits' })
+  @IsPartitaIva()
   partitaIva?: string;
 
   @ApiPropertyOptional({ example: 'rossi@pec.it' })

@@ -11,6 +11,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsPartitaIva } from '../../../common/validators/is-italian-tax-id.validator';
 import { UserRole } from '../../../common/enums/role.enum';
 import { IsPhoneNumber } from '../../../common/validators/is-phone-number.validator';
 import { NormalizeEmail } from '../../../common/transformers/normalize-email.transformer';
@@ -141,7 +142,7 @@ export class RegisterDto {
   @ValidateIf((o) => o.role === UserRole.BUSINESS)
   @IsString()
   @IsNotEmpty()
-  @Matches(/^\d{11}$/, { message: 'Partita IVA must be exactly 11 digits' })
+  @IsPartitaIva()
   partitaIva?: string;
 
   @ApiPropertyOptional({

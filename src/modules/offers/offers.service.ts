@@ -19,6 +19,7 @@ import { EnergyBill } from '../bills/entities/energy-bill.entity';
 import { BillType } from '../../common/enums/bill.enum';
 import {
   EnergyType,
+  MarketType,
   OfferPaymentMethod,
   UserTarget,
 } from '../../common/enums/offer.enum';
@@ -97,6 +98,8 @@ export class OffersService {
         );
       }
     }
+
+    this.assertPricingComplete(dto.marketType, dto.energyType, dto);
 
     const offer = this.offerRepository.create({
       ...dto,
@@ -268,6 +271,66 @@ export class OffersService {
     return offer;
   }
 
+  /**
+   * Refuses an offer that carries no price for the way it says it is priced.
+   *
+   * A fixed offer's price is its per-unit rate, one per commodity it covers;
+   * a variable or indexed offer's is the spread over the market index. Either
+   * way exactly one of those has to be on the row, and until now neither was
+   * enforced anywhere: the DTO marks all three optional, so an offer could be
+   * saved priced at nothing at all. That offer reaches the customer's utility
+   * details with an empty price and no way to tell a missing figure from a
+   * free supply, which is what this exists to stop at the source.
+   *
+   * Zero is a price. `== null` rather than a falsy test, so a genuinely free
+   * component — a zero spread on a pure pass-through index offer — passes
+   * instead of being rejected as unpriced.
+   */
+  private assertPricingComplete(
+    marketType: MarketType,
+    energyType: EnergyType,
+    prices: {
+      pricePerKwh?: number | null;
+      pricePerSmc?: number | null;
+      spread?: number | null;
+    },
+  ): void {
+    if (
+      marketType === MarketType.VARIABLE ||
+      marketType === MarketType.INDEXED
+    ) {
+      if (prices.spread == null) {
+        throw new BadRequestException(
+          `A ${marketType} offer is priced as a spread over the market index, so a spread is required.`,
+        );
+      }
+      return;
+    }
+
+    // Fixed. A dual offer covers both commodities and needs a rate for each,
+    // or one half of it reaches the customer unpriced.
+    const missing: string[] = [];
+    if (
+      (energyType === EnergyType.ELECTRICITY ||
+        energyType === EnergyType.DUAL) &&
+      prices.pricePerKwh == null
+    ) {
+      missing.push('pricePerKwh');
+    }
+    if (
+      (energyType === EnergyType.GAS || energyType === EnergyType.DUAL) &&
+      prices.pricePerSmc == null
+    ) {
+      missing.push('pricePerSmc');
+    }
+
+    if (missing.length > 0) {
+      throw new BadRequestException(
+        `A fixed ${energyType} offer requires a per-unit price: ${missing.join(' and ')} ${missing.length > 1 ? 'are' : 'is'} missing.`,
+      );
+    }
+  }
+
   async update(
     id: string,
     dto: UpdateOfferDto,
@@ -289,6 +352,7 @@ export class OffersService {
     }
 
     Object.assign(offer, updateData);
+    this.assertPricingComplete(offer.marketType, offer.energyType, offer);
     offer.updatedBy = adminId;
     try {
       return await this.offerRepository.save(offer);

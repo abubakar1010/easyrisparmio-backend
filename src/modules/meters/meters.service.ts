@@ -200,9 +200,21 @@ export class MetersService {
       activationDate: switchCase.activationDate || null,
       expiryDate: switchCase.expiryDate || null,
       monthlyEstimate: null,
-      pricePerKwh: switchCase.selectedOffer?.pricePerKwh || null,
-      pricePerSmc: switchCase.selectedOffer?.pricePerSmc || null,
-      fixedMonthlyFee: switchCase.selectedOffer?.fixedMonthlyFee || null,
+      // How this offer prices energy, and the figure that goes with it. On a
+      // fixed offer that figure is the per-unit price; on a variable or
+      // indexed one there is no per-unit price to quote — the customer pays
+      // the market index plus a spread — so the spread is what the client
+      // shows, labelled as such. Sending both alongside the market type is
+      // what lets the client tell those two cases apart instead of printing a
+      // dash on every indexed supply.
+      marketType: switchCase.selectedOffer?.marketType || null,
+      pricePerKwh: switchCase.selectedOffer?.pricePerKwh ?? null,
+      pricePerSmc: switchCase.selectedOffer?.pricePerSmc ?? null,
+      spread: switchCase.selectedOffer?.spread ?? null,
+      // Nullish rather than falsy throughout: a zero price, a zero spread and
+      // a no-standing-charge offer are all real terms a customer is entitled
+      // to see, and `||` would blank each of them out as "missing".
+      fixedMonthlyFee: switchCase.selectedOffer?.fixedMonthlyFee ?? null,
       contractDurationDays: this.contractDurationDays(
         switchCase.activationDate,
         switchCase.expiryDate,

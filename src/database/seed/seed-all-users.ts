@@ -88,8 +88,22 @@ function generatePdrNumber(): string {
   return Array.from({ length: 14 }, () => randomInt(0, 9)).join('');
 }
 
+/**
+ * Eleven digits whose last one actually follows from the other ten.
+ *
+ * Eleven random digits pass the column but not `isValidPartitaIva`, which the
+ * app, the CRM and the API all hold a real company to — so a seeded business
+ * account could not be edited without first replacing a VAT number the seeder
+ * itself had written.
+ */
 function generatePartitaIva(): string {
-  return Array.from({ length: 11 }, () => randomInt(0, 9)).join('');
+  const digits = Array.from({ length: 10 }, () => randomInt(0, 9));
+  const sum = digits.reduce((total, digit, index) => {
+    if (index % 2 === 0) return total + digit;
+    const doubled = digit * 2;
+    return total + (doubled > 9 ? doubled - 9 : doubled);
+  }, 0);
+  return [...digits, (10 - (sum % 10)) % 10].join('');
 }
 
 // ── Per-user seeding functions ──
@@ -179,10 +193,14 @@ async function seedBusinessProfileForUser(
       userId: user.id,
       companyName,
       partitaIva: generatePartitaIva(),
-      pecEmail: `${user.lastName.toLowerCase()}@pec.it`,
       legalRepresentative: `${user.firstName} ${user.lastName}`,
       companyType: pick(COMPANY_TYPES),
       atecoCode: pick(ATECO_CODES),
+      // The two addresses a company's invoices are delivered to. Seeded so a
+      // generated business account exercises the PEC fallback the switch
+      // request uses rather than silently falling back to the sign-in email.
+      pecEmail: `${user.lastName.toLowerCase()}@pec.it`,
+      sdiCode: pick(['0000000', 'M5UXCR1', 'USAL8PV', 'KRRH6B9']),
       employeeCount: randomInt(2, 100),
       annualRevenueRange: pick(REVENUE_RANGES),
     }),

@@ -76,6 +76,10 @@ export async function seedUsers(
       referralCode: 'SEED-GIUSEPPE',
       phone: '+393405551234',
       firebaseUid: 'seed-firebase-giuseppe-001',
+      // The person signing for the company, which a business account is now
+      // asked for at sign-up. Seeded here too, so the switch request form has
+      // something to file the direct debit mandate against.
+      codiceFiscale: 'VRDGPP75D12F205M',
       lastLoginAt: new Date('2026-06-22T14:00:00Z'),
     },
     {
@@ -138,10 +142,11 @@ export async function seedBusinessProfiles(
       userId: ctx.users.business[0].id, // Giuseppe
       companyName: 'Rossi Costruzioni SRL',
       partitaIva: '01234567890',
-      pecEmail: 'rossicostruzioni@pec.it',
       legalRepresentative: 'Giuseppe Verdi',
       companyType: 'SRL',
       atecoCode: '43.21.01',
+      pecEmail: 'rossicostruzioni@pec.it',
+      sdiCode: 'M5UXCR1',
       employeeCount: 25,
       annualRevenueRange: '1M-5M',
     },
@@ -149,10 +154,13 @@ export async function seedBusinessProfiles(
       userId: ctx.users.business[1].id, // Anna
       companyName: 'Ferrari Consulting SAS',
       partitaIva: '09876543210',
-      pecEmail: 'ferrariconsulting@pec.it',
       legalRepresentative: 'Anna Ferrari',
       companyType: 'SAS',
       atecoCode: '70.22.09',
+      // No SDI channel: invoiced by PEC, which `0000000` is the official way to
+      // say. A legitimate stored value, not a blank.
+      pecEmail: 'ferrariconsulting@pec.it',
+      sdiCode: '0000000',
       employeeCount: 8,
       annualRevenueRange: '500K-1M',
     },

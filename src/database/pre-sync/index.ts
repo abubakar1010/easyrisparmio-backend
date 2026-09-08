@@ -204,6 +204,114 @@ async function lowercaseUserEmails(ds: DataSource): Promise<void> {
 }
 
 /**
+ * Gives the company row the two addresses an Italian B2B invoice is delivered
+ * to: the PEC and the SDI recipient code.
+ *
+ * `pec_email` was here once, was dropped because nothing read it, and is back
+ * with a consumer — a business case with no explicit invoice address now falls
+ * back to it rather than to the sign-in email. The drop is gone from this file
+ * rather than merely unlisted: left in place it would delete the column again
+ * on the next boot, immediately after `synchronize` had recreated it, and the
+ * two would fight on every start.
+ *
+ * Added here rather than left to `synchronize`, because outside development
+ * nothing synchronises. `IF NOT EXISTS` makes it a no-op on the second start
+ * and on a fresh database.
+ */
+async function addBusinessInvoicingColumns(ds: DataSource): Promise<void> {
+  if (!(await tableExists(ds, 'business_profiles'))) return;
+
+  const added: string[] = [];
+  if (!(await columnExists(ds, 'business_profiles', 'pec_email'))) {
+    added.push('pec_email');
+  }
+  if (!(await columnExists(ds, 'business_profiles', 'sdi_code'))) {
+    added.push('sdi_code');
+  }
+  if (added.length === 0) return;
+
+  await ds.query(
+    `ALTER TABLE business_profiles
+       ADD COLUMN IF NOT EXISTS pec_email varchar(255),
+       ADD COLUMN IF NOT EXISTS sdi_code varchar(7)`,
+  );
+  logger.log(`Added business_profiles.${added.join(', business_profiles.')}`);
+}
+
+/**
+ * Gives every offer already sent a place in the list the admin now controls.
+ *
+ * `sent_offers.display_order` decides what the app shows first. Left to the
+ * column default every existing row would sit at 0, and a bill's offers would
+ * come out in whatever order Postgres returned them — so the run is numbered
+ * here, oldest send first, which is the order the customer was already seeing.
+ *
+ * The column is added rather than left to `synchronize`, because outside
+ * development nothing synchronises and the backfill has to have something to
+ * write to. Only a column that did not exist a moment ago is filled in: on
+ * every later boot the numbers are the admin's and must not be overwritten.
+ */
+async function seedSentOfferDisplayOrder(ds: DataSource): Promise<void> {
+  if (!(await tableExists(ds, 'sent_offers'))) return;
+
+  const isNewColumn = !(await columnExists(ds, 'sent_offers', 'display_order'));
+  await ds.query(
+    `ALTER TABLE sent_offers
+       ADD COLUMN IF NOT EXISTS display_order integer NOT NULL DEFAULT 0`,
+  );
+  if (!isNewColumn) return;
+
+  const result = await ds.query(
+    `UPDATE sent_offers so
+        SET display_order = numbered.position
+       FROM (
+         SELECT id,
+                ROW_NUMBER() OVER (PARTITION BY bill_id ORDER BY created_at, id) - 1
+                  AS position
+           FROM sent_offers
+       ) numbered
+      WHERE numbered.id = so.id
+        AND numbered.position <> so.display_order`,
+  );
+  const numbered = result?.[1] ?? 0;
+  if (numbered > 0) {
+    logger.log(`Numbered ${numbered} already-sent offer(s) for admin ordering`);
+  }
+}
+
+/**
+ * Retires the separate business terms document.
+ *
+ * There is one set of Terms and Conditions and it binds personal and business
+ * accounts alike, so `business-terms-conditions` is no longer offered anywhere:
+ * not in Settings, not on sign-up, not on the public site. The rows are
+ * deactivated rather than deleted — a deleted page would take its text with it,
+ * and the consent records in `user_legal_acceptances` have to stay readable
+ * next to the document they refer to for a GDPR audit to mean anything.
+ *
+ * Clearing `requires_acceptance` is what actually matters at runtime: without
+ * it every business account would be held at the launch consent gate asking for
+ * a document the app no longer has a screen for.
+ */
+async function retireBusinessTerms(ds: DataSource): Promise<void> {
+  if (!(await tableExists(ds, 'static_pages'))) return;
+
+  const result = await ds.query(
+    `UPDATE static_pages
+        SET is_active = false, requires_acceptance = false
+      WHERE slug = 'business-terms-conditions'
+        AND (is_active OR requires_acceptance)`,
+  );
+  const retired = result?.[1] ?? 0;
+  if (retired > 0) {
+    logger.log(
+      `Retired ${retired} business terms page(s) — the general terms now cover business accounts. ` +
+        `Their text and consent history are kept; remove them with scripts/delete-business-terms-page.sql.`,
+    );
+  }
+}
+
+/**
  * Never blocks startup: the worst case of a failure here is that synchronise
  * fails right after with a much louder message, which is the outcome we want.
  */
@@ -214,6 +322,9 @@ export async function runPreSyncMigrations(ds: DataSource): Promise<void> {
     await renameReconciliationMatchColumn(ds);
     await hashOtpCodes(ds);
     await lowercaseUserEmails(ds);
+    await addBusinessInvoicingColumns(ds);
+    await seedSentOfferDisplayOrder(ds);
+    await retireBusinessTerms(ds);
   } catch (error: any) {
     logger.error(`Pre-sync migration failed: ${error?.message ?? error}`);
     throw error;

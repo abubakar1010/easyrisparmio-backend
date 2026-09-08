@@ -19,18 +19,15 @@ import { RefreshToken } from '../auth/entities/refresh-token.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
-import { UpgradeToBusinessDto } from './dto/upgrade-to-business.dto';
 import { QueryUsersDto } from './dto/query-users.dto';
 import { PaginatedResponseDto } from '../../common/dto/pagination.dto';
 import { UserRole } from '../../common/enums/role.enum';
 import { UserStatus, OtpType } from '../../common/enums/user.enum';
-import { AddressType } from '../../common/enums/address.enum';
-import { EmailService } from '../email/email.service';
-import { LegalService } from '../legal/legal.service';
 import {
-  LegalAcceptanceSource,
-  LegalSlug,
-} from '../../common/enums/legal.enum';
+  AddressType,
+  defaultAddressTypeFor,
+} from '../../common/enums/address.enum';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class UsersService {
@@ -39,8 +36,6 @@ export class UsersService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(BusinessProfile)
     private readonly businessProfileRepository: Repository<BusinessProfile>,
-    @InjectRepository(UserAddress)
-    private readonly addressRepository: Repository<UserAddress>,
     @InjectRepository(UserPreference)
     private readonly preferenceRepository: Repository<UserPreference>,
     @InjectRepository(EnergyBill)
@@ -50,7 +45,6 @@ export class UsersService {
     @InjectRepository(RefreshToken)
     private readonly refreshTokenRepository: Repository<RefreshToken>,
     private readonly emailService: EmailService,
-    private readonly legalService: LegalService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -59,55 +53,154 @@ export class UsersService {
     return this.userRepository.save(user);
   }
 
+  /**
+   * A unique-constraint violation restated as the 409 the caller can act on.
+   *
+   * `users.email` and `business_profiles.partita_iva` are both unique, and both
+   * are values the admin types into the customer form. Left unmapped they reach
+   * the dashboard as a 500 that says nothing about which field to correct.
+   * Anything else is returned unchanged, so a genuine failure is never
+   * disguised as a conflict.
+   */
+  private asUniqueConflict(error: unknown): unknown {
+    if (
+      error instanceof QueryFailedError &&
+      (error as QueryFailedError & { code?: string }).code === '23505'
+    ) {
+      const detail =
+        (error as QueryFailedError & { driverError?: { detail?: string } })
+          .driverError?.detail ?? '';
+      if (detail.includes('partita_iva')) {
+        return new ConflictException(
+          'This Partita IVA is already registered to another account',
+        );
+      }
+      if (detail.includes('email')) {
+        return new ConflictException('Email already registered');
+      }
+      // A unique column the detail does not name — another driver, or a column
+      // this path does not set by hand. Still a conflict, and a 409 the admin
+      // can retry from beats a 500 that says nothing at all.
+      return new ConflictException(
+        'A customer with these details already exists',
+      );
+    }
+    return error;
+  }
+
   async adminCreateUser(dto: CreateUserDto): Promise<User> {
     const existing = await this.findByEmail(dto.email);
     if (existing) {
       throw new ConflictException('Email already registered');
     }
 
-    const passwordHash = await bcrypt.hash(dto.password, 10);
-
-    const user = await this.create({
-      email: dto.email,
-      passwordHash,
-      firstName: dto.firstName,
-      lastName: dto.lastName,
-      phone: dto.phone,
-      role: dto.role,
-      status: dto.status || UserStatus.ACTIVE,
-      codiceFiscale: dto.codiceFiscale,
-      emailVerified: true, // Admin-created users are pre-verified
-    });
-
-    if (dto.role === UserRole.BUSINESS && dto.companyName && dto.partitaIva) {
-      const businessProfile = this.businessProfileRepository.create({
-        userId: user.id,
-        companyName: dto.companyName,
-        partitaIva: dto.partitaIva,
-        pecEmail: dto.pecEmail,
-        legalRepresentative: dto.legalRepresentative,
-        companyType: dto.companyType,
-        atecoCode: dto.atecoCode,
+    // A Partita IVA identifies exactly one company and the column is unique.
+    // Checking before anything is written turns what would surface as a 500
+    // into a message the customer form can put under the field.
+    if (dto.role === UserRole.BUSINESS && dto.partitaIva) {
+      const taken = await this.businessProfileRepository.findOne({
+        where: { partitaIva: dto.partitaIva },
+        select: { id: true },
       });
-      await this.businessProfileRepository.save(businessProfile);
+      if (taken) {
+        throw new ConflictException(
+          'This Partita IVA is already registered to another account',
+        );
+      }
     }
 
-    // Create address if provided
-    if (dto.address) {
-      const address = this.addressRepository.create({
-        userId: user.id,
-        streetAddress: dto.address.streetAddress,
-        city: dto.address.city,
-        postalCode: dto.address.postalCode,
-        province: dto.address.province || null,
-        country: dto.address.country || 'IT',
-        addressType: dto.address.addressType || AddressType.RESIDENTIAL,
-        isPrimary: true,
+    const passwordHash = await bcrypt.hash(dto.password, 10);
+
+    // Account, company and address are written together, the way registration
+    // writes them. Saved one after another, a company row that failed — a
+    // Partita IVA claimed between the check above and here — left the account
+    // behind at `role: business` with no company, on an email that was now
+    // taken and that the admin could never enter again.
+    let user: User;
+    try {
+      user = await this.dataSource.transaction(async (manager) => {
+        const created = await manager.save(
+          User,
+          manager.create(User, {
+            email: dto.email,
+            passwordHash,
+            firstName: dto.firstName,
+            lastName: dto.lastName,
+            phone: dto.phone,
+            role: dto.role,
+            status: dto.status || UserStatus.ACTIVE,
+            codiceFiscale: dto.codiceFiscale,
+            emailVerified: true, // Admin-created users are pre-verified
+          }),
+        );
+
+        if (dto.role === UserRole.BUSINESS && dto.companyName) {
+          await manager.save(
+            BusinessProfile,
+            manager.create(BusinessProfile, {
+              userId: created.id,
+              companyName: dto.companyName,
+              partitaIva: dto.partitaIva,
+              legalRepresentative: dto.legalRepresentative,
+              companyType: dto.companyType,
+              atecoCode: dto.atecoCode,
+              // Accepted by the DTO and written by every other path that
+              // touches the company row. Dropping it here silently lost a
+              // value the admin had already typed.
+              jobRole: dto.jobRole || null,
+              pecEmail: dto.pecEmail || null,
+              sdiCode: dto.sdiCode || null,
+            }),
+          );
+        }
+
+        if (dto.address) {
+          await manager.save(
+            UserAddress,
+            manager.create(UserAddress, {
+              userId: created.id,
+              streetAddress: dto.address.streetAddress,
+              city: dto.address.city,
+              postalCode: dto.address.postalCode,
+              province: dto.address.province || null,
+              country: dto.address.country || 'IT',
+              // A company has a registered office, not a residence. Left to a
+              // flat `residential` default, every business address an admin
+              // created was stored under a type that said the company lived
+              // there, and nothing downstream could tell a sede legale from a
+              // home address.
+              addressType:
+                dto.address.addressType ?? defaultAddressTypeFor(dto.role),
+              isPrimary: true,
+            }),
+          );
+        }
+
+        return created;
       });
-      await this.addressRepository.save(address);
+    } catch (error) {
+      // Lost a race on one of the unique columns after the pre-checks passed.
+      throw this.asUniqueConflict(error);
     }
 
     return (await this.findById(user.id))!;
+  }
+
+  /**
+   * The admins a case or a ticket can be assigned to.
+   *
+   * Separate from {@link findAll}, which exists to list *clients* and excludes
+   * admins outright — an assignee picker needs exactly the rows that list drops,
+   * and it needs all of them at once rather than a page of them. Suspended and
+   * deleted accounts are left out: assigning work to someone who can no longer
+   * log in reads on the board as handled when it is not.
+   */
+  async findAgents(): Promise<Pick<User, 'id' | 'firstName' | 'lastName' | 'email'>[]> {
+    return this.userRepository.find({
+      where: { role: UserRole.ADMIN, status: UserStatus.ACTIVE },
+      select: ['id', 'firstName', 'lastName', 'email'],
+      order: { firstName: 'ASC', lastName: 'ASC' },
+    });
   }
 
   async findAll(query: QueryUsersDto): Promise<PaginatedResponseDto<User>> {
@@ -179,6 +272,32 @@ export class UsersService {
       .getOne();
   }
 
+  /**
+   * The two loaders that include `passwordHash`, which is `select: false`.
+   *
+   * Deliberately separate methods rather than a flag on the ordinary finders:
+   * the hash then travels only where a caller has named it, and every such
+   * caller is findable with one grep. Both are for authentication flows that
+   * compare a password — nothing that builds a response should call them.
+   */
+  async findByEmailWithPassword(email: string): Promise<User | null> {
+    if (!email) return null;
+    return this.userRepository
+      .createQueryBuilder('user')
+      .addSelect('user.passwordHash')
+      .leftJoinAndSelect('user.businessProfile', 'businessProfile')
+      .where('LOWER(user.email) = LOWER(:email)', { email: email.trim() })
+      .getOne();
+  }
+
+  async findByIdWithPassword(id: string): Promise<User | null> {
+    return this.userRepository
+      .createQueryBuilder('user')
+      .addSelect('user.passwordHash')
+      .where('user.id = :id', { id })
+      .getOne();
+  }
+
   async findByFirebaseUid(firebaseUid: string): Promise<User | null> {
     return this.userRepository.findOne({
       where: { firebaseUid },
@@ -208,34 +327,112 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    const { companyName, partitaIva, pecEmail, legalRepresentative, companyType, atecoCode, jobRole, ...userData } = dto;
+    const {
+      companyName,
+      partitaIva,
+      legalRepresentative,
+      companyType,
+      atecoCode,
+      jobRole,
+      pecEmail,
+      sdiCode,
+      ...userData
+    } = dto;
 
-    Object.assign(user, userData);
-    await this.userRepository.save(user);
+    // What the account is about to become, which is not always what it is now:
+    // the customer form sends `role` on every save.
+    const nextRole = userData.role ?? user.role;
+    const becomingPersonal =
+      user.role === UserRole.BUSINESS && nextRole !== UserRole.BUSINESS;
+    const becomingBusiness =
+      user.role !== UserRole.BUSINESS && nextRole === UserRole.BUSINESS;
 
-    // Update business profile if business fields are provided
-    if (user.role === UserRole.BUSINESS) {
-      const businessData: Partial<BusinessProfile> = {};
-      if (companyName !== undefined) businessData.companyName = companyName;
-      if (partitaIva !== undefined) businessData.partitaIva = partitaIva;
-      if (pecEmail !== undefined) businessData.pecEmail = pecEmail;
-      if (legalRepresentative !== undefined) businessData.legalRepresentative = legalRepresentative;
-      if (companyType !== undefined) businessData.companyType = companyType;
-      if (atecoCode !== undefined) businessData.atecoCode = atecoCode;
-      if (jobRole !== undefined) businessData.jobRole = jobRole || null;
+    // Turning an account into a company needs the two things that identify one.
+    // `UpdateUserDto` is a PartialType, so its `ValidateIf` on the create DTO
+    // never fires for a field the request simply omits — which is how a PATCH
+    // carrying nothing but `role: business` used to produce a business account
+    // with no company row at all, invisible until the switch flow went looking
+    // for a Partita IVA and found none.
+    if (becomingBusiness && !user.businessProfile && !(companyName && partitaIva)) {
+      throw new BadRequestException(
+        'Company name and Partita IVA are both required to turn this account into a business',
+      );
+    }
 
-      if (Object.keys(businessData).length > 0) {
-        if (user.businessProfile) {
-          Object.assign(user.businessProfile, businessData);
-          await this.businessProfileRepository.save(user.businessProfile);
-        } else {
-          const profile = this.businessProfileRepository.create({
-            userId: user.id,
-            ...businessData,
-          } as Partial<BusinessProfile>);
-          await this.businessProfileRepository.save(profile);
-        }
+    // The same unique column as on create, checked before anything is written:
+    // a VAT that already belongs to another company comes back as a message the
+    // form can put under the field, rather than a 500 raised once the account
+    // row has already been saved.
+    if (partitaIva) {
+      const takenBy = await this.businessProfileRepository.findOne({
+        where: { partitaIva, userId: Not(id) },
+        select: { id: true },
+      });
+      if (takenBy) {
+        throw new ConflictException(
+          'This Partita IVA is already registered to another account',
+        );
       }
+    }
+
+    // The account row and the company row move together. Saved separately, a
+    // company row that failed left the account carrying an edit — a new email,
+    // a switch to business — whose other half never landed.
+    try {
+      await this.dataSource.transaction(async (manager) => {
+        const profileToDrop = becomingPersonal ? user.businessProfile : null;
+        if (profileToDrop) {
+          // Detached before the account is saved, not only deleted after:
+          // `User.businessProfile` cascades, so leaving the loaded row hanging
+          // off the entity would have the save write it straight back.
+          user.businessProfile = null as unknown as BusinessProfile;
+        }
+
+        Object.assign(user, userData);
+        await manager.save(User, user);
+
+        // A company that is no longer a company does not keep its company row.
+        // Left behind it was invisible — nothing reads `businessProfile` on a
+        // personal account — while its Partita IVA went on holding the unique
+        // index, so the real company could never register that VAT again. It
+        // goes inside the same transaction as the role change, because a row
+        // deleted next to a role that then failed to save is worse than either.
+        if (profileToDrop) {
+          await manager.delete(BusinessProfile, { userId: user.id });
+        }
+
+        // Update business profile if business fields are provided
+        if (nextRole === UserRole.BUSINESS) {
+          const businessData: Partial<BusinessProfile> = {};
+          if (companyName !== undefined) businessData.companyName = companyName;
+          if (partitaIva !== undefined) businessData.partitaIva = partitaIva;
+          if (legalRepresentative !== undefined) businessData.legalRepresentative = legalRepresentative;
+          if (companyType !== undefined) businessData.companyType = companyType;
+          if (atecoCode !== undefined) businessData.atecoCode = atecoCode;
+          if (jobRole !== undefined) businessData.jobRole = jobRole || null;
+          // Both clear on null or an empty string: an admin correcting a PEC
+          // entered against the wrong company needs a way to say "none".
+          if (pecEmail !== undefined) businessData.pecEmail = pecEmail || null;
+          if (sdiCode !== undefined) businessData.sdiCode = sdiCode || null;
+
+          if (Object.keys(businessData).length > 0) {
+            if (user.businessProfile) {
+              Object.assign(user.businessProfile, businessData);
+              await manager.save(BusinessProfile, user.businessProfile);
+            } else {
+              await manager.save(
+                BusinessProfile,
+                manager.create(BusinessProfile, {
+                  userId: user.id,
+                  ...businessData,
+                } as Partial<BusinessProfile>),
+              );
+            }
+          }
+        }
+      });
+    } catch (error) {
+      throw this.asUniqueConflict(error);
     }
 
     return (await this.findById(id))!;
@@ -341,7 +538,6 @@ export class UsersService {
       // them, get a 200, and see nothing change.
       if (dto.companyName !== undefined) businessData.companyName = dto.companyName;
       if (dto.partitaIva !== undefined) businessData.partitaIva = dto.partitaIva;
-      if (dto.pecEmail !== undefined) businessData.pecEmail = dto.pecEmail;
       if (dto.legalRepresentative !== undefined) businessData.legalRepresentative = dto.legalRepresentative;
       if (dto.companyType !== undefined) businessData.companyType = dto.companyType;
       if (dto.atecoCode !== undefined) businessData.atecoCode = dto.atecoCode;
@@ -349,6 +545,11 @@ export class UsersService {
       // screen has to be able to correct it afterwards like any other field.
       // An empty string clears it rather than storing a blank.
       if (dto.jobRole !== undefined) businessData.jobRole = dto.jobRole || null;
+      // The two addresses an invoice is delivered to. Null or an empty string
+      // clears either one — a company that has changed PEC provider needs to
+      // be able to blank the old one from the app.
+      if (dto.pecEmail !== undefined) businessData.pecEmail = dto.pecEmail || null;
+      if (dto.sdiCode !== undefined) businessData.sdiCode = dto.sdiCode || null;
 
       if (Object.keys(businessData).length > 0) {
         if (dto.partitaIva !== undefined) {
@@ -383,130 +584,6 @@ export class UsersService {
           );
         }
       }
-    }
-
-    return (await this.findById(userId))!;
-  }
-
-  // ─── Self-service account type switching ──────────────────
-
-  /**
-   * Turns a personal account into a business one: stores the company details
-   * and flips the role. Idempotent — a business user re-submitting the sheet
-   * updates the details it already has instead of erroring, so a double tap or
-   * a retry after a dropped response cannot leave the account half-switched.
-   *
-   * The role change and the profile write share a transaction: a user whose
-   * role says `business` but who has no company row would fail every business
-   * flow downstream with no way to fix it from the app.
-   */
-  async upgradeToBusiness(
-    userId: string,
-    dto: UpgradeToBusinessDto,
-  ): Promise<User> {
-    const user = await this.findById(userId);
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-    if (user.role === UserRole.ADMIN) {
-      throw new BadRequestException(
-        'Administrator accounts cannot be switched to business',
-      );
-    }
-
-    // A Partita IVA identifies exactly one company, and the column is unique.
-    // Checking first turns what would surface as a 500 into a message the app
-    // can put under the field.
-    const takenBy = await this.businessProfileRepository.findOne({
-      where: { partitaIva: dto.partitaIva, userId: Not(userId) },
-      select: { id: true },
-    });
-    if (takenBy) {
-      throw new ConflictException(
-        'This Partita IVA is already registered to another account',
-      );
-    }
-
-    try {
-      await this.dataSource.transaction(async (manager) => {
-        const existing = await manager.findOne(BusinessProfile, {
-          where: { userId },
-        });
-
-        if (existing) {
-          existing.companyName = dto.companyName;
-          existing.partitaIva = dto.partitaIva;
-          // Left untouched when the sheet omits the optional role, so a value
-          // captured earlier is not wiped by a later edit.
-          if (dto.jobRole !== undefined) {
-            existing.jobRole = dto.jobRole || null;
-          }
-          await manager.save(BusinessProfile, existing);
-        } else {
-          await manager.save(
-            BusinessProfile,
-            manager.create(BusinessProfile, {
-              userId,
-              companyName: dto.companyName,
-              partitaIva: dto.partitaIva,
-              jobRole: dto.jobRole || null,
-            }),
-          );
-        }
-
-        await manager.update(User, { id: userId }, { role: UserRole.BUSINESS });
-      });
-    } catch (error) {
-      // Lost the race against a concurrent registration of the same VAT.
-      if (
-        error instanceof QueryFailedError &&
-        (error as QueryFailedError & { code?: string }).code === '23505'
-      ) {
-        throw new ConflictException(
-          'This Partita IVA is already registered to another account',
-        );
-      }
-      throw error;
-    }
-
-    // The upgrade sheet's checkbox binds the account to the business terms, so
-    // it is recorded at the version in force. Personal-account documents are
-    // left alone: those acceptances already exist from registration.
-    await this.legalService.recordAcceptanceFor(
-      userId,
-      UserRole.BUSINESS,
-      [LegalSlug.BUSINESS_TERMS_CONDITIONS],
-      LegalAcceptanceSource.BUSINESS_UPGRADE,
-    );
-
-    return (await this.findById(userId))!;
-  }
-
-  /**
-   * Flips a business account back to personal. The company row is deliberately
-   * kept: switching back to business is then one tap with the details already
-   * filled in, and cases opened while the account was a business keep the
-   * company they were opened under.
-   *
-   * Idempotent for the same reason as the upgrade — a personal account calling
-   * this gets its profile back, not an error.
-   */
-  async switchToPersonal(userId: string): Promise<User> {
-    const user = await this.findById(userId);
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-    if (user.role === UserRole.ADMIN) {
-      throw new BadRequestException(
-        'Administrator accounts cannot be switched to personal',
-      );
-    }
-
-    if (user.role !== UserRole.PERSONAL) {
-      await this.userRepository.update(
-        { id: userId },
-        { role: UserRole.PERSONAL },
-      );
     }
 
     return (await this.findById(userId))!;

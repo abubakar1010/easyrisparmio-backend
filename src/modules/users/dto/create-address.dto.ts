@@ -40,7 +40,17 @@ export class CreateAddressDto {
   @MaxLength(2)
   country?: string;
 
-  @ApiPropertyOptional({ enum: AddressType, default: AddressType.RESIDENTIAL })
+  /**
+   * Omitted, the type follows the account: `legal` — the registered office —
+   * for a business, `residential` for a personal account. A company does not
+   * have a residence, and storing its registered office under `residential`
+   * left the platform unable to tell the two apart at all.
+   */
+  @ApiPropertyOptional({
+    enum: AddressType,
+    description:
+      'Defaults to `legal` for a business account and `residential` for a personal one',
+  })
   @IsOptional()
   @IsEnum(AddressType)
   addressType?: AddressType;

@@ -72,8 +72,7 @@ describe('case contract detail DTOs', () => {
   describe('ibanHolderTaxCode', () => {
     it.each([
       ['a Codice Fiscale', 'RSSMRA85T10A562S'],
-      ['a bare Partita IVA', '00743110157'],
-      ['a Partita IVA with its IT prefix', 'IT00743110157'],
+      ['an omocodia Codice Fiscale', 'RSSMRA85T10A56NH'],
     ])('accepts %s', async (_label, ibanHolderTaxCode) => {
       const errors = await errorsFor(CreateCaseDto, { ...BASE, ibanHolderTaxCode });
       expect(errors).toHaveLength(0);
@@ -84,6 +83,17 @@ describe('case contract detail DTOs', () => {
       ['a Partita IVA with the wrong check digit', '12345678901'],
       ['a string that is neither', 'NOT A TAX CODE'],
     ])('refuses %s', async (_label, ibanHolderTaxCode) => {
+      const errors = await errorsFor(CreateCaseDto, { ...BASE, ibanHolderTaxCode });
+      expect(errors.map((e) => e.property)).toContain('ibanHolderTaxCode');
+    });
+
+    // The mandate is signed by a person and matched against a person's code.
+    // The app refuses a VAT here by name; the CRM used to accept one, which is
+    // how a case the app would have blocked got saved anyway.
+    it.each([
+      ['a bare Partita IVA', '00743110157'],
+      ['a Partita IVA with its IT prefix', 'IT00743110157'],
+    ])('refuses %s, valid though it is', async (_label, ibanHolderTaxCode) => {
       const errors = await errorsFor(CreateCaseDto, { ...BASE, ibanHolderTaxCode });
       expect(errors.map((e) => e.property)).toContain('ibanHolderTaxCode');
     });

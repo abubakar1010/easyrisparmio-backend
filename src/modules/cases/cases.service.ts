@@ -14,8 +14,13 @@ import { EnergyBill } from '../bills/entities/energy-bill.entity';
 import { Offer } from '../offers/entities/offer.entity';
 import { SentOffer } from '../offers/entities/sent-offer.entity';
 import { Supplier } from '../suppliers/entities/supplier.entity';
+import { User } from '../users/entities/user.entity';
 import { CreateCaseDto } from './dto/create-case.dto';
-import { UpdateCaseDto } from './dto/update-case.dto';
+import {
+  UpdateCaseDto,
+  CASE_HANDLING_FIELDS,
+  CASE_HANDLING_LABELS,
+} from './dto/update-case.dto';
 import { QueryCasesDto } from './dto/query-cases.dto';
 import { PaginatedResponseDto } from '../../common/dto/pagination.dto';
 import { CaseStatus, CLOSED_CASE_STATUSES } from '../../common/enums/case.enum';
@@ -23,10 +28,7 @@ import { CaseEventType } from '../../common/enums/case-event.enum';
 import { UserRole } from '../../common/enums/role.enum';
 import { DocumentType } from '../../common/enums/user.enum';
 import { BillStatus, BillType } from '../../common/enums/bill.enum';
-import { NotificationsService } from '../notifications/notifications.service';
-import { AdminNotificationsService } from '../notifications/admin-notifications.service';
-import { BILL_STATUS_NOTIFICATIONS } from '../notifications/notification-messages';
-import { NotificationType } from '../../common/enums/notification.enum';
+import { NotificationEventsService } from '../notifications/notification-events.service';
 import { SupplierStatus } from '../../common/enums/supplier.enum';
 import { OfferPaymentMethod } from '../../common/enums/offer.enum';
 import { PaymentMethod } from '../../common/enums/payment.enum';
@@ -37,7 +39,7 @@ import {
 import {
   CaseAddressesDto,
   CASE_ADDRESS_BLOCKS,
-  CASE_ADDRESS_BLOCK_LABELS,
+  caseAddressBlockLabels,
   CASE_ADDRESS_FIELDS,
 } from './dto/case-addresses.dto';
 import {
@@ -66,8 +68,9 @@ export class CasesService {
     private readonly supplierRepository: Repository<Supplier>,
     @InjectRepository(SentOffer)
     private readonly sentOfferRepository: Repository<SentOffer>,
-    private readonly notificationsService: NotificationsService,
-    private readonly adminNotifications: AdminNotificationsService,
+    private readonly notificationEvents: NotificationEventsService,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) {}
 
   async createCase(
@@ -146,56 +149,65 @@ export class CasesService {
     this.applyAddressFields(switchCase, dto);
     this.applyContractDetailFields(switchCase, dto);
 
+    if (!switchCase.invoiceEmail) {
+      switchCase.invoiceEmail = await this.resolveInvoiceEmail(userId);
+    }
+
     const saved = await this.caseRepository.save(switchCase);
 
+    // Moved straight to OFFER_ACCEPTED rather than through
+    // BillsService.transitionBillStatus, so `statusChangedAt` — which the
+    // stalled-application job reads — has to be stamped here by hand.
     bill.status = BillStatus.OFFER_ACCEPTED;
+    bill.statusChangedAt = new Date();
     await this.billRepository.save(bill);
 
-    // The bill is moved straight to OFFER_ACCEPTED here instead of going
-    // through BillsService.transitionBillStatus, so the customer notification
-    // that transition would have raised has to be sent explicitly. Without
-    // this the customer hears nothing back after accepting an offer.
-    const billNotification =
-      BILL_STATUS_NOTIFICATIONS[BillStatus.OFFER_ACCEPTED];
-    if (billNotification) {
-      try {
-        await this.notificationsService.sendNotification({
-          userId,
-          messageKey: billNotification.messageKey,
-          type: billNotification.type,
-          data: { billId: bill.id, caseId: saved.id },
-        });
-      } catch (error) {
-        this.logger.warn(
-          `Failed to send offer accepted notification: ${error?.message || error}`,
-        );
-      }
-    }
+    // The customer is told nothing: they just tapped Accept and the app shows
+    // them the result. What they hear about next is the contract being ready.
 
     await this.logEvent(saved.id, CaseEventType.STATUS_CHANGE, 'Case created', {
       newStatus: CaseStatus.NEW,
       actorId: userId,
     });
 
-    await this.adminNotifications.notifyAdmins({
-      messageKey: 'admin_offer_accepted',
-      type: NotificationType.ADMIN_OFFER_ACCEPTED,
-      bodyParams: [
-        await this.adminNotifications.describeUser(userId),
-        offer.supplier?.name || 'fornitore',
-        saved.caseNumber,
-      ],
-      data: {
-        caseId: saved.id,
-        billId: saved.billId,
-        offerId: saved.selectedOfferId,
-        userId,
-        entityType: 'case',
-        entityId: saved.id,
-      },
-    });
+    // For the admins this is the application arriving — the point where a
+    // pratica exists and somebody has to work it.
+    await this.notificationEvents.adminApplicationSubmitted(
+      saved,
+      offer.supplier?.name || 'fornitore',
+    );
 
     return this.getCaseById(saved.id, { id: userId, role: UserRole.ADMIN });
+  }
+
+  /**
+   * Where this case's invoices go when the request form did not say.
+   *
+   * A company's invoices belong at its PEC. That is the address an Italian
+   * supplier is expected to bill to, it is the one the company actually reads,
+   * and the sign-in email on the account is very often a personal mailbox that
+   * happens to belong to whoever registered. Falling back to it for a business
+   * — which is all the platform used to do — sent statutory invoices to the
+   * wrong place while the right address sat unused on the company row.
+   *
+   * The SDI recipient code is deliberately not used as a fallback: it is not an
+   * email address and nothing can deliver to it, it travels to the supplier on
+   * the company profile instead.
+   *
+   * Still the account email for a personal account, and for a company that has
+   * not given a PEC — an address that is read is better than none.
+   */
+  private async resolveInvoiceEmail(userId: string): Promise<string | null> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['businessProfile'],
+    });
+    if (!user) return null;
+
+    if (user.role === UserRole.BUSINESS && user.businessProfile?.pecEmail) {
+      return user.businessProfile.pecEmail;
+    }
+    return user.email ?? null;
   }
 
   async getCases(
@@ -326,18 +338,29 @@ export class CasesService {
    * Corrects a case, field by field.
    *
    * Everything the case holds is editable here — the workflow fields only the
-   * CRM writes (status, priority, type, assignment, notes, activation dates),
-   * the three addresses, the payment and invoicing details, and the offer the
-   * switch is filed against. Each group that moved is written to the case's own
-   * timeline, with the exact before-and-after values in the event metadata, so
-   * a correction is always attributable.
+   * CRM writes (status, priority, type, assignment, notes, the commercial
+   * figure, the SLA and the contract dates), the three addresses, the payment
+   * and invoicing details, and the offer the switch is filed against. Each
+   * group that moved is written to the case's own timeline, with the exact
+   * before-and-after values in the event metadata, so a correction is always
+   * attributable.
+   *
+   * The one field that is not editable is `caseNumber`: it is generated from a
+   * per-day sequence behind a unique index, so retyping one could only collide
+   * with the case already holding it.
    */
   async updateCase(
     id: string,
     dto: UpdateCaseDto,
     actorId?: string,
   ): Promise<SwitchCase> {
-    const switchCase = await this.caseRepository.findOne({ where: { id } });
+    // The owner comes along so the timeline can name the middle address block
+    // the way the account holder would: a company's is its registered office,
+    // not its residence.
+    const switchCase = await this.caseRepository.findOne({
+      where: { id },
+      relations: ['user'],
+    });
 
     if (!switchCase) {
       throw new NotFoundException('Case not found');
@@ -345,8 +368,65 @@ export class CasesService {
 
     const oldStatus = switchCase.status;
     const oldOfferId = switchCase.selectedOfferId;
+    // The CRM-only fields are written by the blind assign and the date loop
+    // below, so their previous values are read off the case first — there is
+    // nothing left to diff against once those have run.
+    const oldHandling = Object.fromEntries(
+      CASE_HANDLING_FIELDS.map((field) => [
+        field,
+        (switchCase as any)[field] ?? null,
+      ]),
+    );
 
-    const { activationDate, expiryDate, selectedOfferId, ...rest } = dto;
+    const {
+      activationDate,
+      expiryDate,
+      contractSentAt,
+      slaDeadline,
+      selectedOfferId,
+      assignedAgentId,
+      fromSupplierId,
+      ...rest
+    } = dto;
+
+    // The outgoing supplier is resolved the same way the offer and the agent
+    // are — a case filed against a supplier row that does not exist would leave
+    // the switch naming nobody. `null` is the honest value for a bill whose
+    // supplier could not be matched to a record.
+    if (fromSupplierId !== undefined) {
+      if (fromSupplierId === null) {
+        switchCase.fromSupplierId = null;
+      } else {
+        const supplier = await this.supplierRepository.findOne({
+          where: { id: fromSupplierId },
+        });
+        if (!supplier) {
+          throw new NotFoundException('Supplier not found');
+        }
+        switchCase.fromSupplierId = supplier.id;
+      }
+    }
+
+    // The handler is resolved before anything is written, for the same reason
+    // the offer is: a case pointing at a user who is not an admin — or at no
+    // user at all — reads on the board as assigned to someone who will never
+    // pick it up. `null` is how an admin deliberately unassigns one.
+    const oldAgentId = switchCase.assignedAgentId ?? null;
+    if (assignedAgentId !== undefined) {
+      if (assignedAgentId === null) {
+        switchCase.assignedAgentId = null as unknown as string;
+      } else {
+        const agent = await this.userRepository.findOne({
+          where: { id: assignedAgentId, role: UserRole.ADMIN },
+        });
+        if (!agent) {
+          throw new BadRequestException(
+            'Assigned agent must be an existing admin user',
+          );
+        }
+        switchCase.assignedAgentId = agent.id;
+      }
+    }
 
     // The offer decides which supplier the case is filed against, so it is
     // resolved before anything is written: a bad offer id must leave the case
@@ -419,11 +499,13 @@ export class CasesService {
     // The same rule is enforced on the transition endpoint; this is the other
     // way into "In Attivazione", so it cannot be the loophole.
     const nextStatus = dto.status ?? switchCase.status;
-    if (activationDate !== undefined) {
-      switchCase.activationDate = activationDate ? new Date(activationDate) : null;
-    }
-    if (expiryDate !== undefined) {
-      switchCase.expiryDate = expiryDate ? new Date(expiryDate) : null;
+    // All four are columns of a date type, so a string off the wire has to be
+    // parsed rather than assigned — and a blank one clears the column, which is
+    // how an admin takes back a date that was entered against the wrong case.
+    const dates = { activationDate, expiryDate, contractSentAt, slaDeadline };
+    for (const [field, value] of Object.entries(dates)) {
+      if (value === undefined) continue;
+      (switchCase as any)[field] = value ? new Date(value) : null;
     }
 
     if (
@@ -452,9 +534,10 @@ export class CasesService {
     if (Object.keys(addressChanges).length > 0) {
       // The timeline names the blocks that moved; the exact old and new values
       // of every field are in the metadata for anyone who needs to audit them.
+      const blockLabels = caseAddressBlockLabels(switchCase.user?.role);
       const blocksTouched = CASE_ADDRESS_BLOCKS.filter((block) =>
         Object.keys(addressChanges).some((field) => field.startsWith(block)),
-      ).map((block) => CASE_ADDRESS_BLOCK_LABELS[block]);
+      ).map((block) => blockLabels[block]);
 
       await this.logEvent(id, CaseEventType.SYSTEM_EVENT, 'Addresses updated', {
         description: `${blocksTouched.join(', ')} corrected by an admin`,
@@ -478,6 +561,34 @@ export class CasesService {
           description: `${fieldsTouched.join(', ')} corrected by an admin`,
           actorId,
           metadata: { changes: contractChanges },
+        },
+      );
+    }
+
+    // The commercial figure, the SLA and the contract dates are what the case is
+    // reported and reconciled on, so they are audited exactly the way the
+    // addresses and the payment details are.
+    const handlingChanges: Record<string, { old: unknown; new: unknown }> = {};
+    for (const field of CASE_HANDLING_FIELDS) {
+      const previous = oldHandling[field];
+      const next = (saved as any)[field] ?? null;
+      if (this.sameHandlingValue(previous, next)) continue;
+      handlingChanges[field] = { old: previous, new: next };
+    }
+
+    if (Object.keys(handlingChanges).length > 0) {
+      const fieldsTouched = CASE_HANDLING_FIELDS.filter(
+        (field) => field in handlingChanges,
+      ).map((field) => CASE_HANDLING_LABELS[field]);
+
+      await this.logEvent(
+        id,
+        CaseEventType.SYSTEM_EVENT,
+        'Case handling details updated',
+        {
+          description: `${fieldsTouched.join(', ')} corrected by an admin`,
+          actorId,
+          metadata: { changes: handlingChanges },
         },
       );
     }
@@ -510,48 +621,35 @@ export class CasesService {
         actorId,
       });
 
-      try {
-        await this.notificationsService.sendNotification({
-          userId: switchCase.userId,
-          messageKey: 'case_update',
-          bodyParams: [switchCase.caseNumber],
-          type: NotificationType.CASE_UPDATE,
-          data: { caseId: id, billId: switchCase.billId, newStatus: dto.status },
-        });
-      } catch (error) {
-        this.logger.warn(
-          `Failed to send case update notification: ${error?.message || error}`,
-        );
-      }
+      // This is the second way into a case status, and it does not touch the
+      // bill — so it announces the same milestones under the same
+      // `bill:<id>:<event>` keys. Whichever path gets there first sends; the
+      // other is a silent no-op. Every non-milestone status stays quiet, which
+      // is the whole difference from the generic "your case was updated" push
+      // this replaced.
+      await this.notificationEvents.caseMilestone(switchCase, dto.status);
 
-      // Other admins hear about the move; the one who made it does not.
-      await this.adminNotifications.notifyAdmins({
-        messageKey: 'admin_case_status_changed',
-        type: NotificationType.ADMIN_CASE,
-        bodyParams: [
-          switchCase.caseNumber,
-          dto.status,
-          await this.adminNotifications.describeUser(actorId),
-        ],
-        data: {
-          caseId: id,
-          billId: switchCase.billId,
-          userId: switchCase.userId,
-          oldStatus,
-          newStatus: dto.status,
-          entityType: 'case',
-          entityId: id,
-        },
-        actorId,
-      });
+      // Admins are not told: an admin changed this, and their colleagues can
+      // see it on the board.
     }
 
-    // Log agent assignment event
-    if (dto.assignedAgentId) {
-      await this.logEvent(id, CaseEventType.ADMIN_ASSIGNED, 'Agent assigned to case', {
-        actorId,
-        metadata: { assignedAgentId: dto.assignedAgentId },
-      });
+    // Log agent assignment event. Unassignment is a handover too — the case
+    // going back to the unassigned queue is exactly what the next admin
+    // reading the timeline needs to see.
+    if (assignedAgentId !== undefined && (assignedAgentId ?? null) !== oldAgentId) {
+      await this.logEvent(
+        id,
+        CaseEventType.ADMIN_ASSIGNED,
+        assignedAgentId ? 'Agent assigned to case' : 'Agent unassigned from case',
+        {
+          actorId,
+          metadata: {
+            changes: {
+              assignedAgentId: { old: oldAgentId, new: assignedAgentId ?? null },
+            },
+          },
+        },
+      );
     }
 
     return saved;
@@ -587,25 +685,11 @@ export class CasesService {
       metadata: { documentType, fileName },
     });
 
-    // An admin uploading on the customer's behalf is not news to themselves.
-    await this.adminNotifications.notifyAdmins({
-      messageKey: 'admin_document_uploaded',
-      type: NotificationType.ADMIN_DOCUMENT,
-      bodyParams: [
-        await this.adminNotifications.describeUser(uploadedById),
-        documentType,
-        switchCase.caseNumber,
-      ],
-      data: {
-        caseId,
-        documentId: saved.id,
-        documentType,
-        userId: switchCase.userId,
-        entityType: 'case',
-        entityId: caseId,
-      },
-      actorId: uploadedById,
-    });
+    // No notification. The admin rule is "the customer uploaded a document we
+    // asked for", and a CaseDocument has no requested state — nobody asked for
+    // this, so its arrival is not work landing on anyone's desk. Requested
+    // documents run through BillVerification, which does notify on submit.
+    // The upload is still on the case timeline via the event logged above.
 
     return saved;
   }
@@ -881,6 +965,36 @@ export class CasesService {
     }
 
     return changes;
+  }
+
+  /**
+   * Whether a CRM field came back from the save holding what it held before.
+   *
+   * The two sides are rarely the same shape. Postgres hands `decimal` back as a
+   * string, so an annual value read as "1140.00" is written as the number 1140;
+   * a `date` column reads as "2026-03-12" and is written as a `Date`. Comparing
+   * either pair directly would put an untouched field on the case timeline as a
+   * correction, which is worse than not logging it at all — an audit trail is
+   * only useful while everything on it actually happened.
+   */
+  private sameHandlingValue(previous: unknown, next: unknown): boolean {
+    const normalize = (value: unknown): string | null => {
+      if (value === null || value === undefined) return null;
+      if (value instanceof Date) return value.toISOString();
+      if (typeof value === 'number') return String(value);
+      if (typeof value === 'string') {
+        // A date column and a decimal column both arrive as strings; the enums
+        // (`caseType`, `priority`) never parse as either, so they fall through
+        // to themselves.
+        const asNumber = Number(value);
+        if (value.trim() !== '' && !Number.isNaN(asNumber)) return String(asNumber);
+        const asDate = new Date(value);
+        if (!Number.isNaN(asDate.getTime())) return asDate.toISOString();
+      }
+      return String(value);
+    };
+
+    return normalize(previous) === normalize(next);
   }
 
   private async logEvent(

@@ -8,7 +8,7 @@ import {
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { PaymentMethod, InvoiceDelivery } from '../../../common/enums/payment.enum';
-import { IsItalianTaxId } from '../../../common/validators/is-italian-tax-id.validator';
+import { IsCodiceFiscale } from '../../../common/validators/is-italian-tax-id.validator';
 import { CaseAddressesDto } from './case-addresses.dto';
 
 /**
@@ -37,7 +37,8 @@ export class CaseContractDetailsDto extends CaseAddressesDto {
 
   @ApiPropertyOptional({
     description:
-      'Address digital invoices are sent to. Defaults to the account email when omitted.',
+      'Address digital invoices are sent to. Omitted, it falls back to the ' +
+      "company's PEC on a business account and to the account email otherwise.",
     example: 'mario.rossi@email.com',
   })
   @IsOptional()
@@ -79,19 +80,35 @@ export class CaseContractDetailsDto extends CaseAddressesDto {
   ibanHolderLastName?: string | null;
 
   /**
-   * The holder's Italian tax ID — a Codice Fiscale for a person, a Partita IVA
-   * for a company. Checked against its own check digit, not just its shape: a
-   * mandate filed with a mistyped code is rejected by the supplier, and by then
-   * the customer has already been told the switch was submitted.
+   * The holder's Codice Fiscale, and only that — never a Partita IVA.
+   *
+   * A SEPA direct debit mandate is signed by a person, so it is a person's code
+   * the bank matches the signature against. The mobile app has always refused a
+   * VAT number here by name, because a business customer reaches for it first;
+   * this field accepted one, which meant an admin could save through the CRM a
+   * case the app itself would have blocked, and the rejection then arrived from
+   * the supplier weeks later with the customer already told the switch was
+   * filed. All three now hold the same line.
+   *
+   * A company whose mandate is signed by someone other than the account holder
+   * says so through `ibanSameAsContract: false` and the holder's own name and
+   * code — which is the third-party mandate the bank expects, not a VAT number
+   * standing in for a signature.
+   *
+   * Checked against its check character, not merely its shape, for the reason
+   * every tax ID in this codebase is: a code that only fails at the supplier is
+   * a code that failed too late.
    */
   @ApiPropertyOptional({
-    description: 'IBAN holder tax ID — Codice Fiscale or Partita IVA',
+    description:
+      'IBAN holder Codice Fiscale — 16 characters. A Partita IVA is not ' +
+      'accepted: the direct debit mandate is filed against a person.',
     example: 'RSSMRA85T10A562S',
   })
   @IsOptional()
   @IsString()
   @MaxLength(16)
-  @IsItalianTaxId()
+  @IsCodiceFiscale()
   ibanHolderTaxCode?: string | null;
 }
 
@@ -119,5 +136,5 @@ export const CASE_CONTRACT_DETAIL_LABELS: Record<CaseContractDetailField, string
   ibanSameAsContract: 'IBAN holder is the contract holder',
   ibanHolderFirstName: 'IBAN holder first name',
   ibanHolderLastName: 'IBAN holder last name',
-  ibanHolderTaxCode: 'IBAN holder tax code',
+  ibanHolderTaxCode: 'IBAN holder Codice Fiscale',
 };

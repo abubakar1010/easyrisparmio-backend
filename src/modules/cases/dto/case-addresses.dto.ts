@@ -1,6 +1,7 @@
 import { IsOptional, IsString, IsBoolean, MaxLength, Matches } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { POSTAL_CODE_PATTERN } from '../../../common/utils/address.utils';
+import { UserRole } from '../../../common/enums/role.enum';
 
 /**
  * The three addresses a case carries, each as the same five fields: street,
@@ -48,7 +49,13 @@ export class CaseAddressesDto {
   @MaxLength(100)
   supplyProvince?: string;
 
-  // ── Residence — where the customer lives ──
+  // ── Residence, or the registered office — the account holder's own address ──
+  //
+  // One pair of columns for both, because they are the same thing in the same
+  // place on the same form: the address the contract is headed with, as opposed
+  // to where the energy is delivered. What it is called depends on who is
+  // filing — a person has a residence, a company has a sede legale — so the
+  // wording comes from `caseAddressBlockLabels` rather than from these names.
 
   @ApiPropertyOptional({ description: 'Whether the residence address is the same as the supply address. While true the residence fields are kept as a copy of the supply address.', example: true })
   @IsOptional()
@@ -131,9 +138,23 @@ export const CASE_ADDRESS_FIELDS = [
 
 export type CaseAddressBlock = (typeof CASE_ADDRESS_BLOCKS)[number];
 
-/** How each block is named to a human — on the case timeline, for instance. */
-export const CASE_ADDRESS_BLOCK_LABELS: Record<CaseAddressBlock, string> = {
-  supply: 'Supply address',
-  residential: 'Residential address',
-  shipping: 'Shipping address',
-};
+/**
+ * How each block is named to a human — on the case timeline, for instance.
+ *
+ * The middle block is whatever the account holder's own address is, and that
+ * depends on the account: a person has a residence, a company has a registered
+ * office and no residence at all. The columns stay named `residential_*`
+ * because renaming them would rewrite the schema for a wording change, but
+ * nothing a customer or an admin reads should call a company's sede legale its
+ * "residence".
+ */
+export function caseAddressBlockLabels(
+  role?: UserRole | null,
+): Record<CaseAddressBlock, string> {
+  return {
+    supply: 'Supply address',
+    residential:
+      role === UserRole.BUSINESS ? 'Registered office' : 'Residential address',
+    shipping: 'Shipping address',
+  };
+}

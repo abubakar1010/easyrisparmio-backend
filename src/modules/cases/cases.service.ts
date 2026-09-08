@@ -190,10 +190,6 @@ export class CasesService {
    * — which is all the platform used to do — sent statutory invoices to the
    * wrong place while the right address sat unused on the company row.
    *
-   * The SDI recipient code is deliberately not used as a fallback: it is not an
-   * email address and nothing can deliver to it, it travels to the supplier on
-   * the company profile instead.
-   *
    * Still the account email for a personal account, and for a company that has
    * not given a PEC — an address that is read is better than none.
    */

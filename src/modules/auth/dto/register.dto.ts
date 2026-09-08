@@ -17,10 +17,6 @@ import {
   IsPartitaIva,
   normalizeTaxId,
 } from '../../../common/validators/is-italian-tax-id.validator';
-import {
-  IsSdiCode,
-  normalizeSdiCode,
-} from '../../../common/validators/is-sdi-code.validator';
 import { UserRole } from '../../../common/enums/role.enum';
 import { IsPhoneNumber } from '../../../common/validators/is-phone-number.validator';
 import { NormalizeEmail } from '../../../common/transformers/normalize-email.transformer';
@@ -194,21 +190,6 @@ export class RegisterDto {
   @IsEmail()
   @MaxLength(255)
   pecEmail?: string;
-
-  @ApiPropertyOptional({
-    description:
-      'Codice Destinatario — the 7-character SDI address electronic invoices ' +
-      'are routed to (business only). Use `0000000` for a company invoiced by ' +
-      'PEC instead.',
-    example: 'ABC1234',
-    maxLength: 7,
-  })
-  @Transform(({ value }) =>
-    typeof value === 'string' ? normalizeSdiCode(value) : value,
-  )
-  @IsOptional()
-  @IsSdiCode()
-  sdiCode?: string;
 
   @ApiPropertyOptional({
     description: 'Name of the legal representative (business only)',

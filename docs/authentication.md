@@ -81,8 +81,7 @@ put in a mandatory field.
   "legalRepresentative": "Mario Rossi",
   "companyType": "S.r.l.",
   "atecoCode": "35.11.00",
-  "pecEmail": "rossi@pec.it",
-  "sdiCode": "M5UXCR1"
+  "pecEmail": "rossi@pec.it"
 }
 ```
 
@@ -104,7 +103,6 @@ put in a mandatory field.
 | `companyType` | string | No (business only) | Max 100 characters |
 | `atecoCode` | string | No (business only) | Max 10 characters |
 | `pecEmail` | string | No (business only) | Valid email. The company's certified address; a business switch request with no explicit invoice address falls back to it |
-| `sdiCode` | string | No (business only) | Exactly 7 letters or digits. `0000000` for a company with no SDI channel, invoiced by PEC |
 
 **Response (201):**
 

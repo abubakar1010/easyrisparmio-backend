@@ -21,10 +21,6 @@ import {
   IsPartitaIva,
   normalizeTaxId,
 } from '../../../common/validators/is-italian-tax-id.validator';
-import {
-  IsSdiCode,
-  normalizeSdiCode,
-} from '../../../common/validators/is-sdi-code.validator';
 
 export class CreateUserDto {
   @ApiProperty({ example: 'mario.rossi@email.com' })
@@ -176,19 +172,6 @@ export class CreateUserDto {
   @IsEmail()
   @MaxLength(255)
   pecEmail?: string | null;
-
-  @ApiPropertyOptional({
-    example: 'ABC1234',
-    description:
-      'Codice Destinatario — the 7-character SDI address electronic invoices ' +
-      'are routed to (business only). `0000000` for a company invoiced by PEC.',
-  })
-  @Transform(({ value }) =>
-    typeof value === 'string' ? normalizeSdiCode(value) : value,
-  )
-  @ValidateIf((_o, value) => value !== null && value !== '')
-  @IsSdiCode()
-  sdiCode?: string | null;
 
   @ApiPropertyOptional({ type: () => CreateAddressDto, description: 'Primary address for the user' })
   @IsOptional()

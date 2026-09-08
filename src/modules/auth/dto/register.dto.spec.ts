@@ -110,27 +110,10 @@ describe('RegisterDto — a personal sign-up', () => {
 });
 
 describe('RegisterDto — where a company is invoiced', () => {
-  it('accepts a PEC and an SDI code', async () => {
+  it('accepts a PEC', async () => {
     expect(
-      await errorsFor({
-        ...BUSINESS,
-        pecEmail: 'rossi@pec.it',
-        sdiCode: 'M5UXCR1',
-      }),
+      await errorsFor({ ...BUSINESS, pecEmail: 'rossi@pec.it' }),
     ).toHaveLength(0);
-  });
-
-  /** The official code for a company with no SDI channel, invoiced by PEC. */
-  it('accepts the no-channel SDI placeholder', async () => {
-    expect(
-      await errorsFor({ ...BUSINESS, sdiCode: '0000000' }),
-    ).toHaveLength(0);
-  });
-
-  it('refuses an SDI code that is not seven characters', async () => {
-    expect(await failedOn({ ...BUSINESS, sdiCode: 'ABC123' })).toContain(
-      'sdiCode',
-    );
   });
 
   it('refuses a PEC that is not an address', async () => {

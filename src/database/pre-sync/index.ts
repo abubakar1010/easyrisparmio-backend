@@ -204,8 +204,8 @@ async function lowercaseUserEmails(ds: DataSource): Promise<void> {
 }
 
 /**
- * Gives the company row the two addresses an Italian B2B invoice is delivered
- * to: the PEC and the SDI recipient code.
+ * Gives the company row the address an Italian B2B invoice is delivered to:
+ * the PEC.
  *
  * `pec_email` was here once, was dropped because nothing read it, and is back
  * with a consumer — a business case with no explicit invoice address now falls
@@ -214,28 +214,23 @@ async function lowercaseUserEmails(ds: DataSource): Promise<void> {
  * on the next boot, immediately after `synchronize` had recreated it, and the
  * two would fight on every start.
  *
+ * `sdi_code` used to be added here alongside it and no longer is: the Codice
+ * Destinatario is not collected anywhere. Dropping the leftover column is
+ * destructive, so it lives in `scripts/drop-business-sdi-code.sql` instead.
+ *
  * Added here rather than left to `synchronize`, because outside development
  * nothing synchronises. `IF NOT EXISTS` makes it a no-op on the second start
  * and on a fresh database.
  */
 async function addBusinessInvoicingColumns(ds: DataSource): Promise<void> {
   if (!(await tableExists(ds, 'business_profiles'))) return;
-
-  const added: string[] = [];
-  if (!(await columnExists(ds, 'business_profiles', 'pec_email'))) {
-    added.push('pec_email');
-  }
-  if (!(await columnExists(ds, 'business_profiles', 'sdi_code'))) {
-    added.push('sdi_code');
-  }
-  if (added.length === 0) return;
+  if (await columnExists(ds, 'business_profiles', 'pec_email')) return;
 
   await ds.query(
     `ALTER TABLE business_profiles
-       ADD COLUMN IF NOT EXISTS pec_email varchar(255),
-       ADD COLUMN IF NOT EXISTS sdi_code varchar(7)`,
+       ADD COLUMN IF NOT EXISTS pec_email varchar(255)`,
   );
-  logger.log(`Added business_profiles.${added.join(', business_profiles.')}`);
+  logger.log('Added business_profiles.pec_email');
 }
 
 /**

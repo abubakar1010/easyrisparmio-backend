@@ -502,7 +502,6 @@ export class AuthController {
                     companyName: 'Rossi S.r.l.',
                     partitaIva: '12345678903',
                     pecEmail: 'rossi@pec.it',
-                    sdiCode: 'M5UXCR1',
                     jobRole: 'CEO / Founder',
                   },
                 },

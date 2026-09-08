@@ -196,11 +196,10 @@ async function seedBusinessProfileForUser(
       legalRepresentative: `${user.firstName} ${user.lastName}`,
       companyType: pick(COMPANY_TYPES),
       atecoCode: pick(ATECO_CODES),
-      // The two addresses a company's invoices are delivered to. Seeded so a
+      // The address a company's invoices are delivered to. Seeded so a
       // generated business account exercises the PEC fallback the switch
       // request uses rather than silently falling back to the sign-in email.
       pecEmail: `${user.lastName.toLowerCase()}@pec.it`,
-      sdiCode: pick(['0000000', 'M5UXCR1', 'USAL8PV', 'KRRH6B9']),
       employeeCount: randomInt(2, 100),
       annualRevenueRange: pick(REVENUE_RANGES),
     }),

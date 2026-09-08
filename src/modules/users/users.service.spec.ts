@@ -498,7 +498,6 @@ describe('UsersService — an admin moving an account between the two types', ()
       companyName: 'Rossi S.r.l.',
       partitaIva: '12345678903',
       pecEmail: 'rossi@pec.it',
-      sdiCode: 'M5UXCR1',
     } as any);
 
     expect(profiles.rows).toHaveLength(1);
@@ -507,7 +506,6 @@ describe('UsersService — an admin moving an account between the two types', ()
       companyName: 'Rossi S.r.l.',
       partitaIva: '12345678903',
       pecEmail: 'rossi@pec.it',
-      sdiCode: 'M5UXCR1',
     });
   });
 
@@ -535,14 +533,12 @@ describe('UsersService — an admin moving an account between the two types', ()
     const { service, profiles } = makeService([
       makeUser({ role: UserRole.BUSINESS }),
     ]);
-    seedCompany(profiles, { pecEmail: 'old@pec.it', sdiCode: 'M5UXCR1' });
+    seedCompany(profiles, { pecEmail: 'old@pec.it' });
 
     await service.adminUpdateUser(USER_ID, {
       pecEmail: '',
-      sdiCode: null,
     } as any);
 
     expect(profiles.rows[0].pecEmail).toBeNull();
-    expect(profiles.rows[0].sdiCode).toBeNull();
   });
 });

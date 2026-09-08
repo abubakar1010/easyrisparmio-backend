@@ -149,7 +149,6 @@ export class UsersService {
               // value the admin had already typed.
               jobRole: dto.jobRole || null,
               pecEmail: dto.pecEmail || null,
-              sdiCode: dto.sdiCode || null,
             }),
           );
         }
@@ -335,7 +334,6 @@ export class UsersService {
       atecoCode,
       jobRole,
       pecEmail,
-      sdiCode,
       ...userData
     } = dto;
 
@@ -410,10 +408,9 @@ export class UsersService {
           if (companyType !== undefined) businessData.companyType = companyType;
           if (atecoCode !== undefined) businessData.atecoCode = atecoCode;
           if (jobRole !== undefined) businessData.jobRole = jobRole || null;
-          // Both clear on null or an empty string: an admin correcting a PEC
+          // Clears on null or an empty string: an admin correcting a PEC
           // entered against the wrong company needs a way to say "none".
           if (pecEmail !== undefined) businessData.pecEmail = pecEmail || null;
-          if (sdiCode !== undefined) businessData.sdiCode = sdiCode || null;
 
           if (Object.keys(businessData).length > 0) {
             if (user.businessProfile) {
@@ -545,11 +542,10 @@ export class UsersService {
       // screen has to be able to correct it afterwards like any other field.
       // An empty string clears it rather than storing a blank.
       if (dto.jobRole !== undefined) businessData.jobRole = dto.jobRole || null;
-      // The two addresses an invoice is delivered to. Null or an empty string
-      // clears either one — a company that has changed PEC provider needs to
-      // be able to blank the old one from the app.
+      // The address an invoice is delivered to. Null or an empty string clears
+      // it — a company that has changed PEC provider needs to be able to blank
+      // the old one from the app.
       if (dto.pecEmail !== undefined) businessData.pecEmail = dto.pecEmail || null;
-      if (dto.sdiCode !== undefined) businessData.sdiCode = dto.sdiCode || null;
 
       if (Object.keys(businessData).length > 0) {
         if (dto.partitaIva !== undefined) {

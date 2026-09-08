@@ -140,7 +140,6 @@ export class AuthService {
               companyType: dto.companyType,
               atecoCode: dto.atecoCode,
               pecEmail: dto.pecEmail || null,
-              sdiCode: dto.sdiCode || null,
             }),
           );
         }

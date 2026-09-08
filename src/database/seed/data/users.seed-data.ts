@@ -146,7 +146,6 @@ export async function seedBusinessProfiles(
       companyType: 'SRL',
       atecoCode: '43.21.01',
       pecEmail: 'rossicostruzioni@pec.it',
-      sdiCode: 'M5UXCR1',
       employeeCount: 25,
       annualRevenueRange: '1M-5M',
     },
@@ -157,10 +156,7 @@ export async function seedBusinessProfiles(
       legalRepresentative: 'Anna Ferrari',
       companyType: 'SAS',
       atecoCode: '70.22.09',
-      // No SDI channel: invoiced by PEC, which `0000000` is the official way to
-      // say. A legitimate stored value, not a blank.
       pecEmail: 'ferrariconsulting@pec.it',
-      sdiCode: '0000000',
       employeeCount: 8,
       annualRevenueRange: '500K-1M',
     },

@@ -57,7 +57,15 @@ POST /api/v1/auth/register
 
 ### Business Registration Example
 
-When `role` is `business`, the business-specific fields are conditionally validated via `@ValidateIf` -- `companyName` and `partitaIva` become required.
+When `role` is `business`, the business-specific fields are conditionally validated via `@ValidateIf` -- `companyName`, `partitaIva` and `codiceFiscale` become required.
+
+`partitaIva` and `codiceFiscale` are not alternatives. The Partita IVA is the
+**company's** VAT number and lives on the `BusinessProfile`; the Codice Fiscale
+is the **person signing for the company** and lives on the user row. A SEPA
+direct debit mandate is signed by a person and matched against their code, so
+the switch request refuses a Partita IVA in the mandate holder field -- an
+account registered without a Codice Fiscale reaches that form with nothing to
+put in a mandatory field.
 
 ```json
 {
@@ -68,11 +76,13 @@ When `role` is `business`, the business-specific fields are conditionally valida
   "phone": "+393331234567",
   "role": "business",
   "companyName": "Rossi S.r.l.",
-  "partitaIva": "12345678901",
-  "pecEmail": "rossi@pec.it",
+  "partitaIva": "12345678903",
+  "codiceFiscale": "RSSMRA85T10A562S",
   "legalRepresentative": "Mario Rossi",
   "companyType": "S.r.l.",
-  "atecoCode": "35.11.00"
+  "atecoCode": "35.11.00",
+  "pecEmail": "rossi@pec.it",
+  "sdiCode": "M5UXCR1"
 }
 ```
 
@@ -88,11 +98,13 @@ When `role` is `business`, the business-specific fields are conditionally valida
 | `role` | string | Yes | `personal` or `business` (determines which additional fields are required) |
 | `referralCode` | string | No | 8-char referral code from existing user |
 | `companyName` | string | Yes (if business) | Max 255 characters |
-| `partitaIva` | string | Yes (if business) | Exactly 11 digits |
-| `pecEmail` | string | No (business only) | Valid email format |
+| `partitaIva` | string | Yes (if business) | 11 digits whose last one follows from the first ten; an `IT` prefix is stripped |
+| `codiceFiscale` | string | Yes (if business) | 16 characters, verified against its own check character. Optional for a personal account, which is asked on the profile screen instead |
 | `legalRepresentative` | string | No (business only) | Max 255 characters |
 | `companyType` | string | No (business only) | Max 100 characters |
 | `atecoCode` | string | No (business only) | Max 10 characters |
+| `pecEmail` | string | No (business only) | Valid email. The company's certified address; a business switch request with no explicit invoice address falls back to it |
+| `sdiCode` | string | No (business only) | Exactly 7 letters or digits. `0000000` for a company with no SDI channel, invoiced by PEC |
 
 **Response (201):**
 

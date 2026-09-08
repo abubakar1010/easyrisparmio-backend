@@ -29,10 +29,8 @@ import { UsersService } from '../users/users.service';
 import { FirebaseService } from './firebase.service';
 import { ReferralsService } from '../referrals/referrals.service';
 import { EmailService } from '../email/email.service';
-import { AdminNotificationsService } from '../notifications/admin-notifications.service';
 import { LegalService } from '../legal/legal.service';
 import { LegalAcceptanceSource } from '../../common/enums/legal.enum';
-import { NotificationType } from '../../common/enums/notification.enum';
 
 const MAX_OTP_ATTEMPTS = 5;
 const OTP_TTL_MINUTES = 10;
@@ -75,7 +73,6 @@ export class AuthService {
     private readonly firebaseService: FirebaseService,
     private readonly referralsService: ReferralsService,
     private readonly emailService: EmailService,
-    private readonly adminNotifications: AdminNotificationsService,
     private readonly legalService: LegalService,
     private readonly dataSource: DataSource,
   ) {}
@@ -124,6 +121,10 @@ export class AuthService {
             lastName: dto.lastName,
             phone: dto.phone,
             role: dto.role,
+            // The person's own code, which a business sign-up now collects
+            // too. Dropping it here is what left business accounts arriving at
+            // the switch request form with an empty mandatory tax field.
+            codiceFiscale: dto.codiceFiscale,
             status: UserStatus.PENDING_VERIFICATION,
           }),
         );
@@ -135,10 +136,11 @@ export class AuthService {
               userId: created.id,
               companyName: dto.companyName,
               partitaIva: dto.partitaIva,
-              pecEmail: dto.pecEmail,
               legalRepresentative: dto.legalRepresentative,
               companyType: dto.companyType,
               atecoCode: dto.atecoCode,
+              pecEmail: dto.pecEmail || null,
+              sdiCode: dto.sdiCode || null,
             }),
           );
         }
@@ -172,7 +174,7 @@ export class AuthService {
       await this.legalService.recordAcceptanceFor(
         user.id,
         dto.role,
-        this.legalService.registrationSlugsFor(dto.role),
+        this.legalService.registrationSlugs(),
         LegalAcceptanceSource.REGISTRATION,
       );
     }
@@ -209,16 +211,9 @@ export class AuthService {
         'We could not send the verification code. Use "resend code" to try again.';
     }
 
-    await this.adminNotifications.notifyAdmins({
-      messageKey: 'admin_user_registered',
-      type: NotificationType.ADMIN_USER,
-      bodyParams: [
-        `${user.firstName} ${user.lastName}`.trim() || user.email,
-        user.role,
-        user.email,
-      ],
-      data: { userId: user.id, role: user.role, entityType: 'user' },
-    });
+    // A sign-up needs no operator intervention — the account is self-service
+    // until the customer uploads a bill, and that is what raises the first
+    // admin notification. New registrations are still on the clients page.
 
     const verificationToken = this.generateVerificationToken(user.email);
     const { passwordHash: _, ...result } = user;
@@ -232,7 +227,8 @@ export class AuthService {
   }
 
   async validateUser(email: string, password: string): Promise<User | null> {
-    const user = await this.usersService.findByEmail(email);
+    // `passwordHash` is `select: false`; the ordinary finder does not return it.
+    const user = await this.usersService.findByEmailWithPassword(email);
     if (!user || !user.passwordHash) {
       return null;
     }
@@ -313,19 +309,8 @@ export class AuthService {
         status: wasPending ? UserStatus.ACTIVE : user.status,
       });
 
-      // Only the transition out of PENDING_VERIFICATION is news to an admin;
-      // re-verifying an already active address is not.
-      if (wasPending) {
-        await this.adminNotifications.notifyAdmins({
-          messageKey: 'admin_user_verified',
-          type: NotificationType.ADMIN_USER,
-          bodyParams: [
-            `${user.firstName} ${user.lastName}`.trim() || user.email,
-            user.email,
-          ],
-          data: { userId: user.id, role: user.role, entityType: 'user' },
-        });
-      }
+      // Email verification notifies nobody: it is the customer finishing
+      // sign-up, not finishing something an operator asked them for.
 
       // Verifying the address is the last step of sign-up, and the app goes
       // straight to the home screen from here. It was doing so without a
@@ -525,7 +510,8 @@ export class AuthService {
       throw new BadRequestException('Invalid or expired reset token');
     }
 
-    const user = await this.usersService.findById(payload.sub);
+    // With the hash: resetPassword refuses a new password equal to the old one.
+    const user = await this.usersService.findByIdWithPassword(payload.sub);
     if (!user) {
       throw new BadRequestException('Invalid or expired reset token');
     }
@@ -543,7 +529,8 @@ export class AuthService {
       throw new BadRequestException('Either resetToken or email+code is required');
     }
 
-    const user = await this.usersService.findByEmail(dto.email);
+    // With the hash, for the same reason as userFromResetToken.
+    const user = await this.usersService.findByEmailWithPassword(dto.email);
     if (!user || user.status === UserStatus.SUSPENDED) {
       await bcrypt.compare(dto.code, ABSENT_OTP_HASH);
       throw new BadRequestException('Invalid or expired OTP code');
@@ -634,7 +621,8 @@ export class AuthService {
       throw new BadRequestException('New password and confirmation do not match');
     }
 
-    const user = await this.usersService.findById(userId);
+    // With the hash: the current password has to be checked before it changes.
+    const user = await this.usersService.findByIdWithPassword(userId);
     if (!user) {
       throw new BadRequestException('User not found');
     }
@@ -679,9 +667,19 @@ export class AuthService {
     return { message: 'Password changed successfully', ...tokens };
   }
 
+  /**
+   * Signs a user in from a Firebase ID token minted by a social provider.
+   *
+   * The `meta.role` is honoured only when this call *creates* the account: the
+   * sign-up screen knows whether the person picked "personal" or "business",
+   * and hardcoding PERSONAL here meant a business user who tapped "Continue
+   * with Google" silently got a consumer account. It is deliberately ignored
+   * for an existing account — a login request must never be able to change the
+   * role of an account it merely authenticated.
+   */
   async socialLogin(
     idToken: string,
-    meta?: { ipAddress?: string; deviceInfo?: string },
+    meta?: { ipAddress?: string; deviceInfo?: string; role?: UserRole },
   ) {
     const decodedToken = await this.firebaseService.verifyIdToken(idToken);
 
@@ -689,6 +687,24 @@ export class AuthService {
     if (!email) {
       throw new BadRequestException(
         'Email is required. Please ensure your social account has a verified email.',
+      );
+    }
+
+    // Firebase reports whether the provider actually *proved* ownership of the
+    // address. Google always does. Facebook hands back whatever is on the
+    // profile, verified or not, and this endpoint is shared by all three
+    // providers — so without this check, signing in with an unverified address
+    // was enough to be handed an existing account that happened to use it.
+    // The same claim is what marks the account email-verified below, so it has
+    // to be trustworthy in both directions.
+    if (decodedToken.email_verified !== true) {
+      this.logger.warn(
+        `Rejected social login for ${email}: provider ` +
+          `${decodedToken.firebase?.sign_in_provider} did not verify the address`,
+      );
+      throw new UnauthorizedException(
+        'Your social account email is not verified. Verify it with your ' +
+          'provider, or sign in with your email and password.',
       );
     }
 
@@ -713,28 +729,49 @@ export class AuthService {
     }
 
     if (user) {
+      // Suspension is checked *before* anything is written. The account
+      // updates below promote a PENDING_VERIFICATION account to ACTIVE, and
+      // running them first meant a suspended account whose email was not yet
+      // verified was un-suspended by the very request that should have been
+      // refused — the ban lifted itself the moment the user tapped "Continue
+      // with Google".
+      this.assertNotSuspended(user);
+
+      // One write instead of the four this used to make: linking the UID, the
+      // avatar, the verification promotion and `lastLoginAt` were four
+      // sequential SELECT-then-UPDATE round trips against the same row, each
+      // cascading a save of the loaded business profile — and `lastLoginAt`
+      // landed after the reload, so the response always carried the previous
+      // login's timestamp.
+      const patch: Partial<User> = { lastLoginAt: new Date() };
+
       // Link Firebase account if not yet linked
       if (!user.firebaseUid) {
-        await this.usersService.update(user.id, { firebaseUid });
+        patch.firebaseUid = firebaseUid;
       }
-      // Update avatar from social profile if user doesn't have one
+      // Adopt the social profile picture only when there is nothing to lose.
       if (!user.avatar && avatar) {
-        await this.usersService.update(user.id, { avatar });
+        patch.avatar = avatar;
       }
-      // Ensure user is active and email-verified (Firebase verified it)
-      if (
-        !user.emailVerified ||
-        user.status === UserStatus.PENDING_VERIFICATION
-      ) {
-        await this.usersService.update(user.id, {
-          emailVerified: true,
-          status: UserStatus.ACTIVE,
-        });
+      // Firebase verified the address, so an account still waiting on its own
+      // email loop has nothing left to wait for.
+      if (!user.emailVerified) {
+        patch.emailVerified = true;
       }
-      // Reload user after updates
-      user = await this.usersService.findById(user.id);
+      if (user.status === UserStatus.PENDING_VERIFICATION) {
+        patch.status = UserStatus.ACTIVE;
+      }
+
+      user = await this.usersService.update(user.id, patch);
     } else {
-      // New user — create account
+      // New user — create account. `role` comes from the sign-up screen; only
+      // the two self-service roles are reachable, so a request asking for
+      // ADMIN gets a personal account rather than a promotion.
+      const role =
+        meta?.role === UserRole.BUSINESS
+          ? UserRole.BUSINESS
+          : UserRole.PERSONAL;
+
       user = await this.usersService.create({
         email,
         passwordHash: null,
@@ -743,39 +780,19 @@ export class AuthService {
         firebaseUid,
         authProvider: provider,
         avatar,
-        role: UserRole.PERSONAL,
+        role,
         status: UserStatus.ACTIVE,
         emailVerified: true,
+        lastLoginAt: new Date(),
       });
 
-      await this.adminNotifications.notifyAdmins({
-        messageKey: 'admin_user_registered',
-        type: NotificationType.ADMIN_USER,
-        bodyParams: [
-          `${user.firstName} ${user.lastName}`.trim() || user.email,
-          user.role,
-          user.email,
-        ],
-        data: {
-          userId: user.id,
-          role: user.role,
-          authProvider: provider,
-          entityType: 'user',
-        },
-      });
+      // As with email sign-up, a new social account is not admin work.
     }
 
     if (!user) {
       throw new BadRequestException('Failed to create or retrieve user');
     }
 
-    if (user.status === UserStatus.SUSPENDED) {
-      throw new UnauthorizedException(
-        'Your account has been suspended. Please contact support for assistance.',
-      );
-    }
-
-    await this.usersService.update(user.id, { lastLoginAt: new Date() });
     const tokens = await this.generateTokens(user, meta);
     const { passwordHash: _, ...userWithoutPassword } = user;
 
@@ -783,6 +800,15 @@ export class AuthService {
       user: userWithoutPassword,
       ...tokens,
     };
+  }
+
+  /** Refuses a banned account before any token is minted. */
+  private assertNotSuspended(user: User): void {
+    if (user.status === UserStatus.SUSPENDED) {
+      throw new UnauthorizedException(
+        'Your account has been suspended. Please contact support for assistance.',
+      );
+    }
   }
 
   private mapFirebaseProvider(signInProvider: string): AuthProvider {

@@ -10,8 +10,17 @@ import {
   MaxLength,
   ValidateIf,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsPartitaIva } from '../../../common/validators/is-italian-tax-id.validator';
+import {
+  IsCodiceFiscale,
+  IsPartitaIva,
+  normalizeTaxId,
+} from '../../../common/validators/is-italian-tax-id.validator';
+import {
+  IsSdiCode,
+  normalizeSdiCode,
+} from '../../../common/validators/is-sdi-code.validator';
 import { UserRole } from '../../../common/enums/role.enum';
 import { IsPhoneNumber } from '../../../common/validators/is-phone-number.validator';
 import { NormalizeEmail } from '../../../common/transformers/normalize-email.transformer';
@@ -109,10 +118,11 @@ export class RegisterDto {
   @ApiPropertyOptional({
     description:
       'Whether the sign-up terms and privacy checkbox was ticked. When ' +
-      'true the current versions of the privacy policy, terms and — for business ' +
-      'accounts — business terms are recorded against the new account, so the ' +
-      'app does not immediately ask again. Omitted by older clients, which are ' +
-      'treated as having accepted since their UI gates registration on it.',
+      'true the current versions of the privacy policy and the terms and ' +
+      'conditions — the same two documents for personal and business accounts ' +
+      'alike — are recorded against the new account, so the app does not ' +
+      'immediately ask again. Omitted by older clients, which are treated as ' +
+      'having accepted since their UI gates registration on it.',
     example: true,
     default: true,
   })
@@ -139,6 +149,12 @@ export class RegisterDto {
       'Partita IVA — Italian VAT number, exactly 11 digits — *required* when `role` is `business`',
     example: '12345678901',
   })
+  // Stored the way it is compared: upper case, no separators, no country
+  // prefix. A VAT pasted out of a PDF as `IT 1234 5678 901` is the same company
+  // as one typed bare, and the unique index has to agree.
+  @Transform(({ value }) =>
+    typeof value === 'string' ? normalizeTaxId(value).replace(/^IT/, '') : value,
+  )
   @ValidateIf((o) => o.role === UserRole.BUSINESS)
   @IsString()
   @IsNotEmpty()
@@ -146,13 +162,53 @@ export class RegisterDto {
   partitaIva?: string;
 
   @ApiPropertyOptional({
-    description: 'PEC certified email address (business only)',
+    description:
+      "The account holder's own Codice Fiscale — for a business account that " +
+      'is the person signing for the company, not the company itself, whose ' +
+      'number is `partitaIva`. *Required* when `role` is `business`: the ' +
+      'switch request files a SEPA direct debit mandate against a person, and ' +
+      'an account that reaches that form without one strands the customer on a ' +
+      'mandatory field with nothing to put in it. Optional for personal ' +
+      'accounts, which are asked for it on the profile screen instead.',
+    example: 'RSSMRA85T10A562S',
+  })
+  @Transform(({ value }) =>
+    typeof value === 'string' ? normalizeTaxId(value) : value,
+  )
+  @ValidateIf(
+    (o, value) => o.role === UserRole.BUSINESS || value !== undefined,
+  )
+  @IsString()
+  @IsNotEmpty()
+  @IsCodiceFiscale()
+  codiceFiscale?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "PEC — the company's certified email address (business only). Where a " +
+      'business case sends its invoices when no other address is given.',
     example: 'rossi@pec.it',
+    maxLength: 255,
   })
   @IsOptional()
-  @NormalizeEmail()
   @IsEmail()
+  @MaxLength(255)
   pecEmail?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Codice Destinatario — the 7-character SDI address electronic invoices ' +
+      'are routed to (business only). Use `0000000` for a company invoiced by ' +
+      'PEC instead.',
+    example: 'ABC1234',
+    maxLength: 7,
+  })
+  @Transform(({ value }) =>
+    typeof value === 'string' ? normalizeSdiCode(value) : value,
+  )
+  @IsOptional()
+  @IsSdiCode()
+  sdiCode?: string;
 
   @ApiPropertyOptional({
     description: 'Name of the legal representative (business only)',

@@ -20,7 +20,7 @@ import {
   ApiUnauthorizedResponse,
   ApiBadRequestResponse,
   ApiConflictResponse,
-  ApiInternalServerErrorResponse,
+  ApiServiceUnavailableResponse,
   ApiBody,
   ApiResponse,
 } from '@nestjs/swagger';
@@ -34,6 +34,7 @@ import { ForgotPasswordDto, ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { SocialLoginDto } from './dto/social-login.dto';
+import { UserRole } from '../../common/enums/role.enum';
 import {
   RegisterResponseDto,
   LoginResponseDto,
@@ -60,7 +61,9 @@ export class AuthController {
     summary: 'Register a new user (personal or business)',
     description:
       'Creates a user account. The `role` field determines the account type. ' +
-      'When `role` is `business`, the business fields (`companyName`, `partitaIva`) are required. ' +
+      'When `role` is `business`, `companyName`, `partitaIva` and `codiceFiscale` are required — ' +
+      'the VAT number identifies the company, the Codice Fiscale the person signing for it, and the ' +
+      'direct debit mandate the switch request files is matched against the latter. ' +
       'After registration the user receives a 6-digit OTP for email verification. ' +
       'The response includes a `verificationToken` — a signed JWT (10 min expiry) that should be ' +
       'passed to `/auth/verify-otp` or `/auth/resend-otp` instead of the raw email. ' +
@@ -153,7 +156,8 @@ export class AuthController {
               statusCode: 400,
               message: [
                 'companyName should not be empty',
-                'Partita IVA must be exactly 11 digits',
+                'Partita IVA is not valid — it must be 11 digits whose last one is derived from the other ten',
+                'Codice Fiscale is not valid — check the 16 characters, the last one is derived from the other fifteen',
               ],
               timestamp: '2026-06-09T12:00:00.000Z',
             },
@@ -303,9 +307,13 @@ export class AuthController {
     summary: 'Login or register via social provider (Google, Facebook, Apple)',
     description:
       'Authenticates using a Firebase ID token obtained from the mobile app after ' +
-      'social sign-in (Google, Facebook, or Apple). If the user does not exist, a new account ' +
-      'is created with `role: personal` and `status: active`. If an account with the same email ' +
-      'already exists, the Firebase UID is linked to the existing account.',
+      'social sign-in (Google, Facebook, or Apple). The token must carry a verified ' +
+      'email — an unverified address is refused with 401, because matching on it ' +
+      'would hand the caller any existing account that uses it. If the user does not ' +
+      'exist, a new account is created with `status: active` and the `role` from the ' +
+      'body (`personal` unless the sign-up screen says otherwise). If an account with ' +
+      'the same email already exists, the Firebase UID is linked to it and its role ' +
+      'is left untouched.',
   })
   @ApiBody({ type: SocialLoginDto })
   @ApiOkResponse({
@@ -373,56 +381,70 @@ export class AuthController {
     },
   })
   @ApiBadRequestResponse({
-    description: 'Invalid Firebase token or missing email',
-    type: ErrorResponseDto,
-    content: {
-      'application/json': {
-        examples: {
-          no_email: {
-            summary: 'Social account has no email',
-            value: {
-              success: false,
-              statusCode: 400,
-              message: ['Email is required. Please ensure your social account has a verified email.'],
-              timestamp: '2026-06-09T12:00:00.000Z',
-            },
-          },
-          invalid_token: {
-            summary: 'Invalid or expired Firebase ID token',
-            value: {
-              success: false,
-              statusCode: 400,
-              message: ['Firebase ID token has expired. Get a fresh token and try again.'],
-              timestamp: '2026-06-09T12:00:00.000Z',
-            },
-          },
-        },
-      },
-    },
-  })
-  @ApiUnauthorizedResponse({
-    description: 'Account is suspended',
+    description: 'The social account carries no email address',
     type: ErrorResponseDto,
     content: {
       'application/json': {
         example: {
           success: false,
-          statusCode: 401,
-          message: ['Your account has been suspended. Please contact support for assistance.'],
+          statusCode: 400,
+          message: ['Email is required. Please ensure your social account has a verified email.'],
           timestamp: '2026-06-09T12:00:00.000Z',
         },
       },
     },
   })
-  @ApiInternalServerErrorResponse({
-    description: 'Firebase is not configured on the server',
+  @ApiUnauthorizedResponse({
+    description:
+      'The token could not be verified, the social email is unverified, or the account is suspended',
+    type: ErrorResponseDto,
+    content: {
+      'application/json': {
+        examples: {
+          invalid_token: {
+            summary: 'Invalid, expired or wrong-project Firebase ID token',
+            value: {
+              success: false,
+              statusCode: 401,
+              message: ['Your sign-in session has expired. Please try again.'],
+              timestamp: '2026-06-09T12:00:00.000Z',
+            },
+          },
+          unverified_email: {
+            summary: 'Provider did not verify the email address',
+            value: {
+              success: false,
+              statusCode: 401,
+              message: [
+                'Your social account email is not verified. Verify it with your provider, or sign in with your email and password.',
+              ],
+              timestamp: '2026-06-09T12:00:00.000Z',
+            },
+          },
+          suspended: {
+            summary: 'Account is suspended',
+            value: {
+              success: false,
+              statusCode: 401,
+              message: ['Your account has been suspended. Please contact support for assistance.'],
+              timestamp: '2026-06-09T12:00:00.000Z',
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiServiceUnavailableResponse({
+    description: 'Firebase is not configured on the server, so social login is disabled',
     type: ErrorResponseDto,
     content: {
       'application/json': {
         example: {
           success: false,
-          statusCode: 500,
-          message: ['Firebase is not configured'],
+          statusCode: 503,
+          message: [
+            'Social login is not available. Please sign in with your email and password.',
+          ],
           timestamp: '2026-06-09T12:00:00.000Z',
         },
       },
@@ -432,6 +454,8 @@ export class AuthController {
     return this.authService.socialLogin(dto.idToken, {
       ipAddress: req.ip,
       deviceInfo: req.headers['user-agent'],
+      // Only consulted when the account is created; see `AuthService.socialLogin`.
+      role: dto.role as unknown as UserRole | undefined,
     });
   }
 
@@ -476,7 +500,9 @@ export class AuthController {
                   emailVerified: true,
                   businessProfile: {
                     companyName: 'Rossi S.r.l.',
-                    partitaIva: '12345678901',
+                    partitaIva: '12345678903',
+                    pecEmail: 'rossi@pec.it',
+                    sdiCode: 'M5UXCR1',
                     jobRole: 'CEO / Founder',
                   },
                 },

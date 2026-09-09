@@ -23,7 +23,13 @@ import { NormalizeEmail } from '../../../common/transformers/normalize-email.tra
 
 export class RegisterDto {
   @ApiProperty({
-    description: 'User email address (must be unique)',
+    description:
+      'User email address (must be unique). A business account registers ' +
+      'its PEC here — the clients label the field accordingly — and that is ' +
+      'the company\'s one certified address. Nothing validates the ' +
+      'distinction: a PEC and an ordinary mailbox are the same string, and ' +
+      'telling them apart needs an MX lookup or an INI-PEC check that is ' +
+      'deliberately not done here.',
     example: 'mario.rossi@email.com',
     required: true,
   })

@@ -139,6 +139,7 @@ export class MetersService {
         'supplier.logoUrl',
         'supplier.contactEmail',
         'supplier.website',
+        'supplier.description',
       ])
       .leftJoin('sc.bill', 'bill')
       .addSelect([
@@ -164,6 +165,10 @@ export class MetersService {
     return cases.map((switchCase) => ({
       id: switchCase.id,
       caseId: switchCase.id,
+      // The bill the switch started from. It is what the client holds when the
+      // customer opens an activated request from their requests list, and the
+      // only thing tying that row to the service it became.
+      billId: switchCase.bill?.id || null,
       offerId: switchCase.selectedOfferId,
       // The supply the customer asked us to switch — never the offer's own
       // energyType, which is "dual" on an offer that covers both and would
@@ -184,6 +189,12 @@ export class MetersService {
       // leaves that contact option out rather than showing a dead row.
       supplierEmail: switchCase.selectedOffer?.supplier?.contactEmail || null,
       supplierWebsite: switchCase.selectedOffer?.supplier?.website || null,
+      // Free text the admin writes about the supplier, shown to the customer
+      // as the "About <supplier>" section on the utility details. Null when
+      // the admin has written none, and the client leaves the section out
+      // rather than show an empty heading.
+      supplierDescription:
+        switchCase.selectedOffer?.supplier?.description || null,
       // The customer's reference for this supply. There is no contract number
       // to quote any more — nobody enters one, because the contract is signed
       // outside the application — so the case number is what identifies it.

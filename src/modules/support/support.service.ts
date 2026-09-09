@@ -7,9 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import { NotificationsService } from '../notifications/notifications.service';
-import { AdminNotificationsService } from '../notifications/admin-notifications.service';
-import { NotificationType } from '../../common/enums/notification.enum';
+import { NotificationEventsService } from '../notifications/notification-events.service';
 import { SupportTicket } from './entities/support-ticket.entity';
 import { TicketMessage } from './entities/ticket-message.entity';
 import { Faq } from './entities/faq.entity';
@@ -43,8 +41,7 @@ export class SupportService {
     private readonly faqRepository: Repository<Faq>,
     @InjectRepository(SupportTopic)
     private readonly topicRepository: Repository<SupportTopic>,
-    private readonly notificationsService: NotificationsService,
-    private readonly adminNotifications: AdminNotificationsService,
+    private readonly notificationEvents: NotificationEventsService,
   ) {}
 
   // ─── Topic Methods ──────────────────────────────────────────
@@ -159,21 +156,7 @@ export class SupportService {
     });
     await this.messageRepository.save(message);
 
-    await this.adminNotifications.notifyAdmins({
-      messageKey: 'admin_ticket_created',
-      type: NotificationType.ADMIN_SUPPORT,
-      bodyParams: [
-        await this.adminNotifications.describeUser(userId),
-        savedTicket.subject,
-      ],
-      data: {
-        ticketId: savedTicket.id,
-        userId,
-        priority: savedTicket.priority,
-        entityType: 'ticket',
-        entityId: savedTicket.id,
-      },
-    });
+    await this.notificationEvents.adminTicketCreated(savedTicket);
 
     return this.getTicketById(savedTicket.id, userId, UserRole.ADMIN);
   }
@@ -251,6 +234,8 @@ export class SupportService {
       throw new NotFoundException('Ticket not found');
     }
 
+    const oldStatus = ticket.status;
+
     if (dto.priority) {
       ticket.priority = dto.priority;
     }
@@ -275,19 +260,11 @@ export class SupportService {
 
     const saved = await this.ticketRepository.save(ticket);
 
-    // Notify ticket owner on status changes
-    if (dto.status === TicketStatus.RESOLVED || dto.status === TicketStatus.CLOSED) {
-      const msgKey = dto.status === TicketStatus.RESOLVED ? 'ticket_resolved' : 'ticket_closed';
-      try {
-        await this.notificationsService.sendNotification({
-          userId: ticket.userId,
-          messageKey: msgKey,
-          type: NotificationType.SUPPORT_REPLY,
-          data: { ticketId: ticket.id, status: dto.status },
-        });
-      } catch (error) {
-        this.logger.warn(`Failed to send ticket status notification: ${error?.message || error}`);
-      }
+    // Only a real move, and only to one of the two statuses that end the
+    // conversation. Assigning an agent or nudging the priority is internal
+    // bookkeeping the customer has no reason to hear about.
+    if (dto.status && dto.status !== oldStatus) {
+      await this.notificationEvents.ticketClosedOut(saved, dto.status);
     }
 
     return saved;
@@ -325,40 +302,21 @@ export class SupportService {
         ? dto.message.substring(0, 100) + '...'
         : dto.message;
 
-    // A reply from the customer is work arriving for the admins. Previously
-    // only the admin-to-customer direction notified anyone.
+    // A reply from the customer is work arriving for the admins.
     if (userRole !== UserRole.ADMIN) {
-      await this.adminNotifications.notifyAdmins({
-        messageKey: 'admin_ticket_replied',
-        type: NotificationType.ADMIN_SUPPORT,
-        bodyParams: [
-          await this.adminNotifications.describeUser(senderId),
-          ticket.subject,
-          bodyPreview,
-        ],
-        data: {
-          ticketId,
-          messageId: saved.id,
-          userId: ticket.userId,
-          entityType: 'ticket',
-          entityId: ticketId,
-        },
+      await this.notificationEvents.adminTicketReplied(ticket, {
+        id: saved.id,
+        senderId,
+        preview: bodyPreview,
       });
     }
 
     // Notify ticket owner when admin replies
     if (userRole === UserRole.ADMIN && ticket.userId !== senderId) {
-      try {
-        await this.notificationsService.sendNotification({
-          userId: ticket.userId,
-          messageKey: 'support_reply',
-          body: bodyPreview,
-          type: NotificationType.SUPPORT_REPLY,
-          data: { ticketId, messageId: saved.id },
-        });
-      } catch (error) {
-        this.logger.warn(`Failed to send support reply notification: ${error?.message || error}`);
-      }
+      await this.notificationEvents.supportReplied(ticket, {
+        id: saved.id,
+        preview: bodyPreview,
+      });
     }
 
     return saved;

@@ -17,9 +17,7 @@ import { PaginatedResponseDto } from '../../common/dto/pagination.dto';
 import { ReferralStatus } from '../../common/enums/referral.enum';
 import { roundMoney } from '../../common/utils/precision.util';
 import { UsersService } from '../users/users.service';
-import { NotificationsService } from '../notifications/notifications.service';
-import { AdminNotificationsService } from '../notifications/admin-notifications.service';
-import { NotificationType } from '../../common/enums/notification.enum';
+import { NotificationEventsService } from '../notifications/notification-events.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
@@ -32,8 +30,7 @@ export class ReferralsService {
     private readonly dataSource: DataSource,
     private readonly usersService: UsersService,
     private readonly configService: ConfigService,
-    private readonly notificationsService: NotificationsService,
-    private readonly adminNotifications: AdminNotificationsService,
+    private readonly notificationEvents: NotificationEventsService,
   ) {}
 
   // ─── User Methods ─────────────────────────────────────────
@@ -263,29 +260,14 @@ export class ReferralsService {
 
     const saved = await this.referralRepository.save(referral);
 
-    // Notify the referrer about the status change
-    try {
-      const statusMessageKeys: Partial<Record<ReferralStatus, { key: string; params?: any[] }>> = {
-        [ReferralStatus.REGISTERED]: { key: 'referral_registered' },
-        [ReferralStatus.QUALIFIED]: { key: 'referral_qualified' },
-        [ReferralStatus.REWARDED]: { key: 'referral_rewarded', params: [dto.rewardAmount] },
-        [ReferralStatus.EXPIRED]: { key: 'referral_expired' },
-      };
-      const msg = statusMessageKeys[dto.status];
-      if (msg) {
-        await this.notificationsService.sendNotification({
-          userId: referral.referrerId,
-          messageKey: msg.key,
-          bodyParams: msg.params || [],
-          type: NotificationType.REFERRAL_STATUS,
-          data: { referralId: referral.id, status: dto.status },
-        });
-      }
-    } catch (error) {
-      this.logger.warn(
-        `Failed to send referral notification: ${error?.message || error}`,
-      );
-    }
+    // Only success is news. A friend merely signing up, or a referral lapsing,
+    // is something the referrer can see on the invite screen — it does not
+    // warrant a push.
+    await this.notificationEvents.referralSucceeded(
+      saved,
+      dto.status,
+      dto.rewardAmount,
+    );
 
     return saved;
   }
@@ -381,20 +363,9 @@ export class ReferralsService {
       await queryRunner.release();
     }
 
-    await this.adminNotifications.notifyAdmins({
-      messageKey: 'admin_referral_registered',
-      type: NotificationType.ADMIN_REFERRAL,
-      bodyParams: [
-        await this.adminNotifications.describeUser(referrer.id),
-        await this.adminNotifications.describeUser(referredUserId),
-      ],
-      data: {
-        referrerId: referrer.id,
-        userId: referredUserId,
-        referralCode,
-        entityType: 'referral',
-      },
-    });
+    // Nobody is notified. A referral sign-up needs no operator intervention,
+    // and the referrer only hears from us once the referral actually pays off.
+    // The row is on the referrals page either way.
   }
 
   // ─── Scheduled Tasks ───────────────────────────────────────
@@ -402,41 +373,19 @@ export class ReferralsService {
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async expireStaleReferrals(): Promise<void> {
     try {
-      // Read the rows before updating them. The previous bulk UPDATE was a
-      // single statement, which meant nobody — neither the referrer nor an
-      // admin — was ever told a referral had lapsed.
-      const stale = await this.referralRepository.find({
-        where: {
+      // A plain bulk UPDATE. Lapsing is no longer announced to anyone — an
+      // invite quietly running out of time is not worth a push — so there is
+      // nothing here that needs the individual rows.
+      const result = await this.referralRepository.update(
+        {
           status: ReferralStatus.PENDING,
           expiresAt: LessThanOrEqual(new Date()),
         },
-        select: { id: true, referrerId: true },
-      });
-
-      if (!stale.length) {
-        return;
-      }
-
-      await this.referralRepository.update(
-        { id: In(stale.map((referral) => referral.id)) },
         { status: ReferralStatus.EXPIRED },
       );
 
-      this.logger.log(`Expired ${stale.length} stale referral(s)`);
-
-      for (const referral of stale) {
-        try {
-          await this.notificationsService.sendNotification({
-            userId: referral.referrerId,
-            messageKey: 'referral_expired',
-            type: NotificationType.REFERRAL_STATUS,
-            data: { referralId: referral.id, status: ReferralStatus.EXPIRED },
-          });
-        } catch (error) {
-          this.logger.warn(
-            `Failed to notify referrer ${referral.referrerId} of expiry: ${error?.message || error}`,
-          );
-        }
+      if (result.affected) {
+        this.logger.log(`Expired ${result.affected} stale referral(s)`);
       }
     } catch (error) {
       this.logger.error(

@@ -54,12 +54,16 @@ export class MetersController {
       'the API origin, or an absolute URL — and is null when the supplier has none. ' +
       '`supplierEmail` and `supplierWebsite` are the supplier\'s own contact address ' +
       'and site, each null when the supplier has none on file. ' +
+      '`supplierDescription` is the free-text blurb the admin wrote about the ' +
+      'supplier, null when they wrote none. ' +
       '`contractDurationDays` is ' +
       'derived from this contract\'s own activation and expiry dates, not from the ' +
       'offer — clients are expected to quote it in months. `energyType` is the supply ' +
       'the customer asked to switch (taken from their bill), not the offer\'s own type, ' +
       'which may be `dual`. `supplyAddress` is the delivery address held on the case, so ' +
       'an admin edit in the CRM shows up on the client\'s next read. ' +
+      '`billId` is the bill the switch started from, so a client holding a bill ' +
+      'can find the service it became. ' +
       '`meterNumber` is the meter serving that address, read off the bill. ' +
       '`annualConsumption` scales the bill\'s consumption up to a full year — ' +
       'bimonthly billing is assumed when the bill carries no period — and is ' +
@@ -76,6 +80,7 @@ export class MetersController {
             {
               id: 'case-uuid',
               caseId: 'case-uuid',
+              billId: 'bill-uuid',
               offerId: 'offer-uuid',
               energyType: 'electricity',
               supplyAddress: 'Via Roma 25, Cagliari',
@@ -84,6 +89,8 @@ export class MetersController {
               supplierLogo: '/uploads/logos/ener-energia.png',
               supplierEmail: 'supporto@enerenergia.it',
               supplierWebsite: 'enerenergia.it',
+              supplierDescription:
+                'Ener Energia supplies electricity and gas to over two million Italian homes.',
               contractNumber: 'CASE-20260630-00001',
               podPdrNumber: 'IT001E556779',
               meterNumber: '14528796',

@@ -161,19 +161,17 @@ export class RegisterDto {
     description:
       "The account holder's own Codice Fiscale — for a business account that " +
       'is the person signing for the company, not the company itself, whose ' +
-      'number is `partitaIva`. *Required* when `role` is `business`: the ' +
-      'switch request files a SEPA direct debit mandate against a person, and ' +
-      'an account that reaches that form without one strands the customer on a ' +
-      'mandatory field with nothing to put in it. Optional for personal ' +
-      'accounts, which are asked for it on the profile screen instead.',
+      'number is `partitaIva`. Optional for every account type: sign-up asks ' +
+      'for what an account cannot be created without, and both kinds are asked ' +
+      'for this on the profile screen and again on the switch request form, ' +
+      'which is where the SEPA mandate needs it. Still checked when it is ' +
+      'given — optional is not unvalidated.',
     example: 'RSSMRA85T10A562S',
   })
   @Transform(({ value }) =>
     typeof value === 'string' ? normalizeTaxId(value) : value,
   )
-  @ValidateIf(
-    (o, value) => o.role === UserRole.BUSINESS || value !== undefined,
-  )
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
   @IsCodiceFiscale()

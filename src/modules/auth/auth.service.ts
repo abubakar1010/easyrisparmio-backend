@@ -121,9 +121,9 @@ export class AuthService {
             lastName: dto.lastName,
             phone: dto.phone,
             role: dto.role,
-            // The person's own code, which a business sign-up now collects
-            // too. Dropping it here is what left business accounts arriving at
-            // the switch request form with an empty mandatory tax field.
+            // The person's own code. Sign-up does not ask either account kind
+            // for it — the profile screen and the switch request form do — but
+            // it is still stored when a client sends one.
             codiceFiscale: dto.codiceFiscale,
             status: UserStatus.PENDING_VERIFICATION,
           }),

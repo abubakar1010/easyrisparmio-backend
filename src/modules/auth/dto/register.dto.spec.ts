@@ -6,12 +6,12 @@ import { UserRole } from '../../../common/enums/role.enum';
 /**
  * What a business sign-up has to carry, and what it may.
  *
- * A company is identified by its Partita IVA, but a SEPA direct debit mandate
- * is signed by a person and matched against *their* Codice Fiscale — which the
- * switch request enforces by refusing a VAT number in the holder field, by
- * name. A business account registered without a Codice Fiscale therefore
- * reached that form at a mandatory field the sign-up had never mentioned, with
- * nothing to put in it, so both codes are required here.
+ * A company is identified by its Partita IVA, and that is all sign-up asks a
+ * business for. The Codice Fiscale — the person's own, which a SEPA mandate is
+ * signed and matched against — is optional here for a business exactly as it is
+ * for a private account: both are asked on the profile screen and on the switch
+ * request form, which is the point at which the mandate needs it. What stays
+ * true for either kind is that a code that *is* sent is checked.
  */
 const PERSONAL = {
   email: 'mario.rossi@email.com',
@@ -43,7 +43,7 @@ describe('RegisterDto — the three identifiers a business sign-up carries', () 
     expect(await errorsFor(BUSINESS)).toHaveLength(0);
   });
 
-  it.each(['companyName', 'partitaIva', 'codiceFiscale'])(
+  it.each(['companyName', 'partitaIva'])(
     'refuses a business sign-up missing %s',
     async (field) => {
       const payload = { ...BUSINESS };
@@ -51,6 +51,18 @@ describe('RegisterDto — the three identifiers a business sign-up carries', () 
       expect(await failedOn(payload)).toContain(field);
     },
   );
+
+  /**
+   * Sign-up asks for what the account cannot be created without. The mandate
+   * needs a person's code, but the request form is where it is filled in — for
+   * a company exactly as for a private customer — so a business that has not
+   * given one yet still registers.
+   */
+  it('accepts a business sign-up that omits the Codice Fiscale', async () => {
+    const payload = { ...BUSINESS };
+    delete (payload as Record<string, unknown>).codiceFiscale;
+    expect(await errorsFor(payload)).toHaveLength(0);
+  });
 
   /**
    * Not merely the shape. A code that fails only at the supplier is a code that

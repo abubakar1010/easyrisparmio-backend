@@ -20,7 +20,11 @@ import { seedOffers } from './data/offers.seed-data';
 import { seedMeters } from './data/meters.seed-data';
 import { seedReferrals } from './data/referrals.seed-data';
 import { seedAgreements } from './data/agreements.seed-data';
-import { seedNotifications, seedPushTokens } from './data/notifications.seed-data';
+import {
+  seedNotifications,
+  seedPushTokens,
+  seedNotificationTemplates,
+} from './data/notifications.seed-data';
 
 // Data seeders - Level 2
 import { seedEnergyBills } from './data/bills.seed-data';
@@ -58,6 +62,7 @@ const TABLES_IN_REVERSE_ORDER = [
   'energy_bills',
   'push_tokens',
   'notifications',
+  'notification_templates',
   'agreements',
   'referrals',
   'meters',
@@ -144,6 +149,7 @@ async function run(): Promise<void> {
     await seedAgreements(ds, ctx);
     await seedNotifications(ds, ctx);
     await seedPushTokens(ds, ctx);
+    await seedNotificationTemplates(ds, ctx);
 
     // ---- Level 2: Depend on Level 1 ----
     console.log('\n--- Level 2: Bills, PriceVersions, Tickets ---\n');

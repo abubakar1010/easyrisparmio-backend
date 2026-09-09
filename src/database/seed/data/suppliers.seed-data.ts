@@ -507,6 +507,37 @@ export async function seedSuppliers(
       contractStartDate: '2025-09-01',
       notes: 'Subscription model — fixed monthly rate. A2A group.',
     },
+    {
+      name: 'Duferco Energia',
+      legalName: 'Duferco Energia S.p.A.',
+      taxId: 'IT01016870329',
+      supplierCode: 'DUFERCO',
+      description:
+        'Società del Gruppo Duferco che dal 2010 vende energia elettrica e gas nel mercato libero, con sede legale a Genova. Serve oltre 650.000 punti di fornitura in tutta Italia tra clienti domestici, condomini e imprese, e produce energia da impianti fotovoltaici e idroelettrici di proprietà.',
+      rating: 3.9,
+      isActive: true,
+      status: SupplierStatus.ACTIVE,
+      commodity: Commodity.DUAL,
+      contactName: 'Servizio Clienti',
+      contactEmail: 'clienti@dufercoenergia.com',
+      contactPhone: '+39 800 939 300',
+      website: 'https://www.dufercoenergia.com',
+      // Left null rather than pointed at a placeholder host: the logo is
+      // uploaded through the admin panel, which stores it under /uploads.
+      logoUrl: null,
+      streetAddress: 'Via Paolo Imperiale 4',
+      city: 'Genova',
+      province: 'GE',
+      zipCode: '16126',
+      country: 'Italy',
+      // No IBAN or contract start date on file — these are commercial terms
+      // that belong to the real partner agreement, so the admin enters them
+      // rather than the seed inventing them.
+      iban: null,
+      contractStartDate: null,
+      notes:
+        'Company details (P.IVA, registered office, customer service line) verified against dufercoenergia.com.',
+    },
   ];
 
   for (const data of suppliersData) {

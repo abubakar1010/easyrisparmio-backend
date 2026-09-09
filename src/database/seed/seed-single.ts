@@ -49,6 +49,7 @@ import {
 import {
   seedNotifications,
   seedPushTokens,
+  seedNotificationTemplates,
 } from './data/notifications.seed-data';
 import { seedReferrals } from './data/referrals.seed-data';
 import { seedAgreements } from './data/agreements.seed-data';
@@ -129,6 +130,10 @@ const SEEDERS: Record<
   notifications: async (ds, ctx) => {
     await seedNotifications(ds, ctx);
     await seedPushTokens(ds, ctx);
+    await seedNotificationTemplates(ds, ctx);
+  },
+  'notification-templates': async (ds, ctx) => {
+    await seedNotificationTemplates(ds, ctx);
   },
   referrals: async (ds, ctx) => {
     await seedReferrals(ds, ctx);

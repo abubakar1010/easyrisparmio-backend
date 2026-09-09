@@ -32,12 +32,14 @@
     "seed:faqs": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts faqs",
     "seed:support": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts support",
     "seed:notifications": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts notifications",
+    "seed:notification-templates": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts notification-templates",
     "seed:referrals": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts referrals",
     "seed:agreements": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts agreements",
     "seed:static-pages": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts static-pages",
     "seed:admin": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts admin",
     "seed:reconciliation": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/database/seed/seed-single.ts reconciliation",
-    "email:test": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/scripts/send-test-email.ts"
+    "email:test": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/scripts/send-test-email.ts",
+    "backfill:supplier-descriptions": "ts-node --project tsconfig.seed.json -r tsconfig-paths/register src/scripts/backfill-supplier-descriptions.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.111.0",

@@ -37,6 +37,18 @@ export class EnergyBill extends BaseEntity {
   })
   status: BillStatus;
 
+  /**
+   * When `status` last actually changed value.
+   *
+   * `updated_at` cannot answer that — it moves on every field edit, note and
+   * OCR write — so the stalled-application job would otherwise treat an admin
+   * correcting a POD number as progress. Written only by
+   * `BillsService.setBillStatus`. NULL on rows that predate the column;
+   * consumers fall back to `created_at`.
+   */
+  @Column({ name: 'status_changed_at', type: 'timestamptz', nullable: true })
+  statusChangedAt: Date | null;
+
   @Column({
     type: 'enum',
     enum: BillSource,

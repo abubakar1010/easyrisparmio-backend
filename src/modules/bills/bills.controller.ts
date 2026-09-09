@@ -47,6 +47,7 @@ import { CreateEmailBillDto } from './dto/create-email-bill.dto';
 import { AssociateBillUserDto } from './dto/associate-bill-user.dto';
 import { QueryBillsDto } from './dto/query-bills.dto';
 import { SendOffersDto } from './dto/send-offers.dto';
+import { ReorderOffersDto } from './dto/reorder-offers.dto';
 import { RequestVerificationDto, SubmitVerificationDto } from './dto/request-verification.dto';
 import { TransitionBillStatusDto } from './dto/transition-bill-status.dto';
 import { UpdateBillDto } from './dto/update-bill.dto';
@@ -519,6 +520,33 @@ export class BillsController {
     await this.billsService.sendOffersToUser(id, dto.offers);
     void this.activityLogService.log(adminId, 'Offers Sent to User', 'bill', id, { offerCount: dto.offers.length });
     return { message: 'Offers sent to user successfully' };
+  }
+
+  @Patch('admin/:id/offers-order')
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Set the order the customer sees the offers in (admin)',
+    description:
+      'Rewrites the display order of the offers already sent for this bill. The first ID in ' +
+      'the list is the offer the app shows first. This order is the only one the app applies — ' +
+      'offers are never re-sorted by price or estimated savings on top of it.',
+  })
+  @ApiOkResponse({ description: 'Offer order saved' })
+  @ApiBadRequestResponse({
+    description: 'An ID is repeated, or does not name an offer sent for this bill',
+  })
+  @ApiNotFoundResponse({ description: 'Bill not found' })
+  async reorderSentOffers(
+    @CurrentUser('id') adminId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReorderOffersDto,
+  ) {
+    await this.billsService.reorderSentOffers(id, dto.offerIds);
+    void this.activityLogService.log(adminId, 'Offer Order Changed', 'bill', id, {
+      offerIds: dto.offerIds,
+    });
+    return { message: 'Offer order updated successfully' };
   }
 
   // ─── Verification ──────────────────────────────────────────

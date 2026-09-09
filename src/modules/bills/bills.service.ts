@@ -21,18 +21,17 @@ import { Offer } from '../offers/entities/offer.entity';
 import { Supplier } from '../suppliers/entities/supplier.entity';
 import { SentOffer } from '../offers/entities/sent-offer.entity';
 import { User } from '../users/entities/user.entity';
-import { NotificationsService } from '../notifications/notifications.service';
-import { AdminNotificationsService } from '../notifications/admin-notifications.service';
+import { UserRole } from '../../common/enums/role.enum';
+import { NotificationEventsService } from '../notifications/notification-events.service';
 import { VisionOcrService } from './ocr/vision-ocr.service';
 import { UploadBillDto } from './dto/upload-bill.dto';
 import { CreateEmailBillDto } from './dto/create-email-bill.dto';
 import { QueryBillsDto } from './dto/query-bills.dto';
 import { PaginatedResponseDto } from '../../common/dto/pagination.dto';
 import { BillStatus, BillType, BillSource } from '../../common/enums/bill.enum';
-import { EnergyType, MarketType } from '../../common/enums/offer.enum';
+import { EnergyType, MarketType, UserTarget } from '../../common/enums/offer.enum';
 import { OfferStatus } from '../../common/enums/offer-status.enum';
 import { SupplierStatus } from '../../common/enums/supplier.enum';
-import { NotificationType } from '../../common/enums/notification.enum';
 import { TransitionBillStatusDto } from './dto/transition-bill-status.dto';
 import {
   getAvailableTransitions,
@@ -48,10 +47,9 @@ import {
   parseAddressLine,
   reconcileAddress,
 } from '../../common/utils/address.utils';
-import { BILL_STATUS_NOTIFICATIONS } from '../notifications/notification-messages';
 import { CaseEvent } from '../cases/entities/case-event.entity';
 import { CaseEventType } from '../../common/enums/case-event.enum';
-import { CaseStatus } from '../../common/enums/case.enum';
+import { CaseStatus, CLOSED_CASE_STATUSES } from '../../common/enums/case.enum';
 import { SwitchCase } from '../cases/entities/switch-case.entity';
 import { readFileSync } from 'fs';
 import { join, extname } from 'path';
@@ -81,8 +79,7 @@ export class BillsService implements OnModuleInit {
     private readonly eventRepository: Repository<CaseEvent>,
     @InjectRepository(BillNote)
     private readonly billNoteRepository: Repository<BillNote>,
-    private readonly notificationsService: NotificationsService,
-    private readonly adminNotifications: AdminNotificationsService,
+    private readonly notificationEvents: NotificationEventsService,
     private readonly visionOcrService: VisionOcrService,
   ) {}
 
@@ -177,6 +174,7 @@ export class BillsService implements OnModuleInit {
       customerName: dto.customerName,
       source: BillSource.UPLOAD,
       status: BillStatus.VERIFICATION_REVIEW,
+      statusChangedAt: new Date(),
       rawAnalysisData: dto.supplierName ? {
         ocrSupplierName: dto.supplierName,
         ocrConfidence: (dto as any).confidence ?? null,
@@ -198,20 +196,9 @@ export class BillsService implements OnModuleInit {
       await this.createBillFileRecord(savedBill.id, fileUrl, fileMeta);
     }
 
-    await this.adminNotifications.notifyAdmins({
-      messageKey: 'admin_bill_uploaded',
-      type: NotificationType.ADMIN_BILL,
-      bodyParams: [
-        await this.adminNotifications.describeUser(userId),
-        savedBill.billType,
-      ],
-      data: {
-        billId: savedBill.id,
-        userId,
-        entityType: 'bill',
-        entityId: savedBill.id,
-      },
-    });
+    // The customer's request is in, and it is now on an operator's desk.
+    await this.notificationEvents.applicationSubmitted(savedBill);
+    await this.notificationEvents.adminBillCheckRequested(savedBill);
 
     // If no OCR data was provided (mobile upload without extraction),
     // trigger background OCR extraction + analysis
@@ -236,7 +223,7 @@ export class BillsService implements OnModuleInit {
     options?: { fileIds?: string[]; clearFirst?: boolean },
   ): Promise<void> {
     try {
-      bill.status = BillStatus.ANALYZING;
+      this.setBillStatus(bill, BillStatus.ANALYZING);
       await this.billRepository.save(bill);
 
       // When re-uploading, clear all previously extracted data first
@@ -290,7 +277,7 @@ export class BillsService implements OnModuleInit {
           ocrWarning: 'No readable images found in uploaded files',
           ocrTimestamp: new Date().toISOString(),
         };
-        bill.status = BillStatus.VERIFICATION_REVIEW;
+        this.setBillStatus(bill, BillStatus.VERIFICATION_REVIEW);
         await this.billRepository.save(bill);
         return;
       }
@@ -375,25 +362,14 @@ export class BillsService implements OnModuleInit {
         imagesProcessed: allImageBuffers.length,
       };
 
-      bill.status = BillStatus.VERIFICATION_REVIEW;
+      this.setBillStatus(bill, BillStatus.VERIFICATION_REVIEW);
       await this.billRepository.save(bill);
 
+      // Notifies nobody. The admins were already told the bill arrived, and
+      // analysis finishing changes nothing they have to act on — the case sits
+      // in the same review queue either way. If it then stops moving, the
+      // stalled-application job picks it up.
       this.logger.log(`Background OCR completed for bill ${bill.id}`);
-
-      await this.adminNotifications.notifyAdmins({
-        messageKey: 'admin_bill_analyzed',
-        type: NotificationType.ADMIN_BILL,
-        bodyParams: [
-          await this.adminNotifications.describeUser(bill.userId),
-          bill.billType,
-        ],
-        data: {
-          billId: bill.id,
-          userId: bill.userId,
-          entityType: 'bill',
-          entityId: bill.id,
-        },
-      });
     } catch (error) {
       this.logger.error(
         `Background OCR processing failed for bill ${bill.id}: ${error.message}`,
@@ -404,23 +380,12 @@ export class BillsService implements OnModuleInit {
         ocrWarning: error.message,
         ocrFailedAt: new Date().toISOString(),
       };
-      bill.status = BillStatus.VERIFICATION_REVIEW;
+      // Left in VERIFICATION_REVIEW with the failure recorded on
+      // `rawAnalysisData`. No notification: a failed extraction lands in the
+      // same queue as a successful one and an operator reads it there. The
+      // logged error above is the signal for anyone watching the logs.
+      this.setBillStatus(bill, BillStatus.VERIFICATION_REVIEW);
       await this.billRepository.save(bill);
-
-      await this.adminNotifications.notifyAdmins({
-        messageKey: 'admin_bill_analysis_failed',
-        type: NotificationType.ADMIN_BILL,
-        bodyParams: [
-          await this.adminNotifications.describeUser(bill.userId),
-          error.message,
-        ],
-        data: {
-          billId: bill.id,
-          userId: bill.userId,
-          entityType: 'bill',
-          entityId: bill.id,
-        },
-      });
     }
   }
 
@@ -712,21 +677,11 @@ export class BillsService implements OnModuleInit {
 
     await this.billRepository.save(bill);
 
-    // Send push notification to bill owner
-    try {
-      await this.notificationsService.sendNotification({
-        userId: bill.userId,
-        messageKey: 'bill_updated',
-        bodyParams: [Object.keys(changes)],
-        type: NotificationType.BILL_UPDATED,
-        data: {
-          billId: bill.id,
-          changedFields: Object.keys(changes),
-        },
-      });
-    } catch (error) {
-      this.logger.warn(`Failed to send bill update notification: ${error?.message || error}`);
-    }
+    // Correcting the data an operator read off a bill is housekeeping, not
+    // news. This used to push to the customer on every field edit — five
+    // corrections in the CRM meant five phone buzzes — and an address change
+    // alone touches six columns at once. The customer sees the corrected data
+    // whenever they next open the bill.
 
     const updated = await this.getBillByIdAdmin(billId);
     return { bill: updated, changes };
@@ -777,6 +732,7 @@ export class BillsService implements OnModuleInit {
       billType: dto.billType,
       source: BillSource.EMAIL,
       status: BillStatus.PENDING_EMAIL,
+      statusChangedAt: new Date(),
       rawAnalysisData: {
         source: 'email',
         createdAt: new Date().toISOString(),
@@ -785,17 +741,12 @@ export class BillsService implements OnModuleInit {
 
     const savedBill = await this.billRepository.save(bill);
 
-    await this.adminNotifications.notifyAdmins({
-      messageKey: 'admin_bill_email_requested',
-      type: NotificationType.ADMIN_BILL,
-      bodyParams: [await this.adminNotifications.describeUser(userId)],
-      data: {
-        billId: savedBill.id,
-        userId,
-        billType: savedBill.billType,
-        entityType: 'bill',
-        entityId: savedBill.id,
-      },
+    // Asking us to fetch the bill by email is the same request as uploading
+    // one, so the customer gets the same confirmation and the admins the same
+    // queue entry — only the wording differs.
+    await this.notificationEvents.applicationSubmitted(savedBill);
+    await this.notificationEvents.adminBillCheckRequested(savedBill, {
+      viaEmail: true,
     });
 
     return savedBill;
@@ -829,7 +780,7 @@ export class BillsService implements OnModuleInit {
     if (pendingBill) {
       // Update existing pending bill with file and transition to ANALYZING
       pendingBill.fileUrl = fileUrl;
-      pendingBill.status = BillStatus.ANALYZING;
+      this.setBillStatus(pendingBill, BillStatus.ANALYZING);
       pendingBill.rawAnalysisData = {
         ...pendingBill.rawAnalysisData,
         adminUploadedAt: new Date().toISOString(),
@@ -844,6 +795,7 @@ export class BillsService implements OnModuleInit {
         billType,
         source: BillSource.EMAIL,
         status: BillStatus.ANALYZING,
+        statusChangedAt: new Date(),
         rawAnalysisData: {
           source: 'email',
           adminUploadedAt: new Date().toISOString(),
@@ -898,7 +850,7 @@ export class BillsService implements OnModuleInit {
       // assembles, so the line and the five fields are squared up again here.
       this.reconcileSupplyAddress(savedBill);
 
-      savedBill.status = BillStatus.VERIFICATION_REVIEW;
+      this.setBillStatus(savedBill, BillStatus.VERIFICATION_REVIEW);
       await this.billRepository.save(savedBill);
 
     }
@@ -935,7 +887,10 @@ export class BillsService implements OnModuleInit {
 
       // Transfer file and data from uploaded bill to pending bill
       pendingBill.fileUrl = bill.fileUrl;
-      pendingBill.status = bill.fileUrl ? BillStatus.ANALYZING : BillStatus.PENDING_EMAIL;
+      this.setBillStatus(
+        pendingBill,
+        bill.fileUrl ? BillStatus.ANALYZING : BillStatus.PENDING_EMAIL,
+      );
       pendingBill.podNumber = bill.podNumber || pendingBill.podNumber;
       pendingBill.pdrNumber = bill.pdrNumber || pendingBill.pdrNumber;
       pendingBill.totalAmount = bill.totalAmount ?? pendingBill.totalAmount;
@@ -1002,6 +957,17 @@ export class BillsService implements OnModuleInit {
         { energyType, dual: EnergyType.DUAL },
       );
 
+    // An offer written for businesses is not a candidate for a private
+    // customer, whatever it costs. Without this the admin sees the whole
+    // catalogue and the audience is decided by whoever is clicking.
+    const target = this.resolveOfferTarget(bill);
+    if (target) {
+      qb.andWhere('(offer.target = :target OR offer.target = :bothTargets)', {
+        target,
+        bothTargets: UserTarget.BOTH,
+      });
+    }
+
     if (bill.billType === BillType.ELECTRICITY) {
       qb.orderBy('COALESCE(offer.spread, offer.price_per_kwh)', 'ASC', 'NULLS LAST');
     } else {
@@ -1013,18 +979,51 @@ export class BillsService implements OnModuleInit {
     // Query sent offers for this bill to mark which are already sent
     const sentOffers = await this.sentOfferRepository.find({
       where: { billId: bill.id },
-      select: ['offerId', 'createdAt'],
+      select: ['offerId', 'createdAt', 'displayOrder'],
     });
     const sentOfferMap = new Map(
-      sentOffers.map((so) => [so.offerId, so.createdAt]),
+      sentOffers.map((so) => [so.offerId, so]),
     );
 
-    return offers.map((offer) => ({
-      ...offer,
-      estimatedSavings: this.estimateOfferSavings(bill, offer),
-      isSent: sentOfferMap.has(offer.id),
-      sentAt: sentOfferMap.get(offer.id)?.toISOString() ?? null,
-    }));
+    // An offer archived after it was sent drops out of the query above, but the
+    // customer is still looking at it — and this list is what the admin
+    // rearranges to decide their order. Leaving it out would hide a row from
+    // the arrangement while it still occupies a place in the app, so it is
+    // fetched back on its own terms. Its checkbox stays disabled either way.
+    const listedIds = new Set(offers.map((o) => o.id));
+    const missingSentIds = sentOffers
+      .map((so) => so.offerId)
+      .filter((id): id is string => !!id && !listedIds.has(id));
+    if (missingSentIds.length > 0) {
+      const stillSent = await this.offerRepository.find({
+        where: { id: In(missingSentIds) },
+        relations: ['supplier'],
+      });
+      offers.push(...stillSent);
+    }
+
+    const withSavings = offers.map((offer) => {
+      const sent = sentOfferMap.get(offer.id);
+      return {
+        ...offer,
+        estimatedSavings: this.estimateOfferSavings(bill, offer),
+        isSent: !!sent,
+        sentAt: sent?.createdAt?.toISOString() ?? null,
+        displayOrder: sent ? sent.displayOrder : null,
+      };
+    });
+
+    // The offers already sent lead the list, in the order the admin put them
+    // in — that run is what the app shows the customer, so the dashboard has to
+    // present it the same way round or the drag handles would reorder a list
+    // nobody sees. The rest of the catalogue keeps the price order the query
+    // gave it, which is only a browsing aid for picking the next offer to send.
+    return withSavings.sort((a, b) => {
+      if (a.displayOrder === null && b.displayOrder === null) return 0;
+      if (a.displayOrder === null) return 1;
+      if (b.displayOrder === null) return -1;
+      return a.displayOrder - b.displayOrder;
+    });
   }
 
   async sendOffersToUser(
@@ -1036,6 +1035,19 @@ export class BillsService implements OnModuleInit {
     if (bill.status === BillStatus.PENDING_EMAIL) {
       throw new BadRequestException(
         'Cannot send offers for a pending email bill. Upload the document first.',
+      );
+    }
+
+    // The customer has already chosen. Sending more offers now would put
+    // choices in front of someone whose switch is under way, and the app hides
+    // every offer for a spoken-for bill anyway — so they would land nowhere.
+    // The dashboard greys the button out; this is the rule itself.
+    const openCase = await this.caseRepository.findOne({
+      where: { billId: bill.id, status: Not(In([...CLOSED_CASE_STATUSES])) },
+    });
+    if (openCase) {
+      throw new BadRequestException(
+        `Cannot send offers: the customer has already accepted an offer for this bill (case ${openCase.caseNumber}). Cancel that case first.`,
       );
     }
 
@@ -1059,6 +1071,16 @@ export class BillsService implements OnModuleInit {
       throw new NotFoundException('No valid offers found for the given IDs');
     }
 
+    // `find` hands them back in whatever order Postgres liked, and the request
+    // order is the admin's: it is the list they had in front of them. Restoring
+    // it here is what gives the new rows their starting positions, which the
+    // admin can then drag around.
+    const requestedPosition = new Map(offerIds.map((id, index) => [id, index]));
+    allOffers.sort(
+      (a, b) =>
+        (requestedPosition.get(a.id) ?? 0) - (requestedPosition.get(b.id) ?? 0),
+    );
+
     // Filter out offers from suppliers pending deletion
     const offers = allOffers.filter(
       (o) => o.supplier?.status !== SupplierStatus.PENDING_DELETION,
@@ -1068,6 +1090,24 @@ export class BillsService implements OnModuleInit {
       throw new BadRequestException(
         'All selected offers belong to suppliers that are pending deletion',
       );
+    }
+
+    // Filtering the list the admin picks from is not enough on its own — the
+    // ids arrive in the request body, so the rule has to hold here too. These
+    // are named rather than dropped: the admin chose them deliberately and
+    // should be told why they will not go, not left to count the difference.
+    const target = this.resolveOfferTarget(bill);
+    if (target) {
+      const wrongAudience = offers.filter(
+        (o) => o.target && o.target !== UserTarget.BOTH && o.target !== target,
+      );
+      if (wrongAudience.length > 0) {
+        throw new BadRequestException(
+          `Cannot send offers meant for a different audience to a ${target} customer: ${wrongAudience
+            .map((o) => o.name)
+            .join(', ')}`,
+        );
+      }
     }
 
     // Build a lookup for admin-provided savings overrides
@@ -1101,9 +1141,16 @@ export class BillsService implements OnModuleInit {
     // Check for existing sent offers to avoid duplicates
     const existing = await this.sentOfferRepository.find({
       where: { billId: bill.id },
-      select: ['offerId'],
+      select: ['offerId', 'displayOrder'],
     });
     const existingIds = new Set(existing.map((s) => s.offerId));
+
+    // A second batch joins the end of the run the customer already has, so
+    // sending more offers later never reshuffles the order set for the first.
+    let nextPosition = existing.reduce(
+      (next, s) => Math.max(next, (s.displayOrder ?? -1) + 1),
+      0,
+    );
 
     const newRecords = offerSnapshots
       .filter((snap) => !existingIds.has(snap.id))
@@ -1115,6 +1162,7 @@ export class BillsService implements OnModuleInit {
           estimatedSavings: snap.estimatedSavings ?? null,
           sentBy: 'admin',
           offerSnapshot: snap,
+          displayOrder: nextPosition++,
         }),
       );
 
@@ -1125,25 +1173,102 @@ export class BillsService implements OnModuleInit {
     // Calculate best savings for notification message
     const bestSavings = Math.max(...offerSnapshots.map((s) => s.estimatedSavings || 0));
 
-    try {
-      await this.notificationsService.sendNotification({
-        userId: bill.userId,
-        messageKey: 'offers_recommended',
-        bodyParams: [offerSnapshots.length, bestSavings.toFixed(2)],
-        type: NotificationType.OFFER_AVAILABLE,
-        data: {
-          billId: bill.id,
-          offers: offerSnapshots,
-        },
-      });
-    } catch (error) {
-      this.logger.warn(
-        `Failed to send offer notification: ${error?.message || error}`,
+    // One notification for the whole batch, and only for the first batch: the
+    // customer is told once that offers are waiting, whether that is one offer
+    // or ten, and a second send later adds to the list they already have
+    // rather than buzzing them again.
+    this.setBillStatus(bill, BillStatus.OFFER_SENT);
+    await this.billRepository.save(bill);
+
+    await this.notificationEvents.offersAvailable(bill, {
+      count: offerSnapshots.length,
+      bestSavings,
+    });
+  }
+
+  /**
+   * Puts the offers already sent for a bill into the order the admin arranged.
+   *
+   * `offerIds` is the run top-first: the offer named first is the one the app
+   * shows first. Positions are rewritten dense from 0 on every call rather than
+   * nudged, so a drag can never leave two offers claiming the same place, and
+   * "first" is always 0 whatever the numbers were before.
+   *
+   * Every id has to name an offer that was actually sent for this bill —
+   * ordering something the customer cannot see is a mistake worth reporting,
+   * not a no-op. A sent offer the list leaves out keeps its relative position
+   * and follows the named ones: the dashboard cannot render a row for an offer
+   * whose catalogue entry was deleted outright, and that must not block the
+   * admin from ordering the rest.
+   */
+  async reorderSentOffers(billId: string, offerIds: string[]): Promise<void> {
+    const bill = await this.getBillByIdAdmin(billId);
+
+    const sentOffers = await this.sentOfferRepository.find({
+      where: { billId: bill.id },
+    });
+
+    if (sentOffers.length === 0) {
+      throw new BadRequestException(
+        'No offers have been sent for this bill yet, so there is no order to set.',
       );
     }
 
-    bill.status = BillStatus.OFFER_SENT;
-    await this.billRepository.save(bill);
+    if (new Set(offerIds).size !== offerIds.length) {
+      throw new BadRequestException(
+        'The same offer was listed more than once in the order',
+      );
+    }
+
+    const sentByOfferId = new Map(
+      sentOffers
+        .filter((so): so is SentOffer & { offerId: string } => !!so.offerId)
+        .map((so) => [so.offerId, so]),
+    );
+
+    const unsent = offerIds.filter((id) => !sentByOfferId.has(id));
+    if (unsent.length > 0) {
+      throw new BadRequestException(
+        `Cannot order offers that were never sent for this bill: ${unsent.join(', ')}`,
+      );
+    }
+
+    const named = new Set(offerIds);
+    const trailing = sentOffers
+      .filter((so) => !so.offerId || !named.has(so.offerId))
+      .sort(
+        (a, b) =>
+          a.displayOrder - b.displayOrder ||
+          a.createdAt.getTime() - b.createdAt.getTime(),
+      );
+
+    const ordered = [
+      ...offerIds.map((id) => sentByOfferId.get(id)!),
+      ...trailing,
+    ];
+    ordered.forEach((so, position) => {
+      so.displayOrder = position;
+    });
+
+    await this.sentOfferRepository.save(ordered);
+  }
+
+  /**
+   * The audience a bill's offers must be written for.
+   *
+   * Null when the bill has no customer yet — an admin upload waiting to be
+   * associated — in which case every offer is still a candidate and the check
+   * is deferred to the moment the bill gets an owner.
+   */
+  private resolveOfferTarget(bill: EnergyBill): UserTarget | null {
+    switch (bill.user?.role) {
+      case UserRole.PERSONAL:
+        return UserTarget.PERSONAL;
+      case UserRole.BUSINESS:
+        return UserTarget.BUSINESS;
+      default:
+        return null;
+    }
   }
 
   // ─── Private: Savings Helpers ──────────────────────────────
@@ -1251,24 +1376,13 @@ export class BillsService implements OnModuleInit {
 
     await this.billRepository.update(billId, {
       status: BillStatus.VERIFICATION_REQUIRED,
+      statusChangedAt: new Date(),
     });
 
-    try {
-      await this.notificationsService.sendNotification({
-        userId: bill.userId,
-        messageKey: 'bill_verification_required',
-        body: dto.message,
-        type: NotificationType.BILL_VERIFICATION,
-        data: {
-          billId: bill.id,
-          verificationId: saved.id,
-        },
-      });
-    } catch (error) {
-      this.logger.warn(
-        `Failed to send verification notification: ${error?.message || error}`,
-      );
-    }
+    // Keyed to this verification rather than to the bill, so a second request
+    // for a different document is a new event — but re-issuing the same one is
+    // not. The 48-hour reminder hangs off the same row.
+    await this.notificationEvents.documentRequested(saved, bill);
 
     return saved;
   }
@@ -1326,21 +1440,12 @@ export class BillsService implements OnModuleInit {
 
     // The uploaded documents are never re-analysed and never overwrite the bill
     // data. The admin reviews the files and updates the bill fields manually.
-    bill.status = BillStatus.VERIFICATION_REVIEW;
+    this.setBillStatus(bill, BillStatus.VERIFICATION_REVIEW);
     await this.billRepository.save(bill);
 
-    await this.adminNotifications.notifyAdmins({
-      messageKey: 'admin_verification_submitted',
-      type: NotificationType.ADMIN_VERIFICATION,
-      bodyParams: [await this.adminNotifications.describeUser(userId)],
-      data: {
-        billId: bill.id,
-        userId,
-        verificationId: verification.id,
-        entityType: 'bill',
-        entityId: bill.id,
-      },
-    });
+    // The customer has completed the part that was asked of them, which is
+    // exactly when an operator needs to pick the case back up.
+    await this.notificationEvents.adminDocumentSubmitted(verification, bill);
 
     return this.getBillById(bill.id, userId);
   }
@@ -1376,6 +1481,27 @@ export class BillsService implements OnModuleInit {
 
   getAvailableTransitionsForBill(status: BillStatus): BillStatus[] {
     return getAvailableTransitions(status);
+  }
+
+  /**
+   * Assigns a bill status, stamps when it changed, and reports whether it
+   * actually moved.
+   *
+   * Every write to `status` goes through here, and two things depend on that.
+   * `status_changed_at` is how the stalled-application job tells a case that
+   * is genuinely parked from one an admin merely edited a field on — the
+   * `updated_at` column cannot, because OCR writes and note-taking bump it.
+   * And the boolean is the no-op guard: saving the same status again is not a
+   * transition, so nothing downstream should treat it as one.
+   */
+  private setBillStatus(bill: EnergyBill, next: BillStatus): boolean {
+    if (bill.status === next) {
+      return false;
+    }
+
+    bill.status = next;
+    bill.statusChangedAt = new Date();
+    return true;
   }
 
   /**
@@ -1415,8 +1541,8 @@ export class BillsService implements OnModuleInit {
 
     const direction = getTransitionDirection(oldStatus, targetStatus);
 
-    // The verification branches send their own push (it carries the admin's
-    // message as the body), so they opt out of the shared notification below.
+    // The verification branch sends its own push (it carries the admin's
+    // message as the body), so it opts out of the milestone below.
     let notificationHandled = false;
 
     if (targetStatus === BillStatus.VERIFICATION_REQUIRED) {
@@ -1430,7 +1556,7 @@ export class BillsService implements OnModuleInit {
         { status: VerificationStatus.RESOLVED, resolvedAt: new Date() },
       );
 
-      bill.status = targetStatus;
+      this.setBillStatus(bill, targetStatus);
       await this.billRepository.save(bill);
     }
 
@@ -1445,49 +1571,20 @@ export class BillsService implements OnModuleInit {
       await this.logStatusChangeOnCase(activeCase, oldStatus, targetStatus, direction, adminId, dto.message);
     }
 
-    // The customer is always notified of a status change — including when the
-    // case is moved back to a previous status.
+    // Only the handful of statuses the customer has a stake in produce a
+    // notification, and each of those only the first time it is reached.
+    // Moving a case back and forth between "Verificata" and "Offerta inviata"
+    // used to buzz the customer on every click; now the milestone is announced
+    // once and the internal states never are.
     if (!notificationHandled) {
-      const notification = BILL_STATUS_NOTIFICATIONS[targetStatus];
-      if (notification) {
-        try {
-          await this.notificationsService.sendNotification({
-            userId: bill.userId,
-            messageKey: notification.messageKey,
-            type: notification.type,
-            data: {
-              billId: bill.id,
-              caseId: activeCase?.id,
-              oldStatus,
-              newStatus: targetStatus,
-            },
-          });
-        } catch (error) {
-          this.logger.warn(`Failed to send transition notification: ${error?.message || error}`);
-        }
-      }
+      await this.notificationEvents.billMilestone(bill, targetStatus, {
+        caseId: activeCase?.id,
+      });
     }
 
-    // Other admins hear about the move; the one who made it does not.
-    await this.adminNotifications.notifyAdmins({
-      messageKey: 'admin_case_status_changed',
-      type: NotificationType.ADMIN_CASE,
-      bodyParams: [
-        activeCase?.caseNumber || bill.id,
-        BILL_STATUS_LABELS[targetStatus] || targetStatus,
-        await this.adminNotifications.describeUser(adminId),
-      ],
-      data: {
-        billId: bill.id,
-        caseId: activeCase?.id,
-        userId: bill.userId,
-        oldStatus,
-        newStatus: targetStatus,
-        entityType: activeCase ? 'case' : 'bill',
-        entityId: activeCase?.id || bill.id,
-      },
-      actorId: adminId,
-    });
+    // Nothing goes to the admins. This is an admin acting inside the CRM —
+    // their colleagues can see the new status on the board, and being told
+    // about every one of each other's clicks was most of the panel's noise.
 
     return this.getBillByIdAdmin(billId);
   }

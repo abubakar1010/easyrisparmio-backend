@@ -5,7 +5,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Not, QueryFailedError, Repository } from 'typeorm';
+import {
+  DataSource,
+  EntityManager,
+  Not,
+  QueryFailedError,
+  Repository,
+} from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { randomInt } from 'crypto';
 
@@ -17,6 +23,7 @@ import { EnergyBill } from '../bills/entities/energy-bill.entity';
 import { OtpCode } from '../auth/entities/otp-code.entity';
 import { RefreshToken } from '../auth/entities/refresh-token.entity';
 import { CreateUserDto } from './dto/create-user.dto';
+import { CreateAddressDto } from './dto/create-address.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { QueryUsersDto } from './dto/query-users.dto';
@@ -384,6 +391,51 @@ export class UsersService {
     return requested;
   }
 
+  /**
+   * Writes an address onto an account, replacing the one of the same type it
+   * already holds.
+   *
+   * `UpdateUserDto` inherits `address` from the create DTO, so both PATCH
+   * routes accepted one, validated it, and answered 200 — while the value went
+   * onto a property no column is mapped to and was dropped when the entity was
+   * saved. An admin correcting a customer's address watched it save and revert.
+   *
+   * The row is matched on `(userId, addressType)` rather than on `isPrimary`.
+   * An account can hold a supply and a billing address as well, and more than
+   * one of them can carry the primary flag, so matching on the flag would have
+   * let an edited residence overwrite a supply point.
+   *
+   * The type still comes from {@link resolveAccountAddressType}, so an address
+   * cannot arrive through this door under a type the role may not hold.
+   */
+  private async writeUserAddress(
+    manager: EntityManager,
+    userId: string,
+    role: UserRole,
+    dto: CreateAddressDto,
+  ): Promise<void> {
+    const addressType = this.resolveAccountAddressType(role, dto.addressType);
+
+    const existing = await manager.findOne(UserAddress, {
+      where: { userId, addressType },
+    });
+
+    await manager.save(UserAddress, {
+      ...(existing ?? {}),
+      userId,
+      addressType,
+      streetAddress: dto.streetAddress,
+      city: dto.city,
+      postalCode: dto.postalCode,
+      province: dto.province || null,
+      country: dto.country || 'IT',
+      // An existing row keeps the flag it was filed under — an admin fixing a
+      // typo in a street name is not saying anything about which address is
+      // the primary one. A new row matches what `adminCreateUser` writes.
+      isPrimary: dto.isPrimary ?? existing?.isPrimary ?? true,
+    });
+  }
+
   async adminUpdateUser(id: string, dto: UpdateUserDto): Promise<User> {
     const user = await this.findById(id);
     if (!user) {
@@ -398,6 +450,10 @@ export class UsersService {
       atecoCode,
       jobRole,
       pecEmail,
+      // Pulled out of the spread deliberately: `address` is a table of its own,
+      // and left in `userData` it was assigned onto the entity as a property
+      // with no column behind it, which is exactly how the edit went missing.
+      address,
       ...userData
     } = dto;
 
@@ -492,6 +548,14 @@ export class UsersService {
             },
             { addressType: accountAddressTypeFor(nextRole) },
           );
+        }
+
+        // After the retype above, never before it: writing first would insert
+        // the row under the new role's type while the old row was still
+        // waiting to be retyped into it, and the account would end up holding
+        // two registered offices.
+        if (address) {
+          await this.writeUserAddress(manager, user.id, nextRole, address);
         }
 
         // Update business profile if business fields are provided
@@ -632,6 +696,20 @@ export class UsersService {
 
     Object.assign(user, allowedFields);
     await this.userRepository.save(user);
+
+    // Accepted here for the same reason it is accepted on the admin route: the
+    // DTO advertises it, so silently dropping it is a 200 that did nothing.
+    // The role is the stored one — a customer cannot change their own account
+    // type, so their own address can only ever be filed under the type that
+    // type calls for.
+    if (dto.address) {
+      await this.writeUserAddress(
+        this.dataSource.manager,
+        userId,
+        user.role,
+        dto.address,
+      );
+    }
 
     // Update business profile fields if applicable. Only for the accounts that
     // registered as a business — a personal account never grows a company row,

@@ -179,12 +179,19 @@ class FakeAddressRepository {
     return { affected: hit.length };
   }
 
+  // Replaces by id rather than only inserting: the service upserts an address
+  // by saving a copy of the row it read back, so a fake that ignored a save
+  // carrying an id would report every edit as a no-op.
   async save(row: UserAddress) {
     if (!row.id) {
       this.seq += 1;
       row.id = `ua-${this.seq}`;
       this.rows.push(row);
+      return row;
     }
+    const at = this.rows.findIndex((r) => r.id === row.id);
+    if (at >= 0) this.rows[at] = { ...this.rows[at], ...row };
+    else this.rows.push(row);
     return row;
   }
 }
@@ -220,6 +227,10 @@ function makeDataSource(
 
   return {
     transaction: async (cb: (m: typeof manager) => Promise<unknown>) => cb(manager),
+    // The non-transactional writes reach for `dataSource.manager` — the own
+    // profile update writes its address through it — and it is the same manager
+    // over the same rows, so both routes are pinned against one set of fakes.
+    manager,
   };
 }
 
@@ -836,5 +847,189 @@ describe('UsersService — the account address follows the account type', () => 
     } as any);
 
     expect(addresses.rows[0].addressType).toBe(AddressType.RESIDENTIAL);
+  });
+});
+
+/**
+ * `UpdateUserDto` inherits `address` from the create DTO, so both PATCH routes
+ * accepted an address, validated it, and returned 200 — while the value landed
+ * on a property with no column behind it and vanished on save. An admin fixing
+ * a customer's address watched it save and revert.
+ */
+describe('UsersService — an address sent to the update routes', () => {
+  const address = {
+    streetAddress: 'Via Nuova 9',
+    city: 'Bologna',
+    postalCode: '40121',
+    province: 'BO',
+  };
+
+  function seedAddress(
+    addresses: FakeAddressRepository,
+    addressType: AddressType,
+    overrides: Partial<UserAddress> = {},
+  ): UserAddress {
+    const row = {
+      id: `ua-seed-${addresses.rows.length + 1}`,
+      userId: USER_ID,
+      addressType,
+      streetAddress: 'Via Roma 42',
+      city: 'Roma',
+      postalCode: '00185',
+      country: 'IT',
+      isPrimary: true,
+      ...overrides,
+    } as UserAddress;
+    addresses.rows.push(row);
+    return row;
+  }
+
+  it('replaces the residence an admin has corrected', async () => {
+    const { service, addresses } = makeService([makeUser()]);
+    seedAddress(addresses, AddressType.RESIDENTIAL);
+
+    await service.adminUpdateUser(USER_ID, { address } as any);
+
+    expect(addresses.rows).toHaveLength(1);
+    expect(addresses.rows[0]).toMatchObject({
+      streetAddress: 'Via Nuova 9',
+      city: 'Bologna',
+      postalCode: '40121',
+      province: 'BO',
+      addressType: AddressType.RESIDENTIAL,
+    });
+  });
+
+  it('writes a first address for an account that had none', async () => {
+    const { service, addresses } = makeService([makeUser()]);
+
+    await service.adminUpdateUser(USER_ID, { address } as any);
+
+    expect(addresses.rows).toHaveLength(1);
+    expect(addresses.rows[0]).toMatchObject({
+      userId: USER_ID,
+      streetAddress: 'Via Nuova 9',
+      addressType: AddressType.RESIDENTIAL,
+      isPrimary: true,
+    });
+  });
+
+  it('files it as the registered office on a business account', async () => {
+    const { service, profiles, addresses } = makeService([
+      makeUser({ role: UserRole.BUSINESS }),
+    ]);
+    seedCompany(profiles);
+    seedAddress(addresses, AddressType.LEGAL);
+
+    await service.adminUpdateUser(USER_ID, { address } as any);
+
+    expect(addresses.rows).toHaveLength(1);
+    expect(addresses.rows[0]).toMatchObject({
+      streetAddress: 'Via Nuova 9',
+      addressType: AddressType.LEGAL,
+    });
+  });
+
+  /** The invariant holds on this door too, not only on create. */
+  it('refuses a residence sent to a business account', async () => {
+    const { service, profiles, addresses } = makeService([
+      makeUser({ role: UserRole.BUSINESS }),
+    ]);
+    seedCompany(profiles);
+
+    await expect(
+      service.adminUpdateUser(USER_ID, {
+        address: { ...address, addressType: AddressType.RESIDENTIAL },
+      } as any),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(addresses.rows).toHaveLength(0);
+  });
+
+  /**
+   * The row is matched on its type, not on the primary flag: an account can
+   * hold a supply address flagged primary, and matching on the flag would have
+   * let an edited residence overwrite a supply point.
+   */
+  it('leaves a supply address alone when the residence is corrected', async () => {
+    const { service, addresses } = makeService([makeUser()]);
+    seedAddress(addresses, AddressType.RESIDENTIAL, { isPrimary: false });
+    const supply = seedAddress(addresses, AddressType.SUPPLY, {
+      streetAddress: 'Via Milano 15',
+      isPrimary: true,
+    });
+
+    await service.adminUpdateUser(USER_ID, { address } as any);
+
+    expect(addresses.rows).toHaveLength(2);
+    expect(addresses.rows[0]).toMatchObject({
+      streetAddress: 'Via Nuova 9',
+      // Not promoted: correcting a street name says nothing about which
+      // address is the primary one.
+      isPrimary: false,
+    });
+    expect(addresses.rows[1]).toEqual(supply);
+  });
+
+  /**
+   * The address is written after the role retype, never before: writing first
+   * would insert under the new type while the old row was still waiting to be
+   * retyped into it, leaving the account with two registered offices.
+   */
+  it('lands one registered office when the role changes in the same save', async () => {
+    const { service, addresses } = makeService([makeUser()]);
+    seedAddress(addresses, AddressType.RESIDENTIAL);
+
+    await service.adminUpdateUser(USER_ID, {
+      role: UserRole.BUSINESS,
+      companyName: 'Verdi S.r.l.',
+      partitaIva: '12345678901',
+      address,
+    } as any);
+
+    expect(addresses.rows).toHaveLength(1);
+    expect(addresses.rows[0]).toMatchObject({
+      streetAddress: 'Via Nuova 9',
+      addressType: AddressType.LEGAL,
+    });
+  });
+
+  it('leaves the address alone on a save that does not carry one', async () => {
+    const { service, addresses } = makeService([makeUser()]);
+    const before = seedAddress(addresses, AddressType.RESIDENTIAL);
+
+    await service.adminUpdateUser(USER_ID, { firstName: 'Marco' } as any);
+
+    expect(addresses.rows).toEqual([before]);
+  });
+
+  it('writes an address a customer sends to their own profile', async () => {
+    const { service, addresses } = makeService([makeUser()]);
+    seedAddress(addresses, AddressType.RESIDENTIAL);
+
+    await service.updateProfile(USER_ID, { address } as any);
+
+    expect(addresses.rows).toHaveLength(1);
+    expect(addresses.rows[0]).toMatchObject({
+      streetAddress: 'Via Nuova 9',
+      addressType: AddressType.RESIDENTIAL,
+    });
+  });
+
+  /**
+   * A customer cannot change their own account type, so the role the address is
+   * filed against is always the stored one — a `legal` sent from the app is the
+   * same mistake as one sent by an admin.
+   */
+  it('refuses a registered office sent to a personal profile', async () => {
+    const { service, addresses } = makeService([makeUser()]);
+
+    await expect(
+      service.updateProfile(USER_ID, {
+        address: { ...address, addressType: AddressType.LEGAL },
+      } as any),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(addresses.rows).toHaveLength(0);
   });
 });

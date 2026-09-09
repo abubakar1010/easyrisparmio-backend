@@ -117,7 +117,10 @@ export class UsersController {
       'for password changes). Company fields are written only for an account that ' +
       'registered as a business. One account carries one tax identifier: a ' +
       'personal account sends `codiceFiscale` and a business account ' +
-      '`partitaIva` — the other is refused with a 400 rather than ignored.',
+      '`partitaIva` — the other is refused with a 400 rather than ignored. ' +
+      'An `address` replaces the address on the account, filed under the type ' +
+      'the stored role calls for: `residential` on a personal account and ' +
+      '`legal` — the registered office — on a business one.',
   })
   @ApiBody({ type: UpdateUserDto })
   @ApiOkResponse({
@@ -525,7 +528,11 @@ export class UsersController {
     summary: 'Update user by ID (admin only)',
     description:
       'Updates a user\'s profile fields by UUID. All fields are optional. ' +
-      'Admins can update role, status, and all profile fields. The password field is excluded from updates.',
+      'Admins can update role, status, and all profile fields. The password field is excluded from updates. ' +
+      'An `address` replaces the one the account already holds of that type, or writes a first one. ' +
+      'Its type follows the account: `legal` — the registered office — on a business account and ' +
+      '`residential` on a personal one, and sending the other is refused with a 400. Changing the ' +
+      'role in the same request re-files the existing address under the new type.',
   })
   @ApiBody({ type: UpdateUserDto })
   @ApiOkResponse({

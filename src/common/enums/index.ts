@@ -7,6 +7,7 @@ export * from './offer.enum';
 export * from './offer-status.enum';
 export * from './support.enum';
 export * from './notification.enum';
+export * from './notification-template.enum';
 export * from './user.enum';
 export * from './utility.enum';
 export * from './address.enum';

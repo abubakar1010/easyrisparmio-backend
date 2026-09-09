@@ -21,11 +21,13 @@ import {
   ApiUnauthorizedResponse,
   ApiForbiddenResponse,
   ApiBody,
+  ApiParam,
 } from '@nestjs/swagger';
 import { NotificationsService } from './notifications.service';
 import { SendNotificationDto } from './dto/send-notification.dto';
 import { QueryNotificationsDto } from './dto/query-notifications.dto';
 import { QueryAdminNotificationsDto } from './dto/query-admin-notifications.dto';
+import { QueryCustomerNotificationsDto } from './dto/query-customer-notifications.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -378,6 +380,75 @@ export class NotificationsController {
     return this.notificationsService.getAdminNotifications(adminId, query);
   }
 
+  @Get('admin/user/:userId')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Get a customer notification history (admin)',
+    description:
+      'Every notification this customer received, newest first, with the operator ' +
+      'who sent it. Distinct from `GET /notifications/admin`, which is the logged-in ' +
+      'admin’s own inbox and outbox. Notifications the platform raised automatically ' +
+      'have a null `sender` and should be shown as sent by the system; pass ' +
+      '`onlyManual=true` to exclude them.',
+  })
+  @ApiParam({ name: 'userId', description: 'Customer UUID' })
+  @ApiOkResponse({
+    description: 'Paginated notification history for the customer',
+    content: {
+      'application/json': {
+        example: {
+          success: true,
+          data: {
+            data: [
+              {
+                id: 'n1a2b3c4-d5e6-7890-abcd-ef0123456789',
+                title: 'Nuova offerta per te, Mario',
+                body: 'Ciao Mario Rossi, la tua pratica Luce con Illumia sta procedendo.',
+                type: 'general',
+                isRead: false,
+                readAt: null,
+                sentBy: 'ad1a2b3c-d4e5-6789-abcd-ef0123456789',
+                sender: {
+                  id: 'ad1a2b3c-d4e5-6789-abcd-ef0123456789',
+                  firstName: 'Giulia',
+                  lastName: 'Bianchi',
+                  email: 'giulia@easyrisparmio.it',
+                },
+                templateId: 'nt1a2b3c-d4e5-6789-abcd-ef0123456789',
+                templateName: 'Promo switch luce',
+                createdAt: '2026-08-27T10:00:00.000Z',
+              },
+            ],
+            meta: { total: 1, page: 1, limit: 20, totalPages: 1 },
+          },
+        },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing or invalid JWT access token',
+    content: {
+      'application/json': {
+        example: {
+          success: false,
+          statusCode: 401,
+          message: ['Unauthorized'],
+          timestamp: '2026-08-27T12:00:00.000Z',
+        },
+      },
+    },
+  })
+  getCustomerNotificationHistory(
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @Query() query: QueryCustomerNotificationsDto,
+  ) {
+    return this.notificationsService.getCustomerNotificationHistory(
+      userId,
+      query,
+    );
+  }
+
   @Get('admin/:id')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
@@ -398,11 +469,11 @@ export class NotificationsController {
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
   @ApiOperation({
-    summary: 'Send notification to user(s) (admin)',
+    summary: 'Send notification to a user (admin)',
     description:
-      'Sends a notification to one or more users. Provide either `userId` for a single user ' +
-      'or `userIds` for multiple users. Also triggers push notifications to registered devices. ' +
-      'Requires admin role.',
+      'Sends a notification to a single user identified by `userId`. Also triggers a push ' +
+      'notification to the registered devices of that user. Sending one message to a group ' +
+      'of customers is not supported. Requires admin role.',
   })
   @ApiBody({ type: SendNotificationDto })
   sendNotification(

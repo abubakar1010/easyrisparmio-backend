@@ -2,6 +2,24 @@ import { Logger } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { NotificationType, Platform } from '../../common/enums/notification.enum';
 
+/**
+ * The case-context query builder, which resolves `{{provider}}` and friends.
+ * Every test in this file uses only user-scoped variables, so it never runs —
+ * but the constructor needs something shaped like a repository.
+ */
+const caseQueryBuilder = () => {
+  const qb: Record<string, jest.Mock> = {
+    leftJoin: jest.fn(() => qb),
+    addSelect: jest.fn(() => qb),
+    where: jest.fn(() => qb),
+    andWhere: jest.fn(() => qb),
+    orderBy: jest.fn(() => qb),
+    getMany: jest.fn().mockResolvedValue([]),
+  };
+  return qb;
+};
+
+
 const mockGetApps = jest.fn();
 const mockSendEach = jest.fn();
 
@@ -37,6 +55,11 @@ describe('NotificationsService push delivery', () => {
       } as any,
       { find: pushTokenFind, update: pushTokenUpdate } as any,
       { findOne: jest.fn().mockResolvedValue(null) } as any,
+      { find: jest.fn().mockResolvedValue([]) } as any,
+      // Case + template repositories: no test here renders a case variable
+      // or reads a template name, so an empty result is the honest stub.
+      { createQueryBuilder: jest.fn(() => caseQueryBuilder()) } as any,
+      { find: jest.fn().mockResolvedValue([]) } as any,
       { get: jest.fn().mockReturnValue(DASHBOARD_URL) } as any,
     );
 
@@ -151,6 +174,36 @@ describe('NotificationsService push delivery', () => {
         },
       }),
     ]);
+  });
+
+  it('carries the notification type in the push data, next to the deep-link keys', async () => {
+    fcmReplies({ success: true });
+
+    await send();
+
+    // Without `type` the apps cannot tell an offer notification from a
+    // contract one, and every tap lands on the notification centre instead of
+    // the screen the message is about.
+    expect(mockSendEach.mock.calls[0][0][0].data).toEqual({
+      billId: 'bill-1',
+      type: NotificationType.ADMIN_BILL,
+    });
+  });
+
+  it('lets the row type win over a type hand-written into data', async () => {
+    fcmReplies({ success: true });
+
+    await service.sendNotification({
+      userIds: ['u1'],
+      title: 'Offerte disponibili',
+      body: 'Abbiamo selezionato delle offerte per te.',
+      type: NotificationType.OFFER_AVAILABLE,
+      data: { billId: 'bill-1', type: 'general' },
+    } as any);
+
+    expect(mockSendEach.mock.calls[0][0][0].data.type).toBe(
+      NotificationType.OFFER_AVAILABLE,
+    );
   });
 
   it('leaves mobile messages without a webpush block', async () => {

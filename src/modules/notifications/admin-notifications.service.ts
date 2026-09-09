@@ -24,6 +24,12 @@ export interface NotifyAdminsInput {
   actorId?: string;
   /** Display name of the actor, recorded on the payload for the audit trail. */
   actorName?: string;
+  /**
+   * Identifies the event so each admin is told about it exactly once, however
+   * many times the producing code runs. Omit only for events that are
+   * genuinely repeatable.
+   */
+  dedupeKey?: string;
 }
 
 /**
@@ -70,6 +76,7 @@ export class AdminNotificationsService {
         messageKey: input.messageKey,
         bodyParams: (input.bodyParams ?? []) as any[],
         type: input.type,
+        dedupeKey: input.dedupeKey,
         data: {
           event: input.messageKey,
           ...(input.actorId ? { actorId: input.actorId } : {}),

@@ -1,49 +1,40 @@
 import { BillStatus } from '../../common/enums/bill.enum';
+import { CaseStatus } from '../../common/enums/case.enum';
 import { NotificationType } from '../../common/enums/notification.enum';
 
+/**
+ * Every piece of copy the platform can send.
+ *
+ * This union is deliberately closed and short. It used to carry an entry for
+ * every `BillStatus`, which meant each new internal state silently became a
+ * customer push. Adding a key here now requires adding a trigger for it in
+ * NotificationEventsService, which is the only place allowed to send.
+ */
 export type MessageKey =
-  | 'bill_updated'
+  // ─── Customer ───────────────────────────────────────────────
+  | 'application_submitted'
   | 'offers_recommended'
-  | 'bill_verification_required'
-  | 'bill_verified'
+  | 'offers_available'
+  | 'contract_ready'
   | 'awaiting_activation'
   | 'utility_activated'
-  | 'case_update'
+  | 'application_cancelled'
+  | 'bill_verification_required'
+  | 'document_reminder'
+  | 'support_reply'
   | 'ticket_resolved'
   | 'ticket_closed'
-  | 'support_reply'
-  | 'referral_registered'
   | 'referral_qualified'
   | 'referral_rewarded'
-  | 'referral_expired'
-  // Case status changes driven by the admin status dropdown
-  | 'status_pending_email'
-  | 'status_uploaded'
-  | 'status_analyzing'
-  | 'status_analyzed'
-  | 'status_error'
-  | 'status_verification_review'
-  | 'status_offer_sent'
-  | 'status_offer_accepted'
-  | 'status_contract_sent'
-  | 'status_cancelled'
-  // Admin-facing events. These are only ever delivered to ADMIN recipients by
-  // AdminNotificationsService — never to a customer.
-  | 'admin_user_registered'
-  | 'admin_user_verified'
+  // ─── Admin ──────────────────────────────────────────────────
+  // Only ever delivered to ADMIN recipients by AdminNotificationsService.
   | 'admin_bill_uploaded'
   | 'admin_bill_email_requested'
-  | 'admin_bill_analyzed'
-  | 'admin_bill_analysis_failed'
   | 'admin_verification_submitted'
   | 'admin_offer_accepted'
-  | 'admin_case_status_changed'
-  | 'admin_document_uploaded'
   | 'admin_ticket_created'
   | 'admin_ticket_replied'
-  | 'admin_referral_registered'
-  | 'admin_offer_created'
-  | 'admin_offer_status_changed';
+  | 'admin_case_stalled';
 
 /** The subset of MessageKey that addresses an admin. */
 export type AdminMessageKey = Extract<MessageKey, `admin_${string}`>;
@@ -55,83 +46,19 @@ interface MessageDef {
   body: string | ((...args: any[]) => string);
 }
 
-const FIELD_LABELS: Record<Lang, Record<string, string>> = {
-  it: {
-    billType: 'Tipo bolletta',
-    podNumber: 'Numero POD',
-    pdrNumber: 'Numero PDR',
-    totalAmount: 'Importo totale',
-    consumptionKwh: 'Consumo (kWh)',
-    consumptionSmc: 'Consumo (Smc)',
-    costPerUnit: 'Costo unitario',
-    fixedCharges: 'Costi fissi',
-    taxes: 'Imposte',
-    billingPeriodStart: 'Inizio periodo',
-    billingPeriodEnd: 'Fine periodo',
-    supplyAddress: 'Indirizzo fornitura',
-    supplyStreet: 'Indirizzo fornitura',
-    supplyStreetNumber: 'Indirizzo fornitura',
-    supplyCity: 'Indirizzo fornitura',
-    supplyPostalCode: 'Indirizzo fornitura',
-    supplyProvince: 'Indirizzo fornitura',
-    codiceFiscale: 'Codice Fiscale',
-    partitaIva: 'Partita IVA',
-    contractNumber: 'Numero contratto',
-    meterNumber: 'Numero contatore',
-    customerName: 'Nome cliente',
-    supplierName: 'Fornitore',
-    supplierId: 'Fornitore',
-  },
-  en: {
-    billType: 'Bill type',
-    podNumber: 'POD number',
-    pdrNumber: 'PDR number',
-    totalAmount: 'Total amount',
-    consumptionKwh: 'Consumption (kWh)',
-    consumptionSmc: 'Consumption (Smc)',
-    costPerUnit: 'Cost per unit',
-    fixedCharges: 'Fixed charges',
-    taxes: 'Taxes',
-    billingPeriodStart: 'Billing period start',
-    billingPeriodEnd: 'Billing period end',
-    supplyAddress: 'Supply address',
-    supplyStreet: 'Supply address',
-    supplyStreetNumber: 'Supply address',
-    supplyCity: 'Supply address',
-    supplyPostalCode: 'Supply address',
-    supplyProvince: 'Supply address',
-    codiceFiscale: 'Tax ID (Codice Fiscale)',
-    partitaIva: 'VAT number (Partita IVA)',
-    contractNumber: 'Contract number',
-    meterNumber: 'Meter number',
-    customerName: 'Customer name',
-    supplierName: 'Supplier',
-    supplierId: 'Supplier',
-  },
-};
-
-/**
- * Deduplicated on purpose: the supply address is stored as five fields plus the
- * line rendered from them, and editing the street changes several at once. The
- * customer wants to be told their address changed, not to read it named six
- * times, so every part shares one label and repeats are collapsed.
- */
-export function resolveFieldLabels(fieldKeys: string[], lang: Lang): string {
-  const labels = FIELD_LABELS[lang] || FIELD_LABELS.it;
-  return [...new Set(fieldKeys.map((k) => labels[k] || k))].join(', ');
-}
-
 const MESSAGES: Record<MessageKey, Record<Lang, MessageDef>> = {
-  bill_updated: {
+  // ───────────────────────────────────────────────────────────
+  // Customer copy. One entry per milestone the customer actually
+  // cares about — never per internal state change.
+  // ───────────────────────────────────────────────────────────
+  application_submitted: {
     it: {
-      title: 'Dati bolletta aggiornati',
-      body: (fieldKeys: string[]) =>
-        `I seguenti dati della tua bolletta sono stati aggiornati: ${resolveFieldLabels(fieldKeys, 'it')}`,
+      title: 'Richiesta inviata',
+      body: 'Abbiamo ricevuto la tua richiesta. Ti avviseremo appena avremo delle offerte per te.',
     },
     en: {
-      title: 'Bill data updated',
-      body: (fieldKeys: string[]) =>
-        `The following bill data has been updated: ${resolveFieldLabels(fieldKeys, 'en')}`,
+      title: 'Request sent',
+      body: 'We have received your request. We will let you know as soon as we have offers for you.',
     },
   },
   offers_recommended: {
@@ -146,18 +73,33 @@ const MESSAGES: Record<MessageKey, Record<Lang, MessageDef>> = {
         `We found ${count} better offers for your bill. Estimated savings: EUR ${savings}`,
     },
   },
-  bill_verification_required: {
-    it: { title: 'Verifica richiesta per la tua bolletta', body: '' },
-    en: { title: 'Verification required for your bill', body: '' },
-  },
-  bill_verified: {
+  /**
+   * The same news as `offers_recommended` without the figures, for when an
+   * admin moves the case to "Offerta inviata" from the status dropdown rather
+   * than through the send-offers screen. Both share one dedupe key, so a
+   * customer only ever receives whichever fired first.
+   */
+  offers_available: {
     it: {
-      title: 'Bolletta verificata',
-      body: 'I dati della tua bolletta sono stati verificati. A breve riceverai le offerte.',
+      title: 'Offerte disponibili',
+      body: 'Abbiamo selezionato delle offerte per te. Aprile nella app per sceglierne una.',
     },
     en: {
-      title: 'Bill verified',
-      body: 'Your bill data has been verified. You will receive offers shortly.',
+      title: 'Offers available',
+      body: 'We have selected offers for you. Open the app to choose one.',
+    },
+  },
+  // The one push that opens the Sign Your Contract screen. Signing happens
+  // with the supplier, not in the app, so the copy points at the instructions
+  // rather than promising a document to open.
+  contract_ready: {
+    it: {
+      title: 'Contratto da firmare',
+      body: 'Il tuo contratto è pronto per la firma. Apri la app per vedere come procedere.',
+    },
+    en: {
+      title: 'Contract ready to sign',
+      body: 'Your contract is ready to sign. Open the app to see how to proceed.',
     },
   },
   awaiting_activation: {
@@ -180,17 +122,45 @@ const MESSAGES: Record<MessageKey, Record<Lang, MessageDef>> = {
       body: 'Your utility has been activated! You can view it in the My Utilities section.',
     },
   },
-  case_update: {
+  application_cancelled: {
     it: {
-      title: 'Aggiornamento Pratica',
-      body: (caseNumber: string) =>
-        `La tua pratica ${caseNumber} è stata aggiornata.`,
+      title: 'Pratica annullata',
+      body: 'La tua pratica è stata annullata. Contattaci per maggiori informazioni.',
     },
     en: {
-      title: 'Case Update',
-      body: (caseNumber: string) =>
-        `Your case ${caseNumber} has been updated.`,
+      title: 'Case cancelled',
+      body: 'Your case has been cancelled. Contact us for more information.',
     },
+  },
+  // Body is always overridden with the admin's own message.
+  bill_verification_required: {
+    it: { title: 'Verifica richiesta per la tua bolletta', body: '' },
+    en: { title: 'Verification required for your bill', body: '' },
+  },
+  /**
+   * Sent once, 48 hours after the request, if the document still has not
+   * arrived. Repeats what was asked for so the customer does not have to go
+   * back and find the original notification.
+   */
+  document_reminder: {
+    it: {
+      title: 'Promemoria: documento mancante',
+      body: (adminMessage: string) =>
+        adminMessage
+          ? `Non abbiamo ancora ricevuto quanto richiesto: ${adminMessage}`
+          : 'Non abbiamo ancora ricevuto il documento richiesto. Aprilo nella app per caricarlo.',
+    },
+    en: {
+      title: 'Reminder: document still missing',
+      body: (adminMessage: string) =>
+        adminMessage
+          ? `We still have not received what we asked for: ${adminMessage}`
+          : 'We still have not received the requested document. Open the app to upload it.',
+    },
+  },
+  support_reply: {
+    it: { title: 'Risposta al ticket di supporto', body: '' },
+    en: { title: 'Support ticket reply', body: '' },
   },
   ticket_resolved: {
     it: {
@@ -212,196 +182,43 @@ const MESSAGES: Record<MessageKey, Record<Lang, MessageDef>> = {
       body: 'Your support ticket has been closed.',
     },
   },
-  support_reply: {
-    it: { title: 'Risposta al ticket di supporto', body: '' },
-    en: { title: 'Support ticket reply', body: '' },
-  },
-  referral_registered: {
-    it: {
-      title: 'Aggiornamento Referral',
-      body: 'Il tuo referral si è registrato!',
-    },
-    en: {
-      title: 'Referral Update',
-      body: 'Your referral has registered!',
-    },
-  },
   referral_qualified: {
     it: {
-      title: 'Aggiornamento Referral',
+      title: 'Referral completato',
       body: 'Il tuo referral è stato qualificato!',
     },
     en: {
-      title: 'Referral Update',
+      title: 'Referral successful',
       body: 'Your referral has been qualified!',
     },
   },
   referral_rewarded: {
     it: {
-      title: 'Aggiornamento Referral',
+      title: 'Premio referral accreditato',
       body: (amount: number | string) =>
-        `Il tuo premio referral di \u20AC${amount} è stato accreditato!`,
+        `Il tuo premio referral di €${amount} è stato accreditato!`,
     },
     en: {
-      title: 'Referral Update',
+      title: 'Referral reward credited',
       body: (amount: number | string) =>
-        `Your referral reward of \u20AC${amount} has been credited!`,
-    },
-  },
-  referral_expired: {
-    it: {
-      title: 'Aggiornamento Referral',
-      body: 'Un referral è scaduto.',
-    },
-    en: {
-      title: 'Referral Update',
-      body: 'A referral has expired.',
+        `Your referral reward of €${amount} has been credited!`,
     },
   },
 
-  // ─── Case status changes ────────────────────────────────────
-  // One entry per pipeline status so the customer always receives a
-  // meaningful push when an admin moves the case — forward or backward.
-  status_pending_email: {
-    it: {
-      title: 'Pratica in attesa',
-      body: 'La tua pratica è in attesa di essere elaborata.',
-    },
-    en: {
-      title: 'Case pending',
-      body: 'Your case is waiting to be processed.',
-    },
-  },
-  status_uploaded: {
-    it: {
-      title: 'Bolletta ricevuta',
-      body: 'Abbiamo ricevuto la tua bolletta. La analizzeremo a breve.',
-    },
-    en: {
-      title: 'Bill received',
-      body: 'We have received your bill. We will analyse it shortly.',
-    },
-  },
-  status_analyzing: {
-    it: {
-      title: 'Analisi in corso',
-      body: 'Stiamo analizzando la tua bolletta. Ti aggiorneremo appena sarà pronta.',
-    },
-    en: {
-      title: 'Analysis in progress',
-      body: 'We are analysing your bill. We will update you as soon as it is ready.',
-    },
-  },
-  status_analyzed: {
-    it: {
-      title: 'Analisi completata',
-      body: "L'analisi della tua bolletta è completata ed è in fase di controllo.",
-    },
-    en: {
-      title: 'Analysis complete',
-      body: 'The analysis of your bill is complete and is now being reviewed.',
-    },
-  },
-  status_error: {
-    it: {
-      title: 'Problema con la bolletta',
-      body: 'Si è verificato un problema con la tua bolletta. Il nostro team sta verificando.',
-    },
-    en: {
-      title: 'Problem with your bill',
-      body: 'There was a problem with your bill. Our team is looking into it.',
-    },
-  },
-  status_verification_review: {
-    it: {
-      title: 'Bolletta in verifica',
-      body: 'Un nostro operatore sta verificando i dati della tua bolletta.',
-    },
-    en: {
-      title: 'Bill under review',
-      body: 'One of our operators is verifying the data on your bill.',
-    },
-  },
-  status_offer_sent: {
-    it: {
-      title: 'Offerte disponibili',
-      body: 'Abbiamo selezionato delle offerte per te. Aprile nella app per sceglierne una.',
-    },
-    en: {
-      title: 'Offers available',
-      body: 'We have selected offers for you. Open the app to choose one.',
-    },
-  },
-  status_offer_accepted: {
-    it: {
-      title: 'Offerta confermata',
-      body: 'La tua offerta è stata confermata. Stiamo preparando il contratto.',
-    },
-    en: {
-      title: 'Offer confirmed',
-      body: 'Your offer has been confirmed. We are preparing the contract.',
-    },
-  },
-  // The one push that opens the Sign Your Contract screen. Signing happens
-  // with the supplier, not in the app, so the copy points at the instructions
-  // rather than promising a document to open.
-  status_contract_sent: {
-    it: {
-      title: 'Contratto da firmare',
-      body: 'Il tuo contratto è pronto per la firma. Apri la app per vedere come procedere.',
-    },
-    en: {
-      title: 'Contract ready to sign',
-      body: 'Your contract is ready to sign. Open the app to see how to proceed.',
-    },
-  },
-  status_cancelled: {
-    it: {
-      title: 'Pratica annullata',
-      body: 'La tua pratica è stata annullata. Contattaci per maggiori informazioni.',
-    },
-    en: {
-      title: 'Case cancelled',
-      body: 'Your case has been cancelled. Contact us for more information.',
-    },
-  },
-
-  // ---------------------------------------------------------------------------
-  // Admin-facing copy. Recipients are ADMIN users, so the tone is operational:
-  // say who did what and what now needs doing.
-  // ---------------------------------------------------------------------------
-  admin_user_registered: {
-    it: {
-      title: 'Nuova registrazione',
-      body: (name: string, role: string, email: string) =>
-        `${name} (${role}) si è registrato con ${email}.`,
-    },
-    en: {
-      title: 'New registration',
-      body: (name: string, role: string, email: string) =>
-        `${name} (${role}) signed up with ${email}.`,
-    },
-  },
-  admin_user_verified: {
-    it: {
-      title: 'Account verificato',
-      body: (name: string, email: string) =>
-        `${name} ha verificato la propria email (${email}).`,
-    },
-    en: {
-      title: 'Account verified',
-      body: (name: string, email: string) =>
-        `${name} verified their email address (${email}).`,
-    },
-  },
+  // ───────────────────────────────────────────────────────────
+  // Admin copy. Recipients are ADMIN users, so the tone is operational:
+  // say who did what and what now needs doing. Every one of these marks a
+  // point where the customer has finished their part and an operator has to
+  // pick the case up.
+  // ───────────────────────────────────────────────────────────
   admin_bill_uploaded: {
     it: {
-      title: 'Nuova bolletta caricata',
+      title: 'Nuova richiesta di verifica bolletta',
       body: (name: string, billType: string) =>
         `${name} ha caricato una bolletta ${billType}. In attesa di analisi.`,
     },
     en: {
-      title: 'New bill uploaded',
+      title: 'New bill check request',
       body: (name: string, billType: string) =>
         `${name} uploaded a ${billType} bill. Awaiting analysis.`,
     },
@@ -418,30 +235,6 @@ const MESSAGES: Record<MessageKey, Record<Lang, MessageDef>> = {
         `${name} asked to send their bill by email. Upload the document once it arrives.`,
     },
   },
-  admin_bill_analyzed: {
-    it: {
-      title: 'Analisi bolletta completata',
-      body: (name: string, billType: string) =>
-        `La bolletta ${billType} di ${name} è stata analizzata ed è pronta per la revisione.`,
-    },
-    en: {
-      title: 'Bill analysis complete',
-      body: (name: string, billType: string) =>
-        `The ${billType} bill from ${name} has been analysed and is ready for review.`,
-    },
-  },
-  admin_bill_analysis_failed: {
-    it: {
-      title: 'Analisi bolletta fallita',
-      body: (name: string, reason: string) =>
-        `Non è stato possibile analizzare la bolletta di ${name}: ${reason}`,
-    },
-    en: {
-      title: 'Bill analysis failed',
-      body: (name: string, reason: string) =>
-        `Could not analyse the bill from ${name}: ${reason}`,
-    },
-  },
   admin_verification_submitted: {
     it: {
       title: 'Documenti di verifica ricevuti',
@@ -456,38 +249,14 @@ const MESSAGES: Record<MessageKey, Record<Lang, MessageDef>> = {
   },
   admin_offer_accepted: {
     it: {
-      title: 'Offerta accettata',
+      title: 'Nuova pratica inviata',
       body: (name: string, supplier: string, caseNumber: string) =>
         `${name} ha accettato l'offerta di ${supplier}. Pratica ${caseNumber} creata.`,
     },
     en: {
-      title: 'Offer accepted',
+      title: 'New application submitted',
       body: (name: string, supplier: string, caseNumber: string) =>
         `${name} accepted the offer from ${supplier}. Case ${caseNumber} created.`,
-    },
-  },
-  admin_case_status_changed: {
-    it: {
-      title: 'Stato pratica aggiornato',
-      body: (caseNumber: string, status: string, actorName: string) =>
-        `La pratica ${caseNumber} è passata a "${status}" (${actorName}).`,
-    },
-    en: {
-      title: 'Case status updated',
-      body: (caseNumber: string, status: string, actorName: string) =>
-        `Case ${caseNumber} moved to "${status}" (${actorName}).`,
-    },
-  },
-  admin_document_uploaded: {
-    it: {
-      title: 'Nuovo documento caricato',
-      body: (name: string, docType: string, caseNumber: string) =>
-        `${name} ha caricato un documento (${docType}) sulla pratica ${caseNumber}.`,
-    },
-    en: {
-      title: 'New document uploaded',
-      body: (name: string, docType: string, caseNumber: string) =>
-        `${name} uploaded a document (${docType}) on case ${caseNumber}.`,
     },
   },
   admin_ticket_created: {
@@ -514,111 +283,92 @@ const MESSAGES: Record<MessageKey, Record<Lang, MessageDef>> = {
         `${name} replied on "${subject}": ${preview}`,
     },
   },
-  admin_referral_registered: {
+  admin_case_stalled: {
     it: {
-      title: 'Nuovo referral registrato',
-      body: (referrerName: string, refereeName: string) =>
-        `${refereeName} si è registrato tramite l'invito di ${referrerName}.`,
+      title: 'Pratica ferma',
+      body: (caseLabel: string, statusLabel: string, days: number) =>
+        `La pratica ${caseLabel} è ferma su "${statusLabel}" da ${days} giorni.`,
     },
     en: {
-      title: 'New referral registered',
-      body: (referrerName: string, refereeName: string) =>
-        `${refereeName} signed up through an invite from ${referrerName}.`,
-    },
-  },
-  admin_offer_created: {
-    it: {
-      title: 'Nuova offerta creata',
-      body: (offerName: string, supplier: string, actorName: string) =>
-        `${actorName} ha creato l'offerta "${offerName}" di ${supplier}.`,
-    },
-    en: {
-      title: 'New offer created',
-      body: (offerName: string, supplier: string, actorName: string) =>
-        `${actorName} created the offer "${offerName}" from ${supplier}.`,
-    },
-  },
-  admin_offer_status_changed: {
-    it: {
-      title: 'Stato offerta aggiornato',
-      body: (offerName: string, status: string, actorName: string) =>
-        `L'offerta "${offerName}" è ora "${status}" (${actorName}).`,
-    },
-    en: {
-      title: 'Offer status updated',
-      body: (offerName: string, status: string, actorName: string) =>
-        `Offer "${offerName}" is now "${status}" (${actorName}).`,
+      title: 'Application stalled',
+      body: (caseLabel: string, statusLabel: string, days: number) =>
+        `Application ${caseLabel} has been sitting in "${statusLabel}" for ${days} days.`,
     },
   },
 };
 
 /**
- * Notification sent to the customer for each case/bill status.
- *
- * Every status maps to an entry so a push is always delivered when an admin
- * changes the status from the dashboard dropdown — including when the case is
- * moved back to a previous status.
+ * A customer-facing milestone: the copy to send and the name the dedupe key is
+ * built from. `event` is what makes a milestone reachable from two different
+ * status columns without ever notifying twice — both paths derive the same
+ * `bill:<id>:<event>` key, so whichever runs first wins and the other is a
+ * silent no-op.
  */
-export const BILL_STATUS_NOTIFICATIONS: Record<
-  BillStatus,
-  { messageKey: MessageKey; type: NotificationType }
+export interface CustomerMilestone {
+  /** Dedupe-key suffix. Stable — changing it re-opens an already-sent event. */
+  event: string;
+  messageKey: MessageKey;
+  type: NotificationType;
+}
+
+const OFFERS_AVAILABLE: CustomerMilestone = {
+  event: 'offers_available',
+  messageKey: 'offers_available',
+  type: NotificationType.OFFER_AVAILABLE,
+};
+const CONTRACT_READY: CustomerMilestone = {
+  event: 'contract_ready',
+  messageKey: 'contract_ready',
+  type: NotificationType.CONTRACT_STATUS,
+};
+const IN_ACTIVATION: CustomerMilestone = {
+  event: 'in_activation',
+  messageKey: 'awaiting_activation',
+  type: NotificationType.CONTRACT_STATUS,
+};
+const ACTIVATED: CustomerMilestone = {
+  event: 'activated',
+  messageKey: 'utility_activated',
+  type: NotificationType.ACTIVATION_COMPLETE,
+};
+const CANCELLED: CustomerMilestone = {
+  event: 'cancelled',
+  messageKey: 'application_cancelled',
+  type: NotificationType.CASE_UPDATE,
+};
+
+/**
+ * Which bill statuses the customer hears about at all.
+ *
+ * Partial on purpose. A status with no entry here is silent, so adding a new
+ * internal state cannot accidentally start pushing — the opposite of the total
+ * map this replaced, which notified on all fourteen statuses including
+ * backward moves. `VERIFICATION_REQUIRED` is absent because its notification
+ * carries the admin's own message and is sent by `requestVerification`.
+ */
+export const CUSTOMER_MILESTONES: Partial<
+  Record<BillStatus, CustomerMilestone>
 > = {
-  [BillStatus.PENDING_EMAIL]: {
-    messageKey: 'status_pending_email',
-    type: NotificationType.GENERAL,
-  },
-  [BillStatus.UPLOADED]: {
-    messageKey: 'status_uploaded',
-    type: NotificationType.GENERAL,
-  },
-  [BillStatus.ANALYZING]: {
-    messageKey: 'status_analyzing',
-    type: NotificationType.GENERAL,
-  },
-  [BillStatus.ANALYZED]: {
-    messageKey: 'status_analyzed',
-    type: NotificationType.BILL_ANALYZED,
-  },
-  [BillStatus.ERROR]: {
-    messageKey: 'status_error',
-    type: NotificationType.GENERAL,
-  },
-  [BillStatus.VERIFICATION_REVIEW]: {
-    messageKey: 'status_verification_review',
-    type: NotificationType.BILL_VERIFICATION,
-  },
-  [BillStatus.VERIFICATION_REQUIRED]: {
-    messageKey: 'bill_verification_required',
-    type: NotificationType.BILL_VERIFICATION,
-  },
-  [BillStatus.VERIFIED]: {
-    messageKey: 'bill_verified',
-    type: NotificationType.BILL_ANALYZED,
-  },
-  [BillStatus.OFFER_SENT]: {
-    messageKey: 'status_offer_sent',
-    type: NotificationType.OFFER_AVAILABLE,
-  },
-  [BillStatus.OFFER_ACCEPTED]: {
-    messageKey: 'status_offer_accepted',
-    type: NotificationType.CASE_UPDATE,
-  },
-  [BillStatus.CONTRACT_SENT]: {
-    messageKey: 'status_contract_sent',
-    type: NotificationType.CONTRACT_STATUS,
-  },
-  [BillStatus.AWAITING_ACTIVATION]: {
-    messageKey: 'awaiting_activation',
-    type: NotificationType.CONTRACT_STATUS,
-  },
-  [BillStatus.ACTIVATED]: {
-    messageKey: 'utility_activated',
-    type: NotificationType.ACTIVATION_COMPLETE,
-  },
-  [BillStatus.CANCELLED]: {
-    messageKey: 'status_cancelled',
-    type: NotificationType.CASE_UPDATE,
-  },
+  [BillStatus.OFFER_SENT]: OFFERS_AVAILABLE,
+  [BillStatus.CONTRACT_SENT]: CONTRACT_READY,
+  [BillStatus.AWAITING_ACTIVATION]: IN_ACTIVATION,
+  [BillStatus.ACTIVATED]: ACTIVATED,
+  [BillStatus.CANCELLED]: CANCELLED,
+};
+
+/**
+ * The same milestones reached from the other status column. `CasesService`
+ * can move a case without touching its bill, so both columns map onto one set
+ * of events keyed by the bill id.
+ */
+export const CASE_STATUS_MILESTONES: Partial<
+  Record<CaseStatus, CustomerMilestone>
+> = {
+  [CaseStatus.CONTRACT_SENT]: CONTRACT_READY,
+  [CaseStatus.AWAITING_ACTIVATION]: IN_ACTIVATION,
+  [CaseStatus.ACTIVATED]: ACTIVATED,
+  [CaseStatus.CANCELLED]: CANCELLED,
+  [CaseStatus.REJECTED]: CANCELLED,
 };
 
 export function getNotificationText(

@@ -26,7 +26,28 @@ export class User extends BaseEntity {
   @Column({ type: 'varchar', length: 20, nullable: true })
   phone: string;
 
-  @Column({ name: 'password_hash', type: 'varchar', length: 255, nullable: true })
+  /**
+   * Never selected unless a query asks for it by name.
+   *
+   * Without `select: false` every `leftJoinAndSelect('x.user', …)` and every
+   * `relations: ['user']` in the codebase returned the bcrypt hash to the
+   * client — `GET /cases` and `GET /bills/admin` both did. The defence used to
+   * be a `const { passwordHash: _, ...rest } = user` at each response site,
+   * which only works where somebody remembered, and a joined relation has no
+   * such site to put it in.
+   *
+   * The four flows that genuinely have to compare a password ask for it
+   * explicitly through `UsersService.findByEmailWithPassword` /
+   * `findByIdWithPassword`. Writing is unaffected: an entity loaded without
+   * this column is saved without touching it.
+   */
+  @Column({
+    name: 'password_hash',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+    select: false,
+  })
   passwordHash: string | null;
 
   @Column({ name: 'first_name', type: 'varchar', length: 100 })

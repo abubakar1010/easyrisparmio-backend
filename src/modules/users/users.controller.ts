@@ -9,8 +9,6 @@ import {
   Query,
   UseGuards,
   ParseUUIDPipe,
-  HttpCode,
-  HttpStatus,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -29,7 +27,6 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
-import { UpgradeToBusinessDto } from './dto/upgrade-to-business.dto';
 import { QueryUsersDto } from './dto/query-users.dto';
 import { AdminResetPasswordDto } from './dto/admin-reset-password.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -114,7 +111,11 @@ export class UsersController {
     summary: 'Update own user profile',
     description:
       'Updates the authenticated user\'s profile fields. All fields are optional. ' +
-      'Users cannot change their own role or status. The password field is not accepted (use auth endpoints for password changes).',
+      'Users cannot change their own role or status — the account type is settled ' +
+      'when the account is created and never changes, so `role` is ignored here ' +
+      'whatever it says. The password field is not accepted (use auth endpoints ' +
+      'for password changes). Company fields are written only for an account that ' +
+      'registered as a business.',
   })
   @ApiBody({ type: UpdateUserDto })
   @ApiOkResponse({
@@ -169,149 +170,6 @@ export class UsersController {
     @Body() dto: UpdateUserDto,
   ) {
     const updated = await this.usersService.updateProfile(user.id, dto);
-    const { passwordHash: _, ...result } = updated;
-    return result;
-  }
-
-  @Post('profile/upgrade-to-business')
-  @HttpCode(HttpStatus.OK)
-  @Roles(UserRole.PERSONAL, UserRole.BUSINESS)
-  @ApiOperation({
-    summary: 'Switch own account to business',
-    description:
-      'Turns the authenticated personal account into a business account. The personal ' +
-      'details already on the account are kept; only the company details are supplied here. ' +
-      'The Partita IVA must not already belong to another account (409 otherwise).\n\n' +
-      'The call is idempotent: a business account re-submitting simply updates its company ' +
-      'details, so a retry after a dropped response is safe. Administrator accounts are rejected.\n\n' +
-      'Returns the full updated profile, including `businessProfile` and the new `role`, so the ' +
-      'client can refresh its cached role without a second request.',
-  })
-  @ApiBody({ type: UpgradeToBusinessDto })
-  @ApiOkResponse({
-    description: 'Account switched to business',
-    content: {
-      'application/json': {
-        example: {
-          success: true,
-          data: {
-            id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-            email: 'mario.rossi@email.com',
-            firstName: 'Mario',
-            lastName: 'Rossi',
-            role: 'business',
-            status: 'active',
-            businessProfile: {
-              id: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
-              companyName: 'Rossi S.r.l.',
-              partitaIva: '12345678901',
-              jobRole: 'CEO / Founder',
-              pecEmail: null,
-              legalRepresentative: null,
-              companyType: null,
-              atecoCode: null,
-            },
-          },
-        },
-      },
-    },
-  })
-  @ApiBadRequestResponse({
-    description: 'Validation failed',
-    content: {
-      'application/json': {
-        example: {
-          success: false,
-          statusCode: 400,
-          message: ['Partita IVA must be exactly 11 digits', 'The business terms must be accepted'],
-          timestamp: '2026-06-24T12:00:00.000Z',
-        },
-      },
-    },
-  })
-  @ApiConflictResponse({
-    description: 'Partita IVA already registered to another account',
-    content: {
-      'application/json': {
-        example: {
-          success: false,
-          statusCode: 409,
-          message: ['This Partita IVA is already registered to another account'],
-          timestamp: '2026-06-24T12:00:00.000Z',
-        },
-      },
-    },
-  })
-  @ApiUnauthorizedResponse({
-    description: 'Missing or invalid JWT access token',
-    content: { 'application/json': { example: { success: false, statusCode: 401, message: ['Unauthorized'], timestamp: '2026-06-24T12:00:00.000Z' } } },
-  })
-  @ApiForbiddenResponse({
-    description: 'Administrator accounts cannot switch account type',
-    content: { 'application/json': { example: { success: false, statusCode: 403, message: ['Forbidden resource'], timestamp: '2026-06-24T12:00:00.000Z' } } },
-  })
-  async upgradeToBusiness(
-    @CurrentUser() user: User,
-    @Body() dto: UpgradeToBusinessDto,
-  ) {
-    const updated = await this.usersService.upgradeToBusiness(user.id, dto);
-    void this.activityLogService.log(
-      user.id,
-      'Account Switched To Business',
-      'user',
-      user.id,
-      { companyName: dto.companyName, partitaIva: dto.partitaIva },
-    );
-    const { passwordHash: _, ...result } = updated;
-    return result;
-  }
-
-  @Post('profile/switch-to-personal')
-  @HttpCode(HttpStatus.OK)
-  @Roles(UserRole.PERSONAL, UserRole.BUSINESS)
-  @ApiOperation({
-    summary: 'Switch own account back to personal',
-    description:
-      'Turns the authenticated business account back into a personal one. The company ' +
-      'details are kept on file so switching back to business needs no re-entry, and cases ' +
-      'opened as a business keep the company they were opened under.\n\n' +
-      'The call is idempotent: a personal account calling it gets its profile back unchanged. ' +
-      'Administrator accounts are rejected.',
-  })
-  @ApiOkResponse({
-    description: 'Account switched to personal',
-    content: {
-      'application/json': {
-        example: {
-          success: true,
-          data: {
-            id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-            email: 'mario.rossi@email.com',
-            firstName: 'Mario',
-            lastName: 'Rossi',
-            role: 'personal',
-            status: 'active',
-          },
-        },
-      },
-    },
-  })
-  @ApiUnauthorizedResponse({
-    description: 'Missing or invalid JWT access token',
-    content: { 'application/json': { example: { success: false, statusCode: 401, message: ['Unauthorized'], timestamp: '2026-06-24T12:00:00.000Z' } } },
-  })
-  @ApiForbiddenResponse({
-    description: 'Administrator accounts cannot switch account type',
-    content: { 'application/json': { example: { success: false, statusCode: 403, message: ['Forbidden resource'], timestamp: '2026-06-24T12:00:00.000Z' } } },
-  })
-  async switchToPersonal(@CurrentUser() user: User) {
-    const updated = await this.usersService.switchToPersonal(user.id);
-    void this.activityLogService.log(
-      user.id,
-      'Account Switched To Personal',
-      'user',
-      user.id,
-    );
     const { passwordHash: _, ...result } = updated;
     return result;
   }
@@ -422,7 +280,7 @@ export class UsersController {
             phone: '+393201234567',
             firstName: 'Luigi',
             lastName: 'Verdi',
-            codiceFiscale: 'VRDLGU90A01F205X',
+            codiceFiscale: 'VRDLGU90A01F205V',
             role: 'personal',
             status: 'active',
             emailVerified: true,
@@ -469,6 +327,44 @@ export class UsersController {
     const { passwordHash: _, ...result } = user;
     void this.activityLogService.log(adminId, 'User Created', 'user', user.id, { email: user.email, role: user.role });
     return result;
+  }
+
+  @Get('agents')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'List assignable admin agents (admin only)',
+    description:
+      'Returns every active admin user as a flat, unpaginated list of id and name, for the assignee pickers on cases and support tickets. ' +
+      'This is the complement of GET /users, which lists clients and excludes admins outright. Suspended and deleted admins are omitted.',
+  })
+  @ApiOkResponse({
+    description: 'Assignable agents',
+    content: {
+      'application/json': {
+        example: {
+          success: true,
+          data: [
+            {
+              id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+              firstName: 'Giulia',
+              lastName: 'Bianchi',
+              email: 'giulia.bianchi@easyrisparmio.it',
+            },
+          ],
+        },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing or invalid JWT access token',
+    content: { 'application/json': { example: { success: false, statusCode: 401, message: ['Unauthorized'], timestamp: '2026-06-24T12:00:00.000Z' } } },
+  })
+  @ApiForbiddenResponse({
+    description: 'User does not have admin role',
+    content: { 'application/json': { example: { success: false, statusCode: 403, message: ['Forbidden resource'], timestamp: '2026-06-24T12:00:00.000Z' } } },
+  })
+  async findAgents() {
+    return this.usersService.findAgents();
   }
 
   @Get(':id')

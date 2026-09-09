@@ -517,7 +517,11 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    // Only allow users to update certain fields on their own profile
+    // Only allow users to update certain fields on their own profile.
+    //
+    // `role` is not among them, and deliberately: the account type is settled
+    // when the account is created and stays that way for its whole life. A
+    // customer who registered as one type and needs the other registers again.
     const allowedFields: Partial<User> = {};
     if (dto.firstName !== undefined) allowedFields.firstName = dto.firstName;
     if (dto.lastName !== undefined) allowedFields.lastName = dto.lastName;
@@ -528,7 +532,9 @@ export class UsersService {
     Object.assign(user, allowedFields);
     await this.userRepository.save(user);
 
-    // Update business profile fields if applicable
+    // Update business profile fields if applicable. Only for the accounts that
+    // registered as a business — a personal account never grows a company row,
+    // because its type does not change.
     if (user.role === UserRole.BUSINESS) {
       const businessData: Partial<BusinessProfile> = {};
       // companyName and partitaIva were missing here, so the app could PATCH
@@ -538,8 +544,6 @@ export class UsersService {
       if (dto.legalRepresentative !== undefined) businessData.legalRepresentative = dto.legalRepresentative;
       if (dto.companyType !== undefined) businessData.companyType = dto.companyType;
       if (dto.atecoCode !== undefined) businessData.atecoCode = dto.atecoCode;
-      // The switch-to-business sheet captures the job role, so the profile
-      // screen has to be able to correct it afterwards like any other field.
       // An empty string clears it rather than storing a blank.
       if (dto.jobRole !== undefined) businessData.jobRole = dto.jobRole || null;
       // The address an invoice is delivered to. Null or an empty string clears
@@ -564,9 +568,9 @@ export class UsersService {
           Object.assign(user.businessProfile, businessData);
           await this.businessProfileRepository.save(user.businessProfile);
         } else if (businessData.companyName && businessData.partitaIva) {
-          // A business account can end up without a company row — an admin
-          // setting the role by hand, or an account left behind by the old
-          // non-transactional registration. Let the app repair it instead of
+          // A business account can end up without a company row — the social
+          // sign-up path creates one from a provider profile that carries no
+          // company details at all. Let the app fill it in rather than
           // silently dropping the edit.
           await this.businessProfileRepository.save(
             this.businessProfileRepository.create({

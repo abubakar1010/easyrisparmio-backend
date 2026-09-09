@@ -314,6 +314,42 @@ describe('UsersService — company details on the own-profile update', () => {
     expect(updated.role).toBe(UserRole.PERSONAL);
     expect(profiles.rows).toHaveLength(0);
   });
+
+  /**
+   * The account type is chosen at registration and is fixed for the life of
+   * the account — the business rule the app is built around. Nothing a user
+   * sends about their own role may move it, in either direction, whatever
+   * company details ride along with the request.
+   */
+  it('ignores role on a personal account, company details and all', async () => {
+    const { service, users, profiles } = makeService([makeUser()]);
+
+    const updated = await service.updateProfile(USER_ID, {
+      role: UserRole.BUSINESS,
+      companyName: 'Rossi S.r.l.',
+      partitaIva: '12345678901',
+    } as any);
+
+    expect(updated.role).toBe(UserRole.PERSONAL);
+    expect(users.rows[0].role).toBe(UserRole.PERSONAL);
+    expect(profiles.rows).toHaveLength(0);
+  });
+
+  it('ignores role on a business account too', async () => {
+    const { service, users, profiles } = makeService([
+      makeUser({ role: UserRole.BUSINESS }),
+    ]);
+    seedCompany(profiles);
+
+    const updated = await service.updateProfile(USER_ID, {
+      role: UserRole.PERSONAL,
+    } as any);
+
+    expect(updated.role).toBe(UserRole.BUSINESS);
+    expect(users.rows[0].role).toBe(UserRole.BUSINESS);
+    // And the company row it identifies is still there.
+    expect(profiles.rows).toHaveLength(1);
+  });
 });
 
 /**

@@ -13,8 +13,8 @@ import {
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
-  IsCodiceFiscale,
-  IsPartitaIva,
+  IsBusinessTaxId,
+  IsPersonalTaxCode,
   normalizeTaxId,
 } from '../../../common/validators/is-italian-tax-id.validator';
 import { UserRole } from '../../../common/enums/role.enum';
@@ -142,7 +142,9 @@ export class RegisterDto {
 
   @ApiPropertyOptional({
     description:
-      'Partita IVA — Italian VAT number, exactly 11 digits — *required* when `role` is `business`',
+      'Partita IVA — Italian VAT number, exactly 11 digits. *Required* when ' +
+      '`role` is `business`, and refused otherwise: it is what identifies a ' +
+      'company, and a private customer has none.',
     example: '12345678901',
   })
   // Stored the way it is compared: upper case, no separators, no country
@@ -151,30 +153,24 @@ export class RegisterDto {
   @Transform(({ value }) =>
     typeof value === 'string' ? normalizeTaxId(value).replace(/^IT/, '') : value,
   )
-  @ValidateIf((o) => o.role === UserRole.BUSINESS)
-  @IsString()
-  @IsNotEmpty()
-  @IsPartitaIva()
+  @IsBusinessTaxId()
   partitaIva?: string;
 
   @ApiPropertyOptional({
     description:
-      "The account holder's own Codice Fiscale — for a business account that " +
-      'is the person signing for the company, not the company itself, whose ' +
-      'number is `partitaIva`. Optional for every account type: sign-up asks ' +
-      'for what an account cannot be created without, and both kinds are asked ' +
-      'for this on the profile screen and again on the switch request form, ' +
-      'which is where the SEPA mandate needs it. Still checked when it is ' +
-      'given — optional is not unvalidated.',
+      "The account holder's own Codice Fiscale. A personal account is " +
+      'identified by it; a business account is identified by its `partitaIva` ' +
+      'and is refused this field outright — one account carries one tax ' +
+      'identifier, never both. Optional even for a personal sign-up: it is ' +
+      'asked for on the profile screen and on the switch request form, which ' +
+      'is where the SEPA mandate needs it. Still checked when it is given — ' +
+      'optional is not unvalidated.',
     example: 'RSSMRA85T10A562S',
   })
   @Transform(({ value }) =>
     typeof value === 'string' ? normalizeTaxId(value) : value,
   )
-  @IsOptional()
-  @IsString()
-  @IsNotEmpty()
-  @IsCodiceFiscale()
+  @IsPersonalTaxCode()
   codiceFiscale?: string;
 
   @ApiPropertyOptional({

@@ -129,7 +129,14 @@ export class UsersService {
             phone: dto.phone,
             role: dto.role,
             status: dto.status || UserStatus.ACTIVE,
-            codiceFiscale: dto.codiceFiscale,
+            // One account, one tax identifier: a company is identified by the
+            // Partita IVA on its company row, so the user row's tax code stays
+            // empty on a business account. `CreateUserDto` refuses one outright;
+            // this is what makes the rule true of the row as well as the request.
+            codiceFiscale:
+              dto.role === UserRole.BUSINESS
+                ? undefined
+                : dto.codiceFiscale || undefined,
             emailVerified: true, // Admin-created users are pre-verified
           }),
         );
@@ -320,6 +327,35 @@ export class UsersService {
     return this.userRepository.save(user);
   }
 
+  /**
+   * One account, one tax identifier.
+   *
+   * A personal account is identified by its holder's Codice Fiscale and a
+   * business account by the company's Partita IVA. Neither may carry the other,
+   * so a request offering the wrong one is refused by name rather than quietly
+   * dropped — an admin who typed a VAT number into the tax code box has made a
+   * mistake worth hearing about, and a silent drop reads as a save that worked.
+   *
+   * Checked here rather than on `UpdateUserDto`, because a PATCH need not carry
+   * `role`: the app's own profile save sends none, and the rule has to be read
+   * against the role actually stored.
+   */
+  private assertTaxIdsMatchRole(
+    isBusiness: boolean,
+    dto: { codiceFiscale?: string | null; partitaIva?: string | null },
+  ): void {
+    if (isBusiness && dto.codiceFiscale) {
+      throw new BadRequestException(
+        'A business account is identified by its Partita IVA and does not carry a Codice Fiscale',
+      );
+    }
+    if (!isBusiness && dto.partitaIva) {
+      throw new BadRequestException(
+        'A personal account is identified by its Codice Fiscale and does not carry a Partita IVA',
+      );
+    }
+  }
+
   async adminUpdateUser(id: string, dto: UpdateUserDto): Promise<User> {
     const user = await this.findById(id);
     if (!user) {
@@ -344,6 +380,12 @@ export class UsersService {
       user.role === UserRole.BUSINESS && nextRole !== UserRole.BUSINESS;
     const becomingBusiness =
       user.role !== UserRole.BUSINESS && nextRole === UserRole.BUSINESS;
+
+    // Against what the account is about to be, not what it is: the form that
+    // switches an account to business sends the role and the VAT number in the
+    // same save, and reading the stored role would refuse the VAT for an
+    // account that is a company by the time it is written.
+    this.assertTaxIdsMatchRole(nextRole === UserRole.BUSINESS, dto);
 
     // Turning an account into a company needs the two things that identify one.
     // `UpdateUserDto` is a PartialType, so its `ValidateIf` on the create DTO
@@ -387,6 +429,12 @@ export class UsersService {
         }
 
         Object.assign(user, userData);
+        // A company keeps no personal tax code. An account switched from
+        // personal to business would otherwise carry the one it was registered
+        // with, and every screen reading "the account's tax ID" would find two.
+        if (nextRole === UserRole.BUSINESS) {
+          user.codiceFiscale = null as unknown as string;
+        }
         await manager.save(User, user);
 
         // A company that is no longer a company does not keep its company row.
@@ -517,6 +565,10 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
+    // The account's own role decides which tax identifier it may send: a
+    // personal account its Codice Fiscale, a company its Partita IVA.
+    this.assertTaxIdsMatchRole(user.role === UserRole.BUSINESS, dto);
+
     // Only allow users to update certain fields on their own profile.
     //
     // `role` is not among them, and deliberately: the account type is settled
@@ -526,7 +578,9 @@ export class UsersService {
     if (dto.firstName !== undefined) allowedFields.firstName = dto.firstName;
     if (dto.lastName !== undefined) allowedFields.lastName = dto.lastName;
     if (dto.phone !== undefined) allowedFields.phone = dto.phone;
-    if (dto.codiceFiscale !== undefined) allowedFields.codiceFiscale = dto.codiceFiscale;
+    if (dto.codiceFiscale !== undefined && user.role !== UserRole.BUSINESS) {
+      allowedFields.codiceFiscale = dto.codiceFiscale;
+    }
     if (dto.avatar !== undefined) allowedFields.avatar = dto.avatar;
 
     Object.assign(user, allowedFields);

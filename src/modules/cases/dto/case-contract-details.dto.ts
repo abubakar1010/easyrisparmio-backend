@@ -8,7 +8,7 @@ import {
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { PaymentMethod, InvoiceDelivery } from '../../../common/enums/payment.enum';
-import { IsCodiceFiscale } from '../../../common/validators/is-italian-tax-id.validator';
+import { IsItalianTaxId } from '../../../common/validators/is-italian-tax-id.validator';
 import { CaseAddressesDto } from './case-addresses.dto';
 
 /**
@@ -80,20 +80,18 @@ export class CaseContractDetailsDto extends CaseAddressesDto {
   ibanHolderLastName?: string | null;
 
   /**
-   * The holder's Codice Fiscale, and only that — never a Partita IVA.
+   * The tax ID the mandate is filed against — whichever of the two identifies
+   * the holder.
    *
-   * A SEPA direct debit mandate is signed by a person, so it is a person's code
-   * the bank matches the signature against. The mobile app has always refused a
-   * VAT number here by name, because a business customer reaches for it first;
-   * this field accepted one, which meant an admin could save through the CRM a
-   * case the app itself would have blocked, and the rejection then arrived from
-   * the supplier weeks later with the customer already told the switch was
-   * filed. All three now hold the same line.
+   * Either form passes here, and which one is right is decided in
+   * `CasesService` against the account the case belongs to: a personal customer
+   * is identified by their Codice Fiscale and a company by its Partita IVA, and
+   * an account carries one or the other, never both. A third-party holder —
+   * `ibanSameAsContract: false` — is neither, so both forms stay open there:
+   * the person or company signing may be of either kind.
    *
-   * A company whose mandate is signed by someone other than the account holder
-   * says so through `ibanSameAsContract: false` and the holder's own name and
-   * code — which is the third-party mandate the bank expects, not a VAT number
-   * standing in for a signature.
+   * The DTO cannot make that call on its own. It has the case's fields but not
+   * the case, and the role lives on the account behind it.
    *
    * Checked against its check character, not merely its shape, for the reason
    * every tax ID in this codebase is: a code that only fails at the supplier is
@@ -101,14 +99,16 @@ export class CaseContractDetailsDto extends CaseAddressesDto {
    */
   @ApiPropertyOptional({
     description:
-      'IBAN holder Codice Fiscale — 16 characters. A Partita IVA is not ' +
-      'accepted: the direct debit mandate is filed against a person.',
+      "IBAN holder tax ID — the account's own identifier when the holder is " +
+      'the contract holder: a Codice Fiscale (16 characters) on a personal ' +
+      'account, the Partita IVA (11 digits) on a business one. A third-party ' +
+      'holder may give either.',
     example: 'RSSMRA85T10A562S',
   })
   @IsOptional()
   @IsString()
   @MaxLength(16)
-  @IsCodiceFiscale()
+  @IsItalianTaxId()
   ibanHolderTaxCode?: string | null;
 }
 
@@ -136,5 +136,5 @@ export const CASE_CONTRACT_DETAIL_LABELS: Record<CaseContractDetailField, string
   ibanSameAsContract: 'IBAN holder is the contract holder',
   ibanHolderFirstName: 'IBAN holder first name',
   ibanHolderLastName: 'IBAN holder last name',
-  ibanHolderTaxCode: 'IBAN holder Codice Fiscale',
+  ibanHolderTaxCode: 'IBAN holder tax ID',
 };

@@ -5,6 +5,7 @@ import { CreateCaseDto } from './dto/create-case.dto';
 import { SwitchCase } from './entities/switch-case.entity';
 import { PaymentMethod, InvoiceDelivery } from '../../common/enums/payment.enum';
 import { CaseStatus, CasePriority } from '../../common/enums/case.enum';
+import { UserRole } from '../../common/enums/role.enum';
 
 /**
  * Covers what a case may be opened with, at the one point the app can reach.
@@ -29,7 +30,7 @@ const emptyQueryBuilder = () => ({
   getOne: async () => null,
 });
 
-function makeService() {
+function makeService(ownerRole: UserRole = UserRole.PERSONAL) {
   const saved: SwitchCase[] = [];
 
   const caseRepository = {
@@ -66,9 +67,10 @@ function makeService() {
       adminApplicationSubmitted: async () => undefined,
       caseMilestone: async () => undefined,
     } as never,
-    // Only `updateCase` reaches for a user, to check an assigned agent is an
-    // admin; nothing under test here assigns one.
-    { findOne: async () => null } as never,
+    // `createCase` reads the owner to know which of the two tax IDs the mandate
+    // may carry; `updateCase` reaches for a user to check an assigned agent is
+    // an admin, and nothing under test here assigns one.
+    { findOne: async () => ({ id: USER_ID, role: ownerRole }) } as never,
   );
 
   return { service, saved };
@@ -88,7 +90,7 @@ describe('CasesService.createCase — direct debit details', () => {
     const { service } = makeService();
     await expect(
       service.createCase(USER_ID, dto({ paymentMethod: PaymentMethod.RID_BANCARIO })),
-    ).rejects.toThrow(/IBAN and holder Codice Fiscale or Partita IVA/);
+    ).rejects.toThrow(/IBAN and holder's tax ID/);
   });
 
   it('refuses a direct debit with an IBAN but no tax ID', async () => {
@@ -116,6 +118,53 @@ describe('CasesService.createCase — direct debit details', () => {
         }),
       ),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  /**
+   * One account, one tax identifier: the mandate on a company's own account is
+   * filed against its Partita IVA, and on a private customer's against their
+   * Codice Fiscale. Each account kind is refused the other's, because a code
+   * that identifies somebody else is what the supplier bounces.
+   */
+  describe('whose tax ID the mandate may carry', () => {
+    const directDebit = (ibanHolderTaxCode: string, ibanSameAsContract = true) =>
+      dto({
+        paymentMethod: PaymentMethod.RID_BANCARIO,
+        iban: 'IT60X0542811101000000123456',
+        ibanSameAsContract,
+        ibanHolderTaxCode,
+      });
+
+    it('takes the VAT number on a business account', async () => {
+      const { service, saved } = makeService(UserRole.BUSINESS);
+      await service.createCase(USER_ID, directDebit('00743110157'));
+      expect(saved[0].ibanHolderTaxCode).toBe('00743110157');
+    });
+
+    it('refuses a Codice Fiscale on a business account', async () => {
+      const { service } = makeService(UserRole.BUSINESS);
+      await expect(
+        service.createCase(USER_ID, directDebit('RSSMRA85T10A562S')),
+      ).rejects.toThrow(/Partita IVA/);
+    });
+
+    it('refuses a VAT number on a personal account', async () => {
+      const { service } = makeService(UserRole.PERSONAL);
+      await expect(
+        service.createCase(USER_ID, directDebit('00743110157')),
+      ).rejects.toThrow(/Codice Fiscale/);
+    });
+
+    /**
+     * The third-party holder is neither account: whoever signs a mandate for
+     * someone else may be a person or a company, so both forms stay open once
+     * the customer has said the account is not theirs.
+     */
+    it('takes either form once the holder is not the contract holder', async () => {
+      const { service, saved } = makeService(UserRole.PERSONAL);
+      await service.createCase(USER_ID, directDebit('00743110157', false));
+      expect(saved[0].ibanHolderTaxCode).toBe('00743110157');
+    });
   });
 
   it('leaves a postal order alone — it has no account to file against', async () => {

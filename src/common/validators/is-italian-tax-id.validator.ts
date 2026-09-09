@@ -180,3 +180,100 @@ export const IsCodiceFiscale = decoratorFor(IsCodiceFiscaleConstraint);
 
 /** A field that is a company's VAT number and nothing else. */
 export const IsPartitaIva = decoratorFor(IsPartitaIvaConstraint);
+
+// ─── Which code an account is identified by ──────────────────────────────────
+
+/**
+ * One account, one tax identifier.
+ *
+ * A personal account is identified by its holder's Codice Fiscale and a
+ * business account by the company's Partita IVA, and neither ever carries the
+ * other. Before this rule a business account carried both — a VAT number on the
+ * company row and a signatory's Codice Fiscale on the user row — and every
+ * screen that asked for "the tax code" had to say which of the two it meant.
+ *
+ * The role decides the field, so nothing has to ask: {@link taxIdKindForRole}
+ * names it, {@link isValidTaxIdForRole} checks it, and the two decorators below
+ * hold a DTO that carries its own `role` to exactly one of them.
+ */
+export type AccountTaxIdKind = 'codiceFiscale' | 'partitaIva';
+
+/** The identifier an account of this role carries, and the only one it may. */
+export const taxIdKindForRole = (isBusiness: boolean): AccountTaxIdKind =>
+  isBusiness ? 'partitaIva' : 'codiceFiscale';
+
+/** How that identifier is named to a human. */
+export const TAX_ID_NAMES: Record<AccountTaxIdKind, string> = {
+  codiceFiscale: 'Codice Fiscale',
+  partitaIva: 'Partita IVA',
+};
+
+/** Whether `value` is the identifier an account of this role should carry. */
+export const isValidTaxIdForRole = (
+  isBusiness: boolean,
+  value: string,
+): boolean => (isBusiness ? isValidPartitaIva(value) : isValidCodiceFiscale(value));
+
+/** Absent, in the sense this rule means: nothing was given for the field. */
+const isBlank = (value: unknown): boolean =>
+  value === undefined || value === null || value === '';
+
+/** True when the object being validated declares itself a business account. */
+const targetsBusiness = (object: unknown): boolean =>
+  (object as { role?: string })?.role === 'business';
+
+/**
+ * A Codice Fiscale field on a DTO that carries its own `role`.
+ *
+ * Personal: optional, and checked against its check character when given.
+ * Business: refused outright — the company's Partita IVA is what identifies it,
+ * and an account holding both is the ambiguity this rule exists to remove.
+ */
+@ValidatorConstraint({ async: false })
+export class IsPersonalTaxCodeConstraint
+  implements ValidatorConstraintInterface
+{
+  validate(value: unknown, args?: { object?: unknown }): boolean {
+    if (targetsBusiness(args?.object)) return isBlank(value);
+    if (isBlank(value)) return true;
+    return typeof value === 'string' && isValidCodiceFiscale(value);
+  }
+
+  defaultMessage(args?: { object?: unknown }): string {
+    return targetsBusiness(args?.object)
+      ? 'A business account is identified by its Partita IVA and does not carry a Codice Fiscale'
+      : 'Codice Fiscale is not valid — check the 16 characters, the last one is derived from the other fifteen';
+  }
+}
+
+/**
+ * A Partita IVA field on a DTO that carries its own `role`.
+ *
+ * Business: required, and checked against its check digit.
+ * Personal: refused — a private customer has no VAT number, and a form that
+ * accepted one would put a company's identifier on a consumer account.
+ *
+ * Requiredness lives in the constraint rather than in a `@ValidateIf`, because
+ * that decorator switches off *every* rule on the property: declared there, the
+ * personal-account half of this rule would never run. A PATCH DTO built with
+ * `PartialType` still skips an omitted field, which is what "unchanged" means.
+ */
+@ValidatorConstraint({ async: false })
+export class IsBusinessTaxIdConstraint implements ValidatorConstraintInterface {
+  validate(value: unknown, args?: { object?: unknown }): boolean {
+    if (!targetsBusiness(args?.object)) return isBlank(value);
+    return typeof value === 'string' && isValidPartitaIva(value);
+  }
+
+  defaultMessage(args?: { object?: unknown }): string {
+    return targetsBusiness(args?.object)
+      ? 'Partita IVA is required for a business account, and must be 11 digits whose last one is derived from the other ten'
+      : 'A personal account is identified by its Codice Fiscale and does not carry a Partita IVA';
+  }
+}
+
+/** The account tax code a personal account may carry, and a business may not. */
+export const IsPersonalTaxCode = decoratorFor(IsPersonalTaxCodeConstraint);
+
+/** The VAT number a business account must carry, and a personal may not. */
+export const IsBusinessTaxId = decoratorFor(IsBusinessTaxIdConstraint);

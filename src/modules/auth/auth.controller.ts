@@ -62,10 +62,11 @@ export class AuthController {
     summary: 'Register a new user (personal or business)',
     description:
       'Creates a user account. The `role` field determines the account type. ' +
-      'When `role` is `business`, `companyName` and `partitaIva` are required — the VAT ' +
-      'number is what identifies the company. `codiceFiscale` — the person signing for it, ' +
-      'whom the direct debit mandate is matched against — is optional here for every account ' +
-      'type and is collected on the profile screen and the switch request form instead. ' +
+      'One account carries one tax identifier. When `role` is `business`, `companyName` and ' +
+      '`partitaIva` are required and `codiceFiscale` is refused: the VAT number is what ' +
+      'identifies a company, and the direct debit mandate is filed against it. A personal ' +
+      'account is the other way round — `codiceFiscale` is its own identifier (optional here, ' +
+      'collected on the profile screen and the switch request form) and `partitaIva` is refused. ' +
       'After registration the user receives a 6-digit OTP for email verification. ' +
       'The response includes a `verificationToken` — a signed JWT (10 min expiry) that should be ' +
       'passed to `/auth/verify-otp` or `/auth/resend-otp` instead of the raw email. ' +

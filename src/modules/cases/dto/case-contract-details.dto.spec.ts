@@ -87,15 +87,20 @@ describe('case contract detail DTOs', () => {
       expect(errors.map((e) => e.property)).toContain('ibanHolderTaxCode');
     });
 
-    // The mandate is signed by a person and matched against a person's code.
-    // The app refuses a VAT here by name; the CRM used to accept one, which is
-    // how a case the app would have blocked got saved anyway.
+    /**
+     * Either form passes here. Which one this particular case may carry follows
+     * from the account behind it — a company is identified by its Partita IVA
+     * and a private customer by their Codice Fiscale — and the DTO has the
+     * case's fields but not the case, so that half of the rule is
+     * `CasesService`'s (see `assertHolderTaxIdMatchesRole`). What is settled
+     * here is that a *valid* VAT number is not refused on its face.
+     */
     it.each([
       ['a bare Partita IVA', '00743110157'],
       ['a Partita IVA with its IT prefix', 'IT00743110157'],
-    ])('refuses %s, valid though it is', async (_label, ibanHolderTaxCode) => {
+    ])('accepts %s, leaving the role rule to the service', async (_label, ibanHolderTaxCode) => {
       const errors = await errorsFor(CreateCaseDto, { ...BASE, ibanHolderTaxCode });
-      expect(errors.map((e) => e.property)).toContain('ibanHolderTaxCode');
+      expect(errors).toHaveLength(0);
     });
 
     it('still accepts null, which is how an admin clears one', async () => {

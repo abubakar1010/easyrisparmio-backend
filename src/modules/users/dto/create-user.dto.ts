@@ -17,8 +17,8 @@ import { IsPhoneNumber } from '../../../common/validators/is-phone-number.valida
 import { IsStrongPassword } from '../../../common/validators/is-strong-password.validator';
 import { NormalizeEmail } from '../../../common/transformers/normalize-email.transformer';
 import {
-  IsCodiceFiscale,
-  IsPartitaIva,
+  IsBusinessTaxId,
+  IsPersonalTaxCode,
   normalizeTaxId,
 } from '../../../common/validators/is-italian-tax-id.validator';
 
@@ -74,9 +74,9 @@ export class CreateUserDto {
   @ApiPropertyOptional({
     example: 'RSSMRA85T10A562S',
     description:
-      "The account holder's own Codice Fiscale (16 chars). On a business " +
-      'account that is the person signing for the company — the company itself ' +
-      'is identified by `partitaIva`. *Required* when `role` is `business`.',
+      "The account holder's own Codice Fiscale (16 chars) — what identifies a " +
+      'personal account. Refused on a business account, which is identified by ' +
+      'its `partitaIva`: one account carries one tax identifier, never both.',
   })
   // Stored the way it is compared: upper case, no separators. Otherwise the
   // same code saved as 'rssmra…' and as 'RSSMRA…' are two different values,
@@ -84,22 +84,11 @@ export class CreateUserDto {
   @Transform(({ value }) =>
     typeof value === 'string' ? normalizeTaxId(value) : value,
   )
-  // Required alongside the business role, optional for a personal account.
-  // A business account is the one that cannot do without it: the switch
-  // request files a direct debit mandate against a person, and an account that
-  // arrives at that form with nothing here leaves the customer staring at a
-  // mandatory field the sign-up never asked about. Personal accounts are asked
-  // on the profile screen and on the request form itself.
-  @ValidateIf(
-    (o, value) => o.role === UserRole.BUSINESS || value !== undefined,
-  )
-  @IsString()
-  @IsNotEmpty()
   // The check character, not just the shape. A shape-only rule here and a
   // full one on the case means the account is allowed to store a code the
   // direct debit step then refuses — which reads to the customer as the form
   // rejecting a tax code the app itself already accepted.
-  @IsCodiceFiscale()
+  @IsPersonalTaxCode()
   codiceFiscale?: string;
 
   @ApiPropertyOptional({
@@ -119,15 +108,14 @@ export class CreateUserDto {
   @ApiPropertyOptional({
     example: '12345678903',
     description:
-      'Partita IVA — Italian VAT number, 11 digits — *required* when `role` is `business`',
+      'Partita IVA — Italian VAT number, 11 digits. *Required* when `role` is ' +
+      '`business` and refused otherwise: it identifies the company, and a ' +
+      'private customer has none.',
   })
   @Transform(({ value }) =>
     typeof value === 'string' ? normalizeTaxId(value).replace(/^IT/, '') : value,
   )
-  @ValidateIf((o) => o.role === UserRole.BUSINESS)
-  @IsString()
-  @IsNotEmpty()
-  @IsPartitaIva()
+  @IsBusinessTaxId()
   partitaIva?: string;
 
   @ApiPropertyOptional({ example: 'Mario Rossi' })

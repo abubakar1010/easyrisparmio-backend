@@ -76,10 +76,10 @@ export async function seedUsers(
       referralCode: 'SEED-GIUSEPPE',
       phone: '+393405551234',
       firebaseUid: 'seed-firebase-giuseppe-001',
-      // The person signing for the company, which a business account is now
-      // asked for at sign-up. Seeded here too, so the switch request form has
-      // something to file the direct debit mandate against.
-      codiceFiscale: 'VRDGPP75D12F205M',
+      // No Codice Fiscale on a business account: the company is identified by
+      // the Partita IVA on its `business_profiles` row, and an account never
+      // carries both. Seeding one here would produce exactly the state the
+      // rule exists to prevent — and the state the pre-sync clean-up undoes.
       lastLoginAt: new Date('2026-06-22T14:00:00Z'),
     },
     {
@@ -93,7 +93,6 @@ export async function seedUsers(
       passwordHash,
       referralCode: 'SEED-ANNA',
       phone: '+393387771234',
-      codiceFiscale: 'FRRNNA88D52L219P',
       lastLoginAt: new Date('2026-06-18T09:15:00Z'),
     },
     {

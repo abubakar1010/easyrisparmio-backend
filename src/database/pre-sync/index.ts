@@ -307,6 +307,36 @@ async function retireBusinessTerms(ds: DataSource): Promise<void> {
 }
 
 /**
+ * Clears the Codice Fiscale off every business account.
+ *
+ * One account, one tax identifier: a personal account is identified by its
+ * holder's Codice Fiscale and a business account by the company's Partita IVA.
+ * Business accounts registered before that rule carry both — a VAT number on
+ * `business_profiles` and a signatory's code here — and every screen that asked
+ * for "the tax code" then had to say which of the two it meant, while the
+ * switch request filed the mandate against whichever it happened to read.
+ *
+ * The column stays: a personal account still uses it. Only the rows that should
+ * never have held one are emptied, and only those that actually do, so this is
+ * a no-op on the second start and on a fresh database.
+ */
+async function clearBusinessTaxCodes(ds: DataSource): Promise<void> {
+  if (!(await tableExists(ds, 'users'))) return;
+  if (!(await columnExists(ds, 'users', 'codice_fiscale'))) return;
+
+  const result = await ds.query(
+    `UPDATE users SET codice_fiscale = NULL
+      WHERE role::text = 'business' AND codice_fiscale IS NOT NULL`,
+  );
+  const cleared = result?.[1] ?? 0;
+  if (cleared > 0) {
+    logger.log(
+      `Cleared the Codice Fiscale from ${cleared} business account(s) — a company is identified by its Partita IVA`,
+    );
+  }
+}
+
+/**
  * Never blocks startup: the worst case of a failure here is that synchronise
  * fails right after with a much louder message, which is the outcome we want.
  */
@@ -320,6 +350,7 @@ export async function runPreSyncMigrations(ds: DataSource): Promise<void> {
     await addBusinessInvoicingColumns(ds);
     await seedSentOfferDisplayOrder(ds);
     await retireBusinessTerms(ds);
+    await clearBusinessTaxCodes(ds);
   } catch (error: any) {
     logger.error(`Pre-sync migration failed: ${error?.message ?? error}`);
     throw error;

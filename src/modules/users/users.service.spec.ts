@@ -303,16 +303,44 @@ describe('UsersService — company details on the own-profile update', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('ignores company fields on a personal account', async () => {
+  it('ignores a company name on a personal account', async () => {
     const { service, profiles } = makeService([makeUser()]);
 
     const updated = await service.updateProfile(USER_ID, {
       companyName: 'Rossi S.r.l.',
-      partitaIva: '12345678901',
     } as any);
 
     expect(updated.role).toBe(UserRole.PERSONAL);
     expect(profiles.rows).toHaveLength(0);
+  });
+
+  /**
+   * One account, one tax identifier. A private customer is identified by their
+   * Codice Fiscale and a company by its Partita IVA, so the VAT number is
+   * refused here by name rather than quietly dropped: a save that reports
+   * success and stores nothing is how a customer ends up at the switch request
+   * form wondering where the number they typed went.
+   */
+  it('refuses a Partita IVA on a personal account', async () => {
+    const { service, profiles } = makeService([makeUser()]);
+
+    await expect(
+      service.updateProfile(USER_ID, { partitaIva: '12345678903' } as any),
+    ).rejects.toThrow(BadRequestException);
+    expect(profiles.rows).toHaveLength(0);
+  });
+
+  it('refuses a Codice Fiscale on a business account', async () => {
+    const { service, users } = makeService([
+      makeUser({ role: UserRole.BUSINESS }),
+    ]);
+
+    await expect(
+      service.updateProfile(USER_ID, {
+        codiceFiscale: 'RSSMRA85T10A562S',
+      } as any),
+    ).rejects.toThrow(BadRequestException);
+    expect(users.rows[0].codiceFiscale).toBeFalsy();
   });
 
   /**
@@ -324,10 +352,11 @@ describe('UsersService — company details on the own-profile update', () => {
   it('ignores role on a personal account, company details and all', async () => {
     const { service, users, profiles } = makeService([makeUser()]);
 
+    // No VAT number in the payload: an account that is still personal is
+    // refused one outright, and what this test is about is the role staying put.
     const updated = await service.updateProfile(USER_ID, {
       role: UserRole.BUSINESS,
       companyName: 'Rossi S.r.l.',
-      partitaIva: '12345678901',
     } as any);
 
     expect(updated.role).toBe(UserRole.PERSONAL);

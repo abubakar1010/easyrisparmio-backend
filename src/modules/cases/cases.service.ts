@@ -32,6 +32,7 @@ import { NotificationEventsService } from '../notifications/notification-events.
 import { SupplierStatus } from '../../common/enums/supplier.enum';
 import { OfferPaymentMethod } from '../../common/enums/offer.enum';
 import { PaymentMethod } from '../../common/enums/payment.enum';
+import { isValidTaxIdForRole } from '../../common/validators/is-italian-tax-id.validator';
 import {
   normalizePostalCode,
   normalizeProvince,
@@ -112,6 +113,19 @@ export class CasesService {
     }
     this.assertPaymentMethodAcceptedBy(offer, dto.paymentMethod ?? undefined);
     this.assertDirectDebitDetails(dto);
+
+    // Which of the two tax IDs the mandate may carry follows from the account
+    // the case is being filed for, so the owner is read before anything else
+    // is written.
+    const owner = await this.userRepository.findOne({
+      where: { id: userId },
+      select: { id: true, role: true },
+    });
+    this.assertHolderTaxIdMatchesRole(
+      owner?.role === UserRole.BUSINESS,
+      dto.ibanHolderTaxCode,
+      dto.ibanSameAsContract,
+    );
 
     // The offer has to be one that was actually proposed for this bill. A case
     // pinned to any other bill marks a bill nobody chose as accepted and leaves
@@ -361,6 +375,19 @@ export class CasesService {
     if (!switchCase) {
       throw new NotFoundException('Case not found');
     }
+
+    // The admin may be correcting the code, the "same holder" answer, or both.
+    // Whichever half the request leaves out keeps the value already on the
+    // case, so the rule is read against the pair as it will stand after saving.
+    this.assertHolderTaxIdMatchesRole(
+      switchCase.user?.role === UserRole.BUSINESS,
+      dto.ibanHolderTaxCode !== undefined
+        ? dto.ibanHolderTaxCode
+        : switchCase.ibanHolderTaxCode,
+      dto.ibanSameAsContract !== undefined
+        ? dto.ibanSameAsContract
+        : switchCase.ibanSameAsContract,
+    );
 
     const oldStatus = switchCase.status;
     const oldOfferId = switchCase.selectedOfferId;
@@ -807,13 +834,48 @@ export class CasesService {
    * same base class: a conditional requirement declared there would reject an
    * admin who sets the payment method on a case that already stores an IBAN.
    */
+  /**
+   * The mandate is filed against whichever identifier the holder actually has.
+   *
+   * One account carries one tax ID: a private customer their Codice Fiscale, a
+   * company its Partita IVA. So when the direct debit comes out of the contract
+   * holder's own account, the code on the case has to be that one — a VAT
+   * number under a personal account, or a personal code under a company, is an
+   * identifier that belongs to somebody else.
+   *
+   * A third-party holder is the exception, and stays open to both forms: the
+   * person or company signing for someone else's mandate is not this account,
+   * and may be of either kind.
+   *
+   * Enforced here rather than on the DTO for the reason the DTO says: the role
+   * lives on the account behind the case, which a DTO cannot see.
+   */
+  private assertHolderTaxIdMatchesRole(
+    isBusiness: boolean,
+    taxCode: string | null | undefined,
+    sameAsContract: boolean | null | undefined,
+  ): void {
+    const value = taxCode?.trim();
+    if (!value) return;
+    // Undefined means the question was never asked, which is how every case
+    // filed before it existed reads — and those were the contract holder's own.
+    if (sameAsContract === false) return;
+    if (isValidTaxIdForRole(isBusiness, value)) return;
+
+    throw new BadRequestException(
+      isBusiness
+        ? 'A business account is identified by its Partita IVA — give the 11-digit VAT number as the direct debit holder, or untick "IBAN holder is the contract holder" to file the mandate against someone else'
+        : "A personal account is identified by its Codice Fiscale — give the holder's 16-character tax code, or untick \"IBAN holder is the contract holder\" to file the mandate against someone else",
+    );
+  }
+
   private assertDirectDebitDetails(dto: CreateCaseDto): void {
     if (dto.paymentMethod !== PaymentMethod.RID_BANCARIO) return;
 
     const missing: string[] = [];
     if (!dto.iban?.trim()) missing.push('IBAN');
     if (!dto.ibanHolderTaxCode?.trim()) {
-      missing.push('holder Codice Fiscale or Partita IVA');
+      missing.push("holder's tax ID");
     }
 
     if (missing.length > 0) {

@@ -4,14 +4,13 @@ import { RegisterDto } from './register.dto';
 import { UserRole } from '../../../common/enums/role.enum';
 
 /**
- * What a business sign-up has to carry, and what it may.
+ * One account, one tax identifier.
  *
- * A company is identified by its Partita IVA, and that is all sign-up asks a
- * business for. The Codice Fiscale — the person's own, which a SEPA mandate is
- * signed and matched against — is optional here for a business exactly as it is
- * for a private account: both are asked on the profile screen and on the switch
- * request form, which is the point at which the mandate needs it. What stays
- * true for either kind is that a code that *is* sent is checked.
+ * A company is identified by its Partita IVA and a private customer by their
+ * Codice Fiscale, and neither account kind carries the other's — a business
+ * sign-up offering a Codice Fiscale is refused as surely as a personal one
+ * offering a VAT number. What stays true either way is that a code that *is*
+ * sent is checked against its check character, not merely its shape.
  */
 const PERSONAL = {
   email: 'mario.rossi@email.com',
@@ -27,7 +26,6 @@ const BUSINESS = {
   role: UserRole.BUSINESS,
   companyName: 'Rossi S.r.l.',
   partitaIva: '12345678903',
-  codiceFiscale: 'RSSMRA85T10A562S',
 };
 
 async function errorsFor(payload: Record<string, unknown>) {
@@ -53,15 +51,15 @@ describe('RegisterDto — the three identifiers a business sign-up carries', () 
   );
 
   /**
-   * Sign-up asks for what the account cannot be created without. The mandate
-   * needs a person's code, but the request form is where it is filled in — for
-   * a company exactly as for a private customer — so a business that has not
-   * given one yet still registers.
+   * The VAT number is the company's identifier, so a Codice Fiscale on a
+   * business sign-up is refused rather than stored alongside it. Two tax IDs on
+   * one account is what left every screen having to say which of them it meant,
+   * and the switch request filing the mandate against whichever it read first.
    */
-  it('accepts a business sign-up that omits the Codice Fiscale', async () => {
-    const payload = { ...BUSINESS };
-    delete (payload as Record<string, unknown>).codiceFiscale;
-    expect(await errorsFor(payload)).toHaveLength(0);
+  it('refuses a business sign-up that also offers a Codice Fiscale', async () => {
+    expect(
+      await failedOn({ ...BUSINESS, codiceFiscale: 'RSSMRA85T10A562S' }),
+    ).toContain('codiceFiscale');
   });
 
   /**
@@ -91,15 +89,13 @@ describe('RegisterDto — the three identifiers a business sign-up carries', () 
     ).toContain('codiceFiscale');
   });
 
-  it('normalises both codes the way they are stored', async () => {
+  it('normalises the VAT number the way it is stored', async () => {
     const dto = plainToInstance(RegisterDto, {
       ...BUSINESS,
       partitaIva: 'IT 1234-5678-903',
-      codiceFiscale: ' rssmra85t10a562s ',
     });
 
     expect(dto.partitaIva).toBe('12345678903');
-    expect(dto.codiceFiscale).toBe('RSSMRA85T10A562S');
     expect(await validate(dto)).toHaveLength(0);
   });
 });
@@ -118,6 +114,26 @@ describe('RegisterDto — a personal sign-up', () => {
     expect(
       await failedOn({ ...PERSONAL, codiceFiscale: 'RSSMRA85T10A562A' }),
     ).toContain('codiceFiscale');
+  });
+
+  it('normalises that code the way it is stored', async () => {
+    const dto = plainToInstance(RegisterDto, {
+      ...PERSONAL,
+      codiceFiscale: ' rssmra85t10a562s ',
+    });
+
+    expect(dto.codiceFiscale).toBe('RSSMRA85T10A562S');
+    expect(await validate(dto)).toHaveLength(0);
+  });
+
+  /**
+   * The mirror of the rule above: a private customer has no VAT number, and one
+   * offered here would put a company's identifier on a consumer account.
+   */
+  it('refuses a Partita IVA', async () => {
+    expect(
+      await failedOn({ ...PERSONAL, partitaIva: '12345678903' }),
+    ).toContain('partitaIva');
   });
 });
 

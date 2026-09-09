@@ -115,7 +115,9 @@ export class UsersController {
       'when the account is created and never changes, so `role` is ignored here ' +
       'whatever it says. The password field is not accepted (use auth endpoints ' +
       'for password changes). Company fields are written only for an account that ' +
-      'registered as a business.',
+      'registered as a business. One account carries one tax identifier: a ' +
+      'personal account sends `codiceFiscale` and a business account ' +
+      '`partitaIva` — the other is refused with a 400 rather than ignored.',
   })
   @ApiBody({ type: UpdateUserDto })
   @ApiOkResponse({
@@ -265,6 +267,8 @@ export class UsersController {
     description:
       'Creates a new user account with the specified role (personal or business). ' +
       'The email must be unique. For business users, business profile fields (companyName, partitaIva, etc.) can be provided. ' +
+      'The two tax identifiers are exclusive: `partitaIva` is required for a business account and refused for a personal one, ' +
+      "`codiceFiscale` is the personal account's own and refused for a business one. " +
       'An optional address can be provided. The admin can optionally set the initial status; defaults to active.',
   })
   @ApiBody({ type: CreateUserDto })

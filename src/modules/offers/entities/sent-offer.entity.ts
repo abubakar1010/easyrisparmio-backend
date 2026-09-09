@@ -14,6 +14,7 @@ import { Offer } from './offer.entity';
 @Entity('sent_offers')
 @Unique(['billId', 'offerId'])
 @Index(['userId'])
+@Index(['billId', 'displayOrder'])
 export class SentOffer extends BaseEntity {
   @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
@@ -38,6 +39,18 @@ export class SentOffer extends BaseEntity {
 
   @Column({ name: 'offer_snapshot', type: 'jsonb', nullable: true })
   offerSnapshot: Record<string, any> | null;
+
+  /**
+   * Where this offer sits in the list the customer sees, lowest first.
+   *
+   * The admin arranges the offers for a bill by hand in the dashboard, and that
+   * arrangement is the only thing that decides the order in the app — no price
+   * or savings sort is laid over it. Dense per bill (0, 1, 2 …): a reorder
+   * rewrites the whole run, so the positions stay contiguous and the offer at 0
+   * is always the one shown first.
+   */
+  @Column({ name: 'display_order', type: 'int', default: 0 })
+  displayOrder: number;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })

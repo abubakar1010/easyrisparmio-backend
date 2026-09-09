@@ -26,8 +26,7 @@ import {
 import { OfferStatus } from '../../common/enums/offer-status.enum';
 import { SupplierStatus } from '../../common/enums/supplier.enum';
 import { CaseStatus, CLOSED_CASE_STATUSES } from '../../common/enums/case.enum';
-import { NotificationType } from '../../common/enums/notification.enum';
-import { AdminNotificationsService } from '../notifications/admin-notifications.service';
+import { UserRole } from '../../common/enums/role.enum';
 
 @Injectable()
 export class OffersService {
@@ -42,7 +41,6 @@ export class OffersService {
     private readonly switchCaseRepository: Repository<SwitchCase>,
     @InjectRepository(Supplier)
     private readonly supplierRepository: Repository<Supplier>,
-    private readonly adminNotifications: AdminNotificationsService,
   ) {}
 
   resolveOfferLocale(offer: Offer, locale?: string): Offer {
@@ -71,16 +69,7 @@ export class OffersService {
     if (!supplier) {
       throw new NotFoundException('Supplier not found');
     }
-    if (!supplier.isActive) {
-      throw new BadRequestException(
-        'Cannot create offers for an inactive supplier',
-      );
-    }
-    if (supplier.status === SupplierStatus.PENDING_DELETION) {
-      throw new BadRequestException(
-        'Cannot create offers for a supplier that is pending deletion',
-      );
-    }
+    this.assertSupplierCanCarryOffers(supplier);
 
     // Validate commodity compatibility
     if (supplier.commodity) {
@@ -109,22 +98,9 @@ export class OffersService {
     try {
       const saved = await this.offerRepository.save(offer);
 
-      await this.adminNotifications.notifyAdmins({
-        messageKey: 'admin_offer_created',
-        type: NotificationType.ADMIN_OFFER,
-        bodyParams: [
-          saved.name || saved.offerCode || saved.id,
-          supplier.name,
-          await this.adminNotifications.describeUser(adminId),
-        ],
-        data: {
-          offerId: saved.id,
-          supplierId: supplier.id,
-          entityType: 'offer',
-          entityId: saved.id,
-        },
-        actorId: adminId,
-      });
+      // Catalogue edits notify nobody. An admin adding an offer is not an
+      // event another admin has to act on, and it is visible in the offers
+      // list the moment it is saved.
 
       return saved;
     } catch (error: any) {
@@ -241,13 +217,21 @@ export class OffersService {
 
     const [data, total] = await qb.getManyAndCount();
 
-    // Batch-check which offers have been accepted (have SwitchCase records)
+    // Which offers a live switch still depends on. This is the flag the
+    // dashboard greys the Edit button on, so it has to draw the line in the
+    // same place `checkOfferHasAcceptedCases` does — a cancelled or rejected
+    // case would otherwise show an offer as frozen that the API will happily
+    // let the admin edit.
     if (data.length > 0) {
       const offerIds = data.map((o) => o.id);
       const acceptedRows = await this.switchCaseRepository
         .createQueryBuilder('sc')
         .select('DISTINCT sc.selected_offer_id', 'offerId')
         .where('sc.selected_offer_id IN (:...ids)', { ids: offerIds })
+        .andWhere('sc.status NOT IN (:...closedCaseStatuses)', {
+          closedCaseStatuses: [...CLOSED_CASE_STATUSES],
+        })
+        .andWhere('sc.deletedAt IS NULL')
         .getRawMany();
       const acceptedSet = new Set(acceptedRows.map((r) => r.offerId));
       data.forEach((offer) => {
@@ -435,27 +419,22 @@ export class OffersService {
     const offer = await this.findById(id);
     const hasAccepted = await this.checkOfferHasAcceptedCases(id);
     this.validateStatusTransition(offer.offerStatus, dto.offerStatus, hasAccepted);
+
+    // Now that ARCHIVED is reversible, an offer can re-enter the catalogue
+    // long after its supplier left it. `create` refuses to build an offer on a
+    // dead supplier; putting one back on sale has to refuse for the same
+    // reason, or the send-offers screen starts listing suppliers we cannot
+    // switch anyone to.
+    if (dto.offerStatus === OfferStatus.ACTIVE) {
+      this.assertSupplierCanCarryOffers(offer.supplier);
+    }
+
     offer.offerStatus = dto.offerStatus;
     offer.updatedBy = adminId;
     const saved = await this.offerRepository.save(offer);
 
-    await this.adminNotifications.notifyAdmins({
-      messageKey: 'admin_offer_status_changed',
-      type: NotificationType.ADMIN_OFFER,
-      bodyParams: [
-        saved.name || saved.offerCode || saved.id,
-        saved.offerStatus,
-        await this.adminNotifications.describeUser(adminId),
-      ],
-      data: {
-        offerId: saved.id,
-        supplierId: saved.supplierId,
-        newStatus: saved.offerStatus,
-        entityType: 'offer',
-        entityId: saved.id,
-      },
-      actorId: adminId,
-    });
+    // As with creation: an admin changing an offer's status is not news to
+    // the other admins.
 
     return saved;
   }
@@ -479,6 +458,7 @@ export class OffersService {
   ): Promise<Offer[]> {
     const bill = await this.billRepository.findOne({
       where: { id: billId, userId },
+      relations: ['user'],
     });
 
     if (!bill) {
@@ -503,6 +483,21 @@ export class OffersService {
         { energyType, dual: EnergyType.DUAL },
       );
 
+    // Same audience rule the admin's send-offers list obeys: a business tariff
+    // is not a recommendation for a private customer.
+    const target =
+      bill.user?.role === UserRole.BUSINESS
+        ? UserTarget.BUSINESS
+        : bill.user?.role === UserRole.PERSONAL
+          ? UserTarget.PERSONAL
+          : null;
+    if (target) {
+      qb.andWhere('(offer.target = :target OR offer.target = :bothTargets)', {
+        target,
+        bothTargets: UserTarget.BOTH,
+      });
+    }
+
     if (bill.supplierId) {
       qb.andWhere('offer.supplierId != :currentSupplier', {
         currentSupplier: bill.supplierId,
@@ -519,14 +514,25 @@ export class OffersService {
   }
 
   /**
-   * The offers the customer still has to choose from.
+   * The offers the customer still has to choose from, in the order the admin
+   * put them in.
    *
    * Accepting one offer settles the whole bill, so every offer sent for that
    * bill leaves the list — the accepted one included. Only a cancelled or
    * rejected case frees the bill again and brings its offers back.
+   *
+   * Within a bill the admin's arrangement decides everything: the app renders
+   * this list as it arrives, so `displayOrder` is the only sort applied and
+   * price or savings never override it. Across bills the newest batch still
+   * comes first, which is what the list did before and what a customer expects
+   * when a fresh set of offers lands on a second supply point.
+   *
+   * The ordering is done here rather than in SQL because it needs each bill's
+   * most recent send, and the list is one customer's offers — small enough that
+   * a correlated subquery would buy nothing.
    */
   async getUserSentOffers(userId: string): Promise<SentOffer[]> {
-    return this.sentOfferRepository
+    const sentOffers = await this.sentOfferRepository
       .createQueryBuilder('so')
       .leftJoinAndSelect('so.offer', 'offer')
       .leftJoinAndSelect('offer.supplier', 'supplier')
@@ -542,11 +548,63 @@ export class OffersService {
       )
       .orderBy('so.createdAt', 'DESC')
       .getMany();
+
+    const latestSendPerBill = new Map<string, number>();
+    for (const so of sentOffers) {
+      const sentAt = so.createdAt.getTime();
+      const latest = latestSendPerBill.get(so.billId);
+      if (latest === undefined || sentAt > latest) {
+        latestSendPerBill.set(so.billId, sentAt);
+      }
+    }
+
+    // The bill id breaks a tie between two bills sent in the same millisecond.
+    // Without it their offers would interleave by position, and one bill's
+    // arrangement would be read as though it belonged to the other.
+    return sentOffers.sort(
+      (a, b) =>
+        (latestSendPerBill.get(b.billId) ?? 0) -
+          (latestSendPerBill.get(a.billId) ?? 0) ||
+        a.billId.localeCompare(b.billId) ||
+        a.displayOrder - b.displayOrder ||
+        b.createdAt.getTime() - a.createdAt.getTime(),
+    );
   }
 
+  /**
+   * A supplier we can still switch customers to. Enforced when an offer is
+   * created and again whenever one is put on sale.
+   */
+  private assertSupplierCanCarryOffers(supplier?: Supplier | null): void {
+    if (!supplier) {
+      throw new NotFoundException('Supplier not found');
+    }
+    if (!supplier.isActive) {
+      throw new BadRequestException(
+        'Cannot publish offers for an inactive supplier',
+      );
+    }
+    if (supplier.status === SupplierStatus.PENDING_DELETION) {
+      throw new BadRequestException(
+        'Cannot publish offers for a supplier that is pending deletion',
+      );
+    }
+  }
+
+  /**
+   * Is this offer still spoken for by a live switch?
+   *
+   * Only a case that is still going somewhere counts. A cancelled or rejected
+   * case released its bill back to the customer — the offer it named was never
+   * taken up, so it must not freeze the catalogue entry for good. Soft-deleted
+   * cases are excluded by TypeORM's default scope for the same reason.
+   */
   private async checkOfferHasAcceptedCases(offerId: string): Promise<boolean> {
     const count = await this.switchCaseRepository.count({
-      where: { selectedOfferId: offerId },
+      where: {
+        selectedOfferId: offerId,
+        status: Not(In([...CLOSED_CASE_STATUSES])),
+      },
     });
     return count > 0;
   }
@@ -556,23 +614,30 @@ export class OffersService {
     next: OfferStatus,
     hasAcceptedCases: boolean = false,
   ): void {
+    // DRAFT is the only editable state, so every route back into it is closed
+    // while a live case names the offer. Everything else is reversible:
+    // archiving retires an offer from the catalogue, it does not destroy it.
+    const backToDraft = hasAcceptedCases ? [] : [OfferStatus.DRAFT];
+
     const validTransitions: Record<OfferStatus, OfferStatus[]> = {
       [OfferStatus.DRAFT]: [OfferStatus.ACTIVE, OfferStatus.ARCHIVED],
       [OfferStatus.ACTIVE]: [
         OfferStatus.EXPIRING,
         OfferStatus.ARCHIVED,
-        // Allow reverting to DRAFT only when no user has accepted the offer
-        ...(hasAcceptedCases ? [] : [OfferStatus.DRAFT]),
+        ...backToDraft,
       ],
       [OfferStatus.EXPIRING]: [OfferStatus.EXPIRED, OfferStatus.ARCHIVED],
       [OfferStatus.EXPIRED]: [OfferStatus.ARCHIVED],
-      [OfferStatus.ARCHIVED]: [],
+      // Un-archiving restores the offer to the catalogue. It goes back to
+      // ACTIVE for immediate reuse, or to DRAFT when the terms need reworking
+      // first — the latter only while no live case depends on them.
+      [OfferStatus.ARCHIVED]: [OfferStatus.ACTIVE, ...backToDraft],
     };
 
     if (!validTransitions[current]?.includes(next)) {
-      if (current === OfferStatus.ACTIVE && next === OfferStatus.DRAFT && hasAcceptedCases) {
+      if (next === OfferStatus.DRAFT && hasAcceptedCases) {
         throw new BadRequestException(
-          'Cannot revert to draft: this offer has been accepted by users',
+          'Cannot revert to draft: this offer is used by an active case',
         );
       }
       throw new BadRequestException(

@@ -267,16 +267,13 @@ export class LegalService {
     }
   }
 
-  /** The slugs a freshly registered account of `role` is consenting to. */
-  registrationSlugsFor(role: UserRole): string[] {
-    const slugs: string[] = [
-      LegalSlug.PRIVACY_POLICY,
-      LegalSlug.TERMS_CONDITIONS,
-    ];
-    if (role === UserRole.BUSINESS) {
-      slugs.push(LegalSlug.BUSINESS_TERMS_CONDITIONS);
-    }
-    return slugs;
+  /**
+   * The slugs a freshly registered account is consenting to. The same terms
+   * bind personal and business accounts alike, so the list does not vary by
+   * role.
+   */
+  registrationSlugs(): string[] {
+    return [LegalSlug.PRIVACY_POLICY, LegalSlug.TERMS_CONDITIONS];
   }
 
   // ─── Admin ──────────────────────────────────────────────────
@@ -366,7 +363,6 @@ export class LegalService {
     const order = [
       LegalSlug.PRIVACY_POLICY,
       LegalSlug.TERMS_CONDITIONS,
-      LegalSlug.BUSINESS_TERMS_CONDITIONS,
     ] as string[];
 
     return statuses.sort((a, b) => {

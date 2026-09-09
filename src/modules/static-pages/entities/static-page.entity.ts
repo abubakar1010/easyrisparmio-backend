@@ -36,8 +36,10 @@ export class StaticPage extends BaseEntity {
   requiresAcceptance: boolean;
 
   /**
-   * Which accounts the document binds. Business terms never interrupt a
-   * personal user, and vice versa.
+   * Which accounts the document binds. Both documents the platform ships are
+   * `all` — one privacy policy and one set of terms, binding personal and
+   * business accounts alike — but a page narrowed to one account type never
+   * interrupts the other.
    */
   @Column({
     type: 'enum',

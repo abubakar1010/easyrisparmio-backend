@@ -13,11 +13,7 @@ import { UpdateStaticPageDto } from './dto/update-static-page.dto';
 import { QueryStaticPagesDto } from './dto/query-static-pages.dto';
 import { PaginatedResponseDto } from '../../common/dto/pagination.dto';
 import { LegalService } from '../legal/legal.service';
-import {
-  LegalAudience,
-  LegalSlug,
-  LEGAL_SLUGS,
-} from '../../common/enums/legal.enum';
+import { LegalAudience, LEGAL_SLUGS } from '../../common/enums/legal.enum';
 import { compareVersions, maxVersion } from '../../common/utils/version.util';
 
 @Injectable()
@@ -31,8 +27,8 @@ export class StaticPagesService implements OnModuleInit {
   ) {}
 
   /**
-   * Marks the three legal slugs as requiring acceptance on databases created
-   * before consent tracking existed.
+   * Marks the legal slugs as requiring acceptance on databases created before
+   * consent tracking existed.
    *
    * Only rows that have never been published are touched (`published_at IS
    * NULL`), so this is idempotent and an admin who later turns acceptance off
@@ -48,10 +44,8 @@ export class StaticPagesService implements OnModuleInit {
 
       for (const page of unpublished) {
         page.requiresAcceptance = true;
-        page.audience =
-          page.slug === LegalSlug.BUSINESS_TERMS_CONDITIONS
-            ? LegalAudience.BUSINESS
-            : LegalAudience.ALL;
+        // Both legal documents bind every account, personal and business alike.
+        page.audience = LegalAudience.ALL;
         page.version = page.version || '1.0';
         page.publishedAt = page.createdAt ?? new Date();
       }
@@ -148,7 +142,7 @@ export class StaticPagesService implements OnModuleInit {
         dto.requiresAcceptance ??
         siblings[0]?.requiresAcceptance ??
         (LEGAL_SLUGS as string[]).includes(dto.slug),
-      audience: dto.audience ?? siblings[0]?.audience ?? this.defaultAudience(dto.slug),
+      audience: dto.audience ?? siblings[0]?.audience ?? LegalAudience.ALL,
     });
 
     if (page.requiresAcceptance) {
@@ -238,12 +232,6 @@ export class StaticPagesService implements OnModuleInit {
   }
 
   // ─── Internals ──────────────────────────────────────────────
-
-  private defaultAudience(slug: string): LegalAudience {
-    return slug === LegalSlug.BUSINESS_TERMS_CONDITIONS
-      ? LegalAudience.BUSINESS
-      : LegalAudience.ALL;
-  }
 
   /** Fills `acceptedCount` so the admin table can show consent uptake per version. */
   private async attachAcceptanceCounts(pages: StaticPage[]): Promise<void> {

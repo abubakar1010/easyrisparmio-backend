@@ -12,6 +12,14 @@ import { compareVersions, maxVersion } from '../../common/utils/version.util';
 
 const USER_ID = 'user-1';
 
+/**
+ * A business-only page an admin could create. `audience` is a field on any
+ * static page, not a property of a particular document — the two legal
+ * documents the platform itself ships (privacy policy and terms) both bind
+ * personal and business accounts alike.
+ */
+const BUSINESS_ONLY_SLUG = 'business-annex';
+
 function makePage(overrides: Partial<StaticPage> = {}): StaticPage {
   return {
     id: `page-${overrides.slug}-${overrides.locale ?? 'it'}`,
@@ -205,13 +213,31 @@ describe('LegalService — audience', () => {
   const pages = [
     makePage({ slug: LegalSlug.TERMS_CONDITIONS, audience: LegalAudience.ALL }),
     makePage({
-      slug: LegalSlug.BUSINESS_TERMS_CONDITIONS,
+      slug: BUSINESS_ONLY_SLUG,
       audience: LegalAudience.BUSINESS,
-      title: 'Termini e Condizioni Business',
+      title: 'Allegato Business',
     }),
   ];
 
-  it('never asks a personal account for the business terms', async () => {
+  it('binds a business account by the same terms as a personal one', async () => {
+    // There is one set of Terms and Conditions. A business account is not
+    // asked for a different or an additional version of it.
+    const terms = [makePage({ slug: LegalSlug.TERMS_CONDITIONS })];
+
+    const personal = await makeService(terms, []).service.getDocumentStatuses(
+      USER_ID,
+      UserRole.PERSONAL,
+    );
+    const business = await makeService(terms, []).service.getDocumentStatuses(
+      USER_ID,
+      UserRole.BUSINESS,
+    );
+
+    expect(personal.map((doc) => doc.slug)).toEqual([LegalSlug.TERMS_CONDITIONS]);
+    expect(business.map((doc) => doc.slug)).toEqual([LegalSlug.TERMS_CONDITIONS]);
+  });
+
+  it('never asks a personal account for a business-only document', async () => {
     const { service } = makeService(pages, []);
 
     const slugs = (
@@ -228,10 +254,7 @@ describe('LegalService — audience', () => {
       await service.getDocumentStatuses(USER_ID, UserRole.BUSINESS)
     ).map((doc) => doc.slug);
 
-    expect(slugs).toEqual([
-      LegalSlug.TERMS_CONDITIONS,
-      LegalSlug.BUSINESS_TERMS_CONDITIONS,
-    ]);
+    expect(slugs).toEqual([LegalSlug.TERMS_CONDITIONS, BUSINESS_ONLY_SLUG]);
   });
 
   it('exempts admins — the dashboard has no consent gate', async () => {
@@ -276,7 +299,7 @@ describe('LegalService — recording acceptance', () => {
     const { service } = makeService(
       [
         makePage({
-          slug: LegalSlug.BUSINESS_TERMS_CONDITIONS,
+          slug: BUSINESS_ONLY_SLUG,
           audience: LegalAudience.BUSINESS,
         }),
       ],
@@ -285,9 +308,7 @@ describe('LegalService — recording acceptance', () => {
 
     await expect(
       service.acceptDocuments(USER_ID, UserRole.PERSONAL, {
-        acceptances: [
-          { slug: LegalSlug.BUSINESS_TERMS_CONDITIONS, version: '1.0' },
-        ],
+        acceptances: [{ slug: BUSINESS_ONLY_SLUG, version: '1.0' }],
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
@@ -339,7 +360,28 @@ describe('LegalService — recording acceptance', () => {
     await service.recordAcceptanceFor(
       USER_ID,
       UserRole.PERSONAL,
-      service.registrationSlugsFor(UserRole.PERSONAL),
+      service.registrationSlugs(),
+      LegalAcceptanceSource.REGISTRATION,
+    );
+
+    expect(
+      inserted.map((row) => `${row.slug}@${row.version}`).sort(),
+    ).toEqual(['privacy-policy@1.3', 'terms-conditions@2.1']);
+  });
+
+  it('signs a business account up to the same documents as a personal one', async () => {
+    const { service, inserted } = makeService(
+      [
+        makePage({ slug: LegalSlug.TERMS_CONDITIONS, version: '2.1' }),
+        makePage({ slug: LegalSlug.PRIVACY_POLICY, version: '1.3' }),
+      ],
+      [],
+    );
+
+    await service.recordAcceptanceFor(
+      USER_ID,
+      UserRole.BUSINESS,
+      service.registrationSlugs(),
       LegalAcceptanceSource.REGISTRATION,
     );
 

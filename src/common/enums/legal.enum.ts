@@ -24,7 +24,6 @@ export enum LegalAcceptanceSource {
 export const LegalSlug = {
   PRIVACY_POLICY: 'privacy-policy',
   TERMS_CONDITIONS: 'terms-conditions',
-  BUSINESS_TERMS_CONDITIONS: 'business-terms-conditions',
 } as const;
 
 export type LegalSlugValue = (typeof LegalSlug)[keyof typeof LegalSlug];
@@ -33,5 +32,4 @@ export type LegalSlugValue = (typeof LegalSlug)[keyof typeof LegalSlug];
 export const LEGAL_SLUGS: LegalSlugValue[] = [
   LegalSlug.PRIVACY_POLICY,
   LegalSlug.TERMS_CONDITIONS,
-  LegalSlug.BUSINESS_TERMS_CONDITIONS,
 ];

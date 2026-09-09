@@ -78,10 +78,11 @@ export class LegalController {
   @ApiOperation({
     summary: 'Legal documents that apply to the current account',
     description:
-      'Returns every document the account is bound by — privacy policy, terms, ' +
-      'and business terms for business accounts — with the version currently ' +
-      'published, the version this user accepted, and when. Content is omitted; ' +
-      'fetch it from `GET /static-pages/:slug`.',
+      'Returns every document the account is bound by — the privacy policy and ' +
+      'the terms and conditions, which are the same for personal and business ' +
+      'accounts — with the version currently published, the version this user ' +
+      'accepted, and when. Content is omitted; fetch it from ' +
+      '`GET /static-pages/:slug`.',
   })
   @ApiQuery({
     name: 'locale',

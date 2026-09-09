@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -8,6 +8,7 @@ import {
   ApiForbiddenResponse,
 } from '@nestjs/swagger';
 import { DashboardService } from './dashboard.service';
+import { QueryPriorityTasksDto } from './dto/query-priority-tasks.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -113,6 +114,86 @@ export class DashboardController {
   })
   getAdminDashboard() {
     return this.dashboardService.getAdminDashboard();
+  }
+
+  @Get('admin/tasks')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'List the customers and cases behind the priority-task buckets',
+    description:
+      'The rows behind the counts on the Priority Tasks card. Pass `category` to ' +
+      'open one bucket, or omit it to get every open task ordered by urgency — ' +
+      'which is what "View all tasks" asks for. Both come out of the same ' +
+      'definition as the counts, so a number on the card always opens exactly ' +
+      'that many rows. Admin only.',
+  })
+  @ApiOkResponse({
+    description: 'Paginated list of open tasks',
+    content: {
+      'application/json': {
+        example: {
+          success: true,
+          data: {
+            data: [
+              {
+                id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                category: 'pending_validation',
+                billId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                caseId: null,
+                caseNumber: null,
+                status: 'verification_review',
+                billType: 'electricity',
+                podPdr: 'IT001E98765432',
+                supplierName: 'Enel Energia',
+                amount: 128.4,
+                waitingSince: '2026-06-18T09:12:00.000Z',
+                daysWaiting: 6,
+                dueDate: null,
+                daysUntilDue: null,
+                customer: {
+                  id: 'd4e5f6a7-b8c9-0123-defa-234567890123',
+                  firstName: 'Mario',
+                  lastName: 'Rossi',
+                  email: 'mario.rossi@example.it',
+                  phone: '+39 333 1234567',
+                  role: 'personal',
+                },
+              },
+            ],
+            meta: { total: 23, page: 1, limit: 20, totalPages: 2 },
+          },
+        },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing or invalid JWT access token',
+    content: {
+      'application/json': {
+        example: {
+          success: false,
+          statusCode: 401,
+          message: ['Unauthorized'],
+          timestamp: '2026-06-24T12:00:00.000Z',
+        },
+      },
+    },
+  })
+  @ApiForbiddenResponse({
+    description: 'User does not have admin role',
+    content: {
+      'application/json': {
+        example: {
+          success: false,
+          statusCode: 403,
+          message: ['Forbidden resource'],
+          timestamp: '2026-06-24T12:00:00.000Z',
+        },
+      },
+    },
+  })
+  getPriorityTasks(@Query() query: QueryPriorityTasksDto) {
+    return this.dashboardService.getPriorityTaskList(query);
   }
 
   @Get('user')

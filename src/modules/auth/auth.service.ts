@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   Logger,
+  NotFoundException,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -674,11 +675,21 @@ export class AuthService {
    * and hardcoding PERSONAL here meant a business user who tapped "Continue
    * with Google" silently got a consumer account. It is deliberately ignored
    * for an existing account — a login request must never be able to change the
-   * role of an account it merely authenticated.
+   * role of an account it merely authenticated. The account type is settled at
+   * sign-up and stays put for the life of the account.
+   *
+   * `meta.allowSignUp: false` turns this into a login-only call: with no
+   * account matching the social profile it throws rather than creating one.
+   * The sign-in screen sends it, having no account type to ask for.
    */
   async socialLogin(
     idToken: string,
-    meta?: { ipAddress?: string; deviceInfo?: string; role?: UserRole },
+    meta?: {
+      ipAddress?: string;
+      deviceInfo?: string;
+      role?: UserRole;
+      allowSignUp?: boolean;
+    },
   ) {
     const decodedToken = await this.firebaseService.verifyIdToken(idToken);
 
@@ -725,6 +736,18 @@ export class AuthService {
 
     if (!user) {
       user = await this.usersService.findByEmail(email);
+    }
+
+    // A caller that is signing in, not signing up, must not have an account
+    // created for it. The sign-in screen has no account type to ask for, and
+    // the account type is chosen at sign-up and never changes afterwards — so
+    // an account created there would be stuck on the `personal` default for
+    // good, a company on a consumer account with no way out. Refused here, the
+    // app sends the user to sign up, where the question is asked.
+    if (!user && meta?.allowSignUp === false) {
+      throw new NotFoundException(
+        'No account is registered for this social profile. Please sign up first.',
+      );
     }
 
     if (user) {

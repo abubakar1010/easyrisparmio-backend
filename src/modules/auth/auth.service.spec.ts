@@ -3,7 +3,12 @@
 // this Jest config. None of the paths under test touch it.
 jest.mock('./firebase.service', () => ({ FirebaseService: class {} }));
 
-import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
+import {
+  BadRequestException,
+  NotFoundException,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { plainToInstance } from 'class-transformer';
 import * as bcrypt from 'bcrypt';
@@ -14,7 +19,7 @@ import { RefreshToken } from './entities/refresh-token.entity';
 import { ForgotPasswordDto } from './dto/reset-password.dto';
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../../common/enums/role.enum';
-import { OtpType, UserStatus } from '../../common/enums/user.enum';
+import { AuthProvider, OtpType, UserStatus } from '../../common/enums/user.enum';
 
 /**
  * Covers the password-reset flow end to end against in-memory repositories.
@@ -113,6 +118,9 @@ class FakeRefreshTokenRepository {
   }
 }
 
+/** The UsersService mock, shared so tests can assert which loader was used. */
+let usersServiceMock: Record<string, jest.Mock>;
+
 describe('AuthService — password reset', () => {
   let service: AuthService;
   let otpRepository: FakeOtpRepository;
@@ -147,13 +155,22 @@ describe('AuthService — password reset', () => {
 
     users = new Map([['user-1', makeUser()]]);
 
-    const usersService = {
+    usersServiceMock = {
       findByEmail: jest.fn(async (email: string) =>
         [...users.values()].find(
           (u) => u.email.toLowerCase() === email.toLowerCase(),
         ) ?? null,
       ),
       findById: jest.fn(async (id: string) => users.get(id) ?? null),
+      // `passwordHash` is `select: false`, so the auth flows that compare a
+      // password go through the explicit loaders. Same fixtures either way —
+      // these mocks stand in for the query that names the column.
+      findByEmailWithPassword: jest.fn(async (email: string) =>
+        [...users.values()].find(
+          (u) => u.email.toLowerCase() === email.toLowerCase(),
+        ) ?? null,
+      ),
+      findByIdWithPassword: jest.fn(async (id: string) => users.get(id) ?? null),
       update: jest.fn(async (id: string, patch: Partial<User>) => {
         const user = users.get(id)!;
         Object.assign(user, patch);
@@ -165,13 +182,12 @@ describe('AuthService — password reset', () => {
       refreshTokenRepository as any,
       otpRepository as any,
       {} as any, // businessProfileRepository — unused on these paths
-      usersService as any,
+      usersServiceMock as any,
       jwtService,
       { get: jest.fn(() => '7') } as any,
       {} as any, // firebaseService
       {} as any, // referralsService
       { sendOtpEmail } as any,
-      { notifyAdmins: jest.fn() } as any, // adminNotifications
       {} as any, // legalService
       {} as any, // dataSource
     );
@@ -410,13 +426,22 @@ describe('AuthService — sign-up email verification', () => {
       ],
     ]);
 
-    const usersService = {
+    usersServiceMock = {
       findByEmail: jest.fn(async (email: string) =>
         [...users.values()].find(
           (u) => u.email.toLowerCase() === email.toLowerCase(),
         ) ?? null,
       ),
       findById: jest.fn(async (id: string) => users.get(id) ?? null),
+      // `passwordHash` is `select: false`, so the auth flows that compare a
+      // password go through the explicit loaders. Same fixtures either way —
+      // these mocks stand in for the query that names the column.
+      findByEmailWithPassword: jest.fn(async (email: string) =>
+        [...users.values()].find(
+          (u) => u.email.toLowerCase() === email.toLowerCase(),
+        ) ?? null,
+      ),
+      findByIdWithPassword: jest.fn(async (id: string) => users.get(id) ?? null),
       update: jest.fn(async (id: string, patch: Partial<User>) => {
         const user = users.get(id)!;
         Object.assign(user, patch);
@@ -428,13 +453,12 @@ describe('AuthService — sign-up email verification', () => {
       refreshTokenRepository as any,
       otpRepository as any,
       {} as any,
-      usersService as any,
+      usersServiceMock as any,
       jwtService,
       { get: jest.fn(() => '7') } as any,
       {} as any,
       {} as any,
       { sendOtpEmail } as any,
-      { notifyAdmins: jest.fn() } as any,
       {} as any,
       {} as any,
     );
@@ -521,5 +545,345 @@ describe('ForgotPasswordDto', () => {
   it('folds the address so a differently-cased sign-up is still reachable', () => {
     const dto = plainToInstance(ForgotPasswordDto, { email: '  Mario.Rossi@Email.COM ' });
     expect(dto.email).toBe('mario.rossi@email.com');
+  });
+});
+
+/**
+ * `User.passwordHash` is `select: false`, so a password can only be compared by
+ * a flow that asked for the column by name. Reverting any of these to the
+ * ordinary finder would not fail to compile and would not change a status code
+ * — login would simply start refusing everyone, which looks exactly like a
+ * wrong password. These tests name the loader instead.
+ */
+describe('AuthService — password flows load the hash explicitly', () => {
+  const HASH = '$2b$10$abcdefghijklmnopqrstuv';
+
+  const buildService = () => {
+    const user = {
+      id: 'user-1',
+      email: 'mario@example.it',
+      passwordHash: HASH,
+      status: 'active',
+    };
+    const usersService = {
+      findByEmail: jest.fn().mockResolvedValue({ ...user, passwordHash: undefined }),
+      findById: jest.fn().mockResolvedValue({ ...user, passwordHash: undefined }),
+      findByEmailWithPassword: jest.fn().mockResolvedValue(user),
+      findByIdWithPassword: jest.fn().mockResolvedValue(user),
+      update: jest.fn().mockResolvedValue(user),
+    };
+    // Positional, matching the constructor: refreshToken, otp, businessProfile,
+    // users, jwt, config, firebase, referrals, email, legal, dataSource. Only
+    // the users service and the JWT signer are exercised on these two paths.
+    const service = new AuthService(
+      { find: jest.fn().mockResolvedValue([]), save: jest.fn() } as any,
+      { findOne: jest.fn(), save: jest.fn(), delete: jest.fn() } as any,
+      {} as any,
+      usersService as any,
+      new JwtService({ secret: 'test-secret' }),
+      { get: jest.fn(() => '7') } as any,
+      {} as any,
+      {} as any,
+      { sendOtpEmail: jest.fn() } as any,
+      {} as any,
+      {} as any,
+    );
+    return { service, usersService };
+  };
+
+  it('validateUser asks for the password hash by name', async () => {
+    const { service, usersService } = buildService();
+
+    await service.validateUser('mario@example.it', 'whatever');
+
+    expect(usersService.findByEmailWithPassword).toHaveBeenCalledWith(
+      'mario@example.it',
+    );
+    expect(usersService.findByEmail).not.toHaveBeenCalled();
+  });
+
+  it('changePassword asks for the password hash by name', async () => {
+    const { service, usersService } = buildService();
+
+    await service
+      .changePassword('user-1', {
+        currentPassword: 'wrong',
+        newPassword: 'Whatever-1!',
+        confirmPassword: 'Whatever-1!',
+      } as any)
+      .catch(() => undefined); // the comparison fails; the lookup is the point
+
+    expect(usersService.findByIdWithPassword).toHaveBeenCalledWith('user-1');
+    expect(usersService.findById).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Social login is the one entry point where an *external* service decides who
+ * the caller is, so the checks that stand between a Firebase token and a
+ * session are pinned here. Each test names a way the endpoint used to hand out
+ * something it should not have.
+ */
+describe('AuthService — social login', () => {
+  const GOOGLE_UID = 'firebase-uid-google-1';
+  const SOCIAL_EMAIL = 'mario.rossi@email.com';
+
+  /** A decoded Firebase ID token: verified and Google-issued unless told otherwise. */
+  const token = (over: Record<string, any> = {}) => ({
+    uid: GOOGLE_UID,
+    email: SOCIAL_EMAIL,
+    email_verified: true,
+    name: 'Mario Rossi',
+    picture: 'https://lh3.googleusercontent.com/a/mario',
+    firebase: { sign_in_provider: 'google.com' },
+    ...over,
+  });
+
+  const makeSocialUser = (over: Partial<User> = {}): User =>
+    ({
+      id: 'user-1',
+      email: SOCIAL_EMAIL,
+      passwordHash: null,
+      firstName: 'Mario',
+      lastName: 'Rossi',
+      role: UserRole.PERSONAL,
+      status: UserStatus.ACTIVE,
+      emailVerified: true,
+      firebaseUid: null,
+      avatar: null,
+      ...over,
+    }) as unknown as User;
+
+  const buildService = (existing: User | null) => {
+    const rows = new Map<string, User>();
+    if (existing) rows.set(existing.id, existing);
+
+    const usersService = {
+      findByFirebaseUid: jest.fn(
+        async (uid: string) =>
+          [...rows.values()].find((u) => u.firebaseUid === uid) ?? null,
+      ),
+      findByEmail: jest.fn(
+        async (email: string) =>
+          [...rows.values()].find(
+            (u) => u.email.toLowerCase() === email.toLowerCase(),
+          ) ?? null,
+      ),
+      findById: jest.fn(async (id: string) => rows.get(id) ?? null),
+      update: jest.fn(async (id: string, patch: Partial<User>) => {
+        const row = rows.get(id)!;
+        Object.assign(row, patch);
+        return row;
+      }),
+      create: jest.fn(async (data: Partial<User>) => {
+        const row = { id: 'user-new', ...data } as User;
+        rows.set(row.id, row);
+        return row;
+      }),
+    };
+
+    const verifyIdToken = jest.fn();
+
+    // Positional, matching the constructor: refreshToken, otp, businessProfile,
+    // users, jwt, config, firebase, referrals, email, legal, dataSource.
+    const service = new AuthService(
+      { create: (row: any) => row, save: jest.fn(async (row: any) => row) } as any,
+      {} as any,
+      {} as any,
+      usersService as any,
+      new JwtService({ secret: JWT_SECRET }),
+      { get: jest.fn(() => '7') } as any,
+      { verifyIdToken } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    );
+
+    return { service, usersService, verifyIdToken };
+  };
+
+  it('links an unlinked account and stamps the login in a single write', async () => {
+    const existing = makeSocialUser();
+    const { service, usersService, verifyIdToken } = buildService(existing);
+    verifyIdToken.mockResolvedValue(token());
+
+    const result = await service.socialLogin('id-token');
+
+    expect(result.user.id).toBe('user-1');
+    expect(existing.firebaseUid).toBe(GOOGLE_UID);
+    // Linking the UID, adopting the avatar, promoting the account and stamping
+    // `lastLoginAt` were four separate SELECT-then-UPDATE round trips, and the
+    // stamp landed after the reload — so the response always carried the
+    // previous login's timestamp.
+    expect(usersService.update).toHaveBeenCalledTimes(1);
+    expect(result.user.lastLoginAt).toEqual(expect.any(Date));
+  });
+
+  it('refuses a suspended account instead of quietly reactivating it', async () => {
+    // The reactivation branch keyed off `emailVerified`, not off the status, so
+    // a banned account with an unverified address was set back to ACTIVE by the
+    // very request that should have been turned away — and then let in, because
+    // the suspension check read the row *after* that write.
+    const banned = makeSocialUser({
+      status: UserStatus.SUSPENDED,
+      emailVerified: false,
+    });
+    const { service, usersService, verifyIdToken } = buildService(banned);
+    verifyIdToken.mockResolvedValue(token());
+
+    await expect(service.socialLogin('id-token')).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+    expect(banned.status).toBe(UserStatus.SUSPENDED);
+    expect(usersService.update).not.toHaveBeenCalled();
+  });
+
+  it('will not hand over an existing account on an unverified provider email', async () => {
+    // Google always verifies. Facebook returns whatever is on the profile, and
+    // this endpoint is shared by every provider — so an unverified address used
+    // to be enough to be given the account that happens to use it.
+    const victim = makeSocialUser({ passwordHash: 'a-real-bcrypt-hash' } as any);
+    const { service, usersService, verifyIdToken } = buildService(victim);
+    verifyIdToken.mockResolvedValue(
+      token({
+        uid: 'firebase-uid-attacker',
+        email_verified: false,
+        firebase: { sign_in_provider: 'facebook.com' },
+      }),
+    );
+
+    await expect(service.socialLogin('id-token')).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+    expect(victim.firebaseUid).toBeNull();
+    expect(usersService.update).not.toHaveBeenCalled();
+    expect(usersService.create).not.toHaveBeenCalled();
+  });
+
+  it('promotes an account still waiting on its own email verification', async () => {
+    const pending = makeSocialUser({
+      status: UserStatus.PENDING_VERIFICATION,
+      emailVerified: false,
+    });
+    const { service, verifyIdToken } = buildService(pending);
+    verifyIdToken.mockResolvedValue(token());
+
+    await service.socialLogin('id-token');
+
+    expect(pending.status).toBe(UserStatus.ACTIVE);
+    expect(pending.emailVerified).toBe(true);
+  });
+
+  it('creates the account with the role the sign-up screen chose', async () => {
+    const { service, usersService, verifyIdToken } = buildService(null);
+    verifyIdToken.mockResolvedValue(token());
+
+    await service.socialLogin('id-token', { role: UserRole.BUSINESS });
+
+    expect(usersService.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: SOCIAL_EMAIL,
+        role: UserRole.BUSINESS,
+        firebaseUid: GOOGLE_UID,
+        authProvider: AuthProvider.GOOGLE,
+        passwordHash: null,
+        emailVerified: true,
+      }),
+    );
+  });
+
+  it('defaults a new account to personal, and never to admin', async () => {
+    const { service, usersService, verifyIdToken } = buildService(null);
+    verifyIdToken.mockResolvedValue(token());
+
+    await service.socialLogin('id-token', { role: UserRole.ADMIN });
+
+    expect(usersService.create).toHaveBeenCalledWith(
+      expect.objectContaining({ role: UserRole.PERSONAL }),
+    );
+  });
+
+  it('refuses to create an account for a login-only caller', async () => {
+    // The sign-in screen sends `allowSignUp: false`. It has no account type to
+    // ask for, and the account type is chosen at sign-up and never changes, so
+    // an account created there would sit on the `personal` default for good.
+    const { service, usersService, verifyIdToken } = buildService(null);
+    verifyIdToken.mockResolvedValue(token());
+
+    await expect(
+      service.socialLogin('id-token', { allowSignUp: false }),
+    ).rejects.toThrow(NotFoundException);
+
+    expect(usersService.create).not.toHaveBeenCalled();
+  });
+
+  it('still signs a login-only caller into an account that exists', async () => {
+    const existing = makeSocialUser();
+    const { service, verifyIdToken } = buildService(existing);
+    verifyIdToken.mockResolvedValue(token());
+
+    const result = await service.socialLogin('id-token', {
+      allowSignUp: false,
+    });
+
+    expect(result.user.id).toBe(existing.id);
+    expect(result.accessToken).toBeDefined();
+  });
+
+  it('creates the account when sign-up is not refused', async () => {
+    // The default, and what the sign-up screen relies on.
+    const { service, usersService, verifyIdToken } = buildService(null);
+    verifyIdToken.mockResolvedValue(token());
+
+    await service.socialLogin('id-token');
+
+    expect(usersService.create).toHaveBeenCalled();
+  });
+
+  it('leaves the role of an existing account alone', async () => {
+    // `role` describes the account to create. A login request must not be able
+    // to change the role of the account it merely authenticated.
+    const existing = makeSocialUser({ role: UserRole.PERSONAL });
+    const { service, verifyIdToken } = buildService(existing);
+    verifyIdToken.mockResolvedValue(token());
+
+    await service.socialLogin('id-token', { role: UserRole.BUSINESS });
+
+    expect(existing.role).toBe(UserRole.PERSONAL);
+  });
+
+  it('keeps a profile picture the user already has', async () => {
+    const existing = makeSocialUser({
+      avatar: 'https://cdn.vyzi.app/me.png',
+    } as Partial<User>);
+    const { service, verifyIdToken } = buildService(existing);
+    verifyIdToken.mockResolvedValue(token());
+
+    await service.socialLogin('id-token');
+
+    expect(existing.avatar).toBe('https://cdn.vyzi.app/me.png');
+  });
+
+  it('drops a non-HTTPS avatar rather than storing it', async () => {
+    const { service, usersService, verifyIdToken } = buildService(null);
+    verifyIdToken.mockResolvedValue(
+      token({ picture: 'http://insecure.example/a.png' }),
+    );
+
+    await service.socialLogin('id-token');
+
+    expect(usersService.create).toHaveBeenCalledWith(
+      expect.objectContaining({ avatar: undefined }),
+    );
+  });
+
+  it('refuses a token that carries no email', async () => {
+    const { service, verifyIdToken } = buildService(null);
+    verifyIdToken.mockResolvedValue(token({ email: undefined }));
+
+    await expect(service.socialLogin('id-token')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 });

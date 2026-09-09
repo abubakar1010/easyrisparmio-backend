@@ -20,6 +20,7 @@ import {
   ApiUnauthorizedResponse,
   ApiBadRequestResponse,
   ApiConflictResponse,
+  ApiNotFoundResponse,
   ApiServiceUnavailableResponse,
   ApiBody,
   ApiResponse,
@@ -314,7 +315,10 @@ export class AuthController {
       'exist, a new account is created with `status: active` and the `role` from the ' +
       'body (`personal` unless the sign-up screen says otherwise). If an account with ' +
       'the same email already exists, the Firebase UID is linked to it and its role ' +
-      'is left untouched.',
+      'is left untouched — the account type is settled at sign-up and never changes. ' +
+      'Send `allowSignUp: false` to make the call login-only: with no matching ' +
+      'account it returns 404 instead of creating one. The sign-in screen sends it, ' +
+      'having no account type to ask for.',
   })
   @ApiBody({ type: SocialLoginDto })
   @ApiOkResponse({
@@ -435,6 +439,25 @@ export class AuthController {
       },
     },
   })
+  @ApiNotFoundResponse({
+    description:
+      'The caller sent `allowSignUp: false` and no account matches the social ' +
+      'profile. The app should send the user to sign up, where the account type ' +
+      'is chosen.',
+    type: ErrorResponseDto,
+    content: {
+      'application/json': {
+        example: {
+          success: false,
+          statusCode: 404,
+          message: [
+            'No account is registered for this social profile. Please sign up first.',
+          ],
+          timestamp: '2026-06-09T12:00:00.000Z',
+        },
+      },
+    },
+  })
   @ApiServiceUnavailableResponse({
     description: 'Firebase is not configured on the server, so social login is disabled',
     type: ErrorResponseDto,
@@ -457,6 +480,7 @@ export class AuthController {
       deviceInfo: req.headers['user-agent'],
       // Only consulted when the account is created; see `AuthService.socialLogin`.
       role: dto.role as unknown as UserRole | undefined,
+      allowSignUp: dto.allowSignUp,
     });
   }
 

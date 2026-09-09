@@ -45,11 +45,18 @@ export class CreateAddressDto {
    * for a business, `residential` for a personal account. A company does not
    * have a residence, and storing its registered office under `residential`
    * left the platform unable to tell the two apart at all.
+   *
+   * Sent, it has to agree with the role. `residential` on a business account
+   * and `legal` on a personal one are refused rather than stored: the type is
+   * the only thing that distinguishes the two, so a wrong one written here is
+   * a wrong one nothing downstream can detect.
    */
   @ApiPropertyOptional({
     enum: AddressType,
     description:
-      'Defaults to `legal` for a business account and `residential` for a personal one',
+      "The account's own address type: `legal` (the registered office) on a " +
+      'business account, `residential` on a personal one. Defaults to whichever ' +
+      'the role calls for; the other is refused.',
   })
   @IsOptional()
   @IsEnum(AddressType)

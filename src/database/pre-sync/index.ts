@@ -337,6 +337,63 @@ async function clearBusinessTaxCodes(ds: DataSource): Promise<void> {
 }
 
 /**
+ * Files every account's own address under the type its role calls for.
+ *
+ * A person has a residence; a company has a registered office — a sede legale —
+ * and no residence at all. Both live in the same table and the same columns, so
+ * `address_type` is the only thing that tells them apart: a company's address
+ * stored as `residential` says the company lives there, and nothing reading it
+ * afterwards can recover the fact that it is a legal seat.
+ *
+ * Accounts created before the type was tied to the role carry whichever value
+ * happened to be sent — and the default was a flat `residential`, so business
+ * accounts are the ones that hold the wrong one. Accounts an admin later
+ * switched between the two types are wrong in either direction.
+ *
+ * Only the two account types are touched. `supply` and `billing` are statements
+ * about places rather than about who the holder is, either role may hold them,
+ * and rewriting one would lose a supply point. Rows that already agree with the
+ * role are left alone, so this is a no-op on the second start and on a fresh
+ * database.
+ */
+async function realignAccountAddressTypes(ds: DataSource): Promise<void> {
+  if (!(await tableExists(ds, 'user_addresses'))) return;
+  if (!(await columnExists(ds, 'user_addresses', 'address_type'))) return;
+
+  // `address_type::text` on purpose, the way the status retirement does it: the
+  // comparison has to keep working whatever the enum type is called after
+  // TypeORM has rebuilt it.
+  const toLegal = await ds.query(
+    `UPDATE user_addresses a SET address_type = 'legal'
+       FROM users u
+      WHERE u.id = a.user_id
+        AND u.role::text = 'business'
+        AND a.address_type::text = 'residential'`,
+  );
+  const promoted = toLegal?.[1] ?? 0;
+
+  const toResidential = await ds.query(
+    `UPDATE user_addresses a SET address_type = 'residential'
+       FROM users u
+      WHERE u.id = a.user_id
+        AND u.role::text <> 'business'
+        AND a.address_type::text = 'legal'`,
+  );
+  const demoted = toResidential?.[1] ?? 0;
+
+  if (promoted > 0) {
+    logger.log(
+      `Re-filed ${promoted} business address(es) as a registered office — a company has a sede legale, not a residence`,
+    );
+  }
+  if (demoted > 0) {
+    logger.log(
+      `Re-filed ${demoted} personal address(es) as a residence — a personal account has no registered office`,
+    );
+  }
+}
+
+/**
  * Never blocks startup: the worst case of a failure here is that synchronise
  * fails right after with a much louder message, which is the outcome we want.
  */
@@ -351,6 +408,7 @@ export async function runPreSyncMigrations(ds: DataSource): Promise<void> {
     await seedSentOfferDisplayOrder(ds);
     await retireBusinessTerms(ds);
     await clearBusinessTaxCodes(ds);
+    await realignAccountAddressTypes(ds);
   } catch (error: any) {
     logger.error(`Pre-sync migration failed: ${error?.message ?? error}`);
     throw error;

@@ -8,9 +8,11 @@ import { QueryFailedError } from 'typeorm';
 import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
 import { BusinessProfile } from './entities/business-profile.entity';
+import { UserAddress } from './entities/user-address.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UserRole } from '../../common/enums/role.enum';
 import { UserStatus } from '../../common/enums/user.enum';
+import { AddressType } from '../../common/enums/address.enum';
 
 /**
  * Covers the account and company writes against in-memory repositories.
@@ -153,6 +155,40 @@ class FakeBusinessProfileRepository {
   }
 }
 
+class FakeAddressRepository {
+  rows: UserAddress[] = [];
+  private seq = 0;
+
+  create(data: Partial<UserAddress>) {
+    return { ...data } as UserAddress;
+  }
+
+  async findOne({ where }: { where: Record<string, any> }) {
+    return this.rows.find((r) => matches(r, where)) ?? null;
+  }
+
+  async delete(criteria: Record<string, any>) {
+    const before = this.rows.length;
+    this.rows = this.rows.filter((r) => !matches(r, criteria));
+    return { affected: before - this.rows.length };
+  }
+
+  async update(criteria: Record<string, any>, patch: Partial<UserAddress>) {
+    const hit = this.rows.filter((r) => matches(r, criteria));
+    for (const row of hit) Object.assign(row, patch);
+    return { affected: hit.length };
+  }
+
+  async save(row: UserAddress) {
+    if (!row.id) {
+      this.seq += 1;
+      row.id = `ua-${this.seq}`;
+      this.rows.push(row);
+    }
+    return row;
+  }
+}
+
 /**
  * Just enough EntityManager for the transactional writes, backed by the same
  * in-memory rows so the transaction and the repositories cannot disagree.
@@ -160,15 +196,21 @@ class FakeBusinessProfileRepository {
 function makeDataSource(
   users: FakeUserRepository,
   profiles: FakeBusinessProfileRepository,
+  addresses: FakeAddressRepository,
 ) {
-  const repoFor = (entity: unknown) =>
-    entity === User ? users : profiles;
+  const repoFor = (entity: unknown) => {
+    if (entity === User) return users;
+    if (entity === UserAddress) return addresses;
+    return profiles;
+  };
 
   const manager = {
     findOne: (entity: unknown, options: any) =>
       (repoFor(entity) as any).findOne(options),
     create: (entity: unknown, data: any) =>
-      entity === User ? ({ ...data } as User) : profiles.create(data),
+      entity === User
+        ? ({ ...data } as User)
+        : (repoFor(entity) as any).create(data),
     save: (entity: unknown, row: any) => (repoFor(entity) as any).save(row),
     update: (entity: unknown, criteria: any, patch: any) =>
       (repoFor(entity) as any).update(criteria, patch),
@@ -184,7 +226,8 @@ function makeDataSource(
 function makeService(rows: User[]) {
   const users = new FakeUserRepository(rows);
   const profiles = new FakeBusinessProfileRepository();
-  const dataSource = makeDataSource(users, profiles);
+  const addresses = new FakeAddressRepository();
+  const dataSource = makeDataSource(users, profiles, addresses);
 
   // findById also asks for relations; wire the profile in by hand.
   const originalFindOne = users.findOne.bind(users);
@@ -207,7 +250,7 @@ function makeService(rows: User[]) {
     dataSource as any,
   );
 
-  return { service, users, profiles };
+  return { service, users, profiles, addresses };
 }
 
 /**
@@ -605,5 +648,193 @@ describe('UsersService — an admin moving an account between the two types', ()
     } as any);
 
     expect(profiles.rows[0].pecEmail).toBeNull();
+  });
+});
+
+/**
+ * A person has a residence; a company has a registered office — a sede legale —
+ * and no residence at all. The two live in the same table and the same columns,
+ * so `addressType` is the *only* thing that tells them apart: once a company's
+ * address is filed as `residential`, nothing downstream can recover the fact
+ * that it is a legal seat rather than somebody's home.
+ *
+ * That makes the type an invariant rather than a default. These cover the two
+ * ways it used to break: an explicit type sent against the wrong role, and a
+ * role changed underneath an address that was already right for the old one.
+ */
+describe('UsersService — the account address follows the account type', () => {
+  const address = {
+    streetAddress: 'Via Po 22',
+    city: 'Torino',
+    postalCode: '10123',
+  };
+
+  function creationDto(overrides: Record<string, any> = {}): any {
+    return {
+      email: 'nuovo@email.com',
+      password: 'Password1!',
+      firstName: 'Giuseppe',
+      lastName: 'Verdi',
+      role: UserRole.PERSONAL,
+      address,
+      ...overrides,
+    };
+  }
+
+  it('files a business account address as its registered office', async () => {
+    const { service, addresses } = makeService([]);
+
+    await service.adminCreateUser(
+      creationDto({
+        role: UserRole.BUSINESS,
+        companyName: 'Verdi S.r.l.',
+        partitaIva: '12345678901',
+      }),
+    );
+
+    expect(addresses.rows).toHaveLength(1);
+    expect(addresses.rows[0].addressType).toBe(AddressType.LEGAL);
+  });
+
+  it('files a personal account address as a residence', async () => {
+    const { service, addresses } = makeService([]);
+
+    await service.adminCreateUser(creationDto());
+
+    expect(addresses.rows[0].addressType).toBe(AddressType.RESIDENTIAL);
+  });
+
+  /**
+   * The default was never the whole rule. `addressType` is an accepted field,
+   * so a request naming `residential` on a company was written verbatim — and
+   * silently, which is the worst part: the row looked deliberate.
+   */
+  it('refuses a residence on a business account', async () => {
+    const { service, addresses } = makeService([]);
+
+    await expect(
+      service.adminCreateUser(
+        creationDto({
+          role: UserRole.BUSINESS,
+          companyName: 'Verdi S.r.l.',
+          partitaIva: '12345678901',
+          address: { ...address, addressType: AddressType.RESIDENTIAL },
+        }),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(addresses.rows).toHaveLength(0);
+  });
+
+  it('refuses a registered office on a personal account', async () => {
+    const { service, addresses } = makeService([]);
+
+    await expect(
+      service.adminCreateUser(
+        creationDto({ address: { ...address, addressType: AddressType.LEGAL } }),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(addresses.rows).toHaveLength(0);
+  });
+
+  /** Naming the type the role does call for is simply accepted. */
+  it('accepts the type the role calls for, stated explicitly', async () => {
+    const { service, addresses } = makeService([]);
+
+    await service.adminCreateUser(
+      creationDto({
+        role: UserRole.BUSINESS,
+        companyName: 'Verdi S.r.l.',
+        partitaIva: '12345678901',
+        address: { ...address, addressType: AddressType.LEGAL },
+      }),
+    );
+
+    expect(addresses.rows[0].addressType).toBe(AddressType.LEGAL);
+  });
+
+  /**
+   * Seeds an address of a given type directly, the way registration leaves one
+   * behind before an admin comes along and corrects the account type.
+   */
+  function seedAddress(
+    addresses: FakeAddressRepository,
+    addressType: AddressType,
+  ): UserAddress {
+    const row = {
+      id: `ua-seed-${addresses.rows.length + 1}`,
+      userId: USER_ID,
+      addressType,
+      streetAddress: 'Via Roma 42',
+      city: 'Roma',
+      postalCode: '00185',
+      country: 'IT',
+      isPrimary: true,
+    } as UserAddress;
+    addresses.rows.push(row);
+    return row;
+  }
+
+  it('turns the residence into a registered office when an account becomes a company', async () => {
+    const { service, addresses } = makeService([makeUser()]);
+    seedAddress(addresses, AddressType.RESIDENTIAL);
+
+    await service.adminUpdateUser(USER_ID, {
+      role: UserRole.BUSINESS,
+      companyName: 'Verdi S.r.l.',
+      partitaIva: '12345678901',
+    } as any);
+
+    expect(addresses.rows[0].addressType).toBe(AddressType.LEGAL);
+  });
+
+  it('turns the registered office back into a residence when an account becomes personal', async () => {
+    const { service, profiles, addresses } = makeService([
+      makeUser({ role: UserRole.BUSINESS }),
+    ]);
+    seedCompany(profiles);
+    seedAddress(addresses, AddressType.LEGAL);
+
+    await service.adminUpdateUser(USER_ID, { role: UserRole.PERSONAL } as any);
+
+    expect(addresses.rows[0].addressType).toBe(AddressType.RESIDENTIAL);
+  });
+
+  /**
+   * Where the energy arrives and where the invoice is posted are statements
+   * about places, not about who the holder is, so a role change leaves them
+   * exactly where they were. Rewriting them would lose a supply point.
+   */
+  it('leaves supply and billing addresses alone across a role change', async () => {
+    const { service, addresses } = makeService([makeUser()]);
+    seedAddress(addresses, AddressType.RESIDENTIAL);
+    seedAddress(addresses, AddressType.SUPPLY);
+    seedAddress(addresses, AddressType.BILLING);
+
+    await service.adminUpdateUser(USER_ID, {
+      role: UserRole.BUSINESS,
+      companyName: 'Verdi S.r.l.',
+      partitaIva: '12345678901',
+    } as any);
+
+    expect(addresses.rows.map((r) => r.addressType)).toEqual([
+      AddressType.LEGAL,
+      AddressType.SUPPLY,
+      AddressType.BILLING,
+    ]);
+  });
+
+  /** An edit that does not touch the role must not touch the address either. */
+  it('leaves the address type alone on an edit that keeps the role', async () => {
+    const { service, addresses } = makeService([makeUser()]);
+    seedAddress(addresses, AddressType.RESIDENTIAL);
+
+    await service.adminUpdateUser(USER_ID, {
+      firstName: 'Marco',
+      role: UserRole.PERSONAL,
+    } as any);
+
+    expect(addresses.rows[0].addressType).toBe(AddressType.RESIDENTIAL);
   });
 });

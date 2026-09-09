@@ -25,7 +25,10 @@ import { UserRole } from '../../common/enums/role.enum';
 import { UserStatus, OtpType } from '../../common/enums/user.enum';
 import {
   AddressType,
-  defaultAddressTypeFor,
+  accountAddressTypeFor,
+  addressTypeRoleMismatchMessage,
+  forbiddenAccountAddressTypeFor,
+  isAddressTypeAllowedFor,
 } from '../../common/enums/address.enum';
 import { EmailService } from '../email/email.service';
 
@@ -175,8 +178,10 @@ export class UsersService {
               // created was stored under a type that said the company lived
               // there, and nothing downstream could tell a sede legale from a
               // home address.
-              addressType:
-                dto.address.addressType ?? defaultAddressTypeFor(dto.role),
+              addressType: this.resolveAccountAddressType(
+                dto.role,
+                dto.address.addressType,
+              ),
               isPrimary: true,
             }),
           );
@@ -356,6 +361,29 @@ export class UsersService {
     }
   }
 
+  /**
+   * The type the account's own address is written under, refusing the one the
+   * role cannot hold.
+   *
+   * A default alone was not enough. `addressType` is an accepted field, so an
+   * explicit `residential` on a business account was stored verbatim — the
+   * exact state the two types exist to make impossible, and one nothing
+   * downstream could detect once written. Omitted, the role decides; sent, it
+   * has to agree with the role or the request is refused by name.
+   */
+  private resolveAccountAddressType(
+    role: UserRole,
+    requested?: AddressType,
+  ): AddressType {
+    if (requested === undefined) {
+      return accountAddressTypeFor(role);
+    }
+    if (!isAddressTypeAllowedFor(role, requested)) {
+      throw new BadRequestException(addressTypeRoleMismatchMessage(role));
+    }
+    return requested;
+  }
+
   async adminUpdateUser(id: string, dto: UpdateUserDto): Promise<User> {
     const user = await this.findById(id);
     if (!user) {
@@ -445,6 +473,25 @@ export class UsersService {
         // deleted next to a role that then failed to save is worse than either.
         if (profileToDrop) {
           await manager.delete(BusinessProfile, { userId: user.id });
+        }
+
+        // The account's own address is retyped with the role, in the same
+        // transaction. A person has a residence and a company a registered
+        // office, so an account switched to business that kept its
+        // `residential` row went on saying the company lived there — and the
+        // type is the only thing that tells the two apart, so nothing reading
+        // it afterwards could have known better. `supply` and `billing` rows
+        // are places rather than statements about the holder, and are left
+        // alone.
+        if (becomingBusiness || becomingPersonal) {
+          await manager.update(
+            UserAddress,
+            {
+              userId: user.id,
+              addressType: forbiddenAccountAddressTypeFor(nextRole),
+            },
+            { addressType: accountAddressTypeFor(nextRole) },
+          );
         }
 
         // Update business profile if business fields are provided

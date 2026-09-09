@@ -11,7 +11,7 @@ import { SupportTicket } from '../../modules/support/entities/support-ticket.ent
 import { TicketMessage } from '../../modules/support/entities/ticket-message.entity';
 import { Supplier } from '../../modules/suppliers/entities/supplier.entity';
 import { UserRole } from '../../common/enums/role.enum';
-import { AddressType } from '../../common/enums/address.enum';
+import { accountAddressTypeFor } from '../../common/enums/address.enum';
 import {
   PaymentMethod,
   InvoiceDelivery,
@@ -121,8 +121,10 @@ async function seedAddressForUser(
   }
 
   const location = pick(ITALIAN_CITIES);
-  const addressType =
-    user.role === UserRole.BUSINESS ? AddressType.LEGAL : AddressType.RESIDENTIAL;
+  // Through the same helper the API writes with, so seeded accounts obey the
+  // rule the running system enforces: a company gets its registered office, a
+  // person their residence.
+  const addressType = accountAddressTypeFor(user.role);
 
   await repo.save(
     repo.create({

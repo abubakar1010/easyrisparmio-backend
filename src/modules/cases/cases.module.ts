@@ -9,6 +9,7 @@ import { EnergyBill } from '../bills/entities/energy-bill.entity';
 import { Offer } from '../offers/entities/offer.entity';
 import { SentOffer } from '../offers/entities/sent-offer.entity';
 import { Supplier } from '../suppliers/entities/supplier.entity';
+import { User } from '../users/entities/user.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ActivityLogModule } from '../activity-log/activity-log.module';
 
@@ -22,6 +23,7 @@ import { ActivityLogModule } from '../activity-log/activity-log.module';
       Offer,
       SentOffer,
       Supplier,
+      User,
     ]),
     NotificationsModule,
     ActivityLogModule,

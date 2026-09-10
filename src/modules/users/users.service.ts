@@ -34,7 +34,6 @@ import {
   AddressType,
   accountAddressTypeFor,
   addressTypeRoleMismatchMessage,
-  forbiddenAccountAddressTypeFor,
   isAddressTypeAllowedFor,
 } from '../../common/enums/address.enum';
 import { EmailService } from '../email/email.service';
@@ -457,29 +456,36 @@ export class UsersService {
       ...userData
     } = dto;
 
-    // What the account is about to become, which is not always what it is now:
-    // the customer form sends `role` on every save.
-    const nextRole = userData.role ?? user.role;
-    const becomingPersonal =
-      user.role === UserRole.BUSINESS && nextRole !== UserRole.BUSINESS;
-    const becomingBusiness =
-      user.role !== UserRole.BUSINESS && nextRole === UserRole.BUSINESS;
+    // An account is opened as a person or as a company and stays that way for
+    // its whole life: no route moves it between the two, for an admin no more
+    // than for the customer. `role` is off `UpdateUserDto` and the global pipe
+    // runs with `forbidNonWhitelisted`, so a request carrying one is refused
+    // before it arrives; this is the same rule where it cannot be routed
+    // around, since `userData` is spread straight onto the entity below.
+    delete (userData as { role?: unknown }).role;
 
-    // Against what the account is about to be, not what it is: the form that
-    // switches an account to business sends the role and the VAT number in the
-    // same save, and reading the stored role would refuse the VAT for an
-    // account that is a company by the time it is written.
-    this.assertTaxIdsMatchRole(nextRole === UserRole.BUSINESS, dto);
+    // The stored role, then, and only ever the stored role.
+    const isBusiness = user.role === UserRole.BUSINESS;
 
-    // Turning an account into a company needs the two things that identify one.
-    // `UpdateUserDto` is a PartialType, so its `ValidateIf` on the create DTO
-    // never fires for a field the request simply omits — which is how a PATCH
-    // carrying nothing but `role: business` used to produce a business account
-    // with no company row at all, invisible until the switch flow went looking
-    // for a Partita IVA and found none.
-    if (becomingBusiness && !user.businessProfile && !(companyName && partitaIva)) {
+    // Which tax identifier the account may carry follows from that same stored
+    // role: a personal account its Codice Fiscale, a company its Partita IVA.
+    this.assertTaxIdsMatchRole(isBusiness, dto);
+
+    // A company's identifying details may be corrected, never introduced onto
+    // an account that is not one. Sent to a personal account they name nothing
+    // this account can hold, so they are refused rather than dropped — silently
+    // ignoring them is a 200 that saved none of what the admin typed.
+    if (
+      !isBusiness &&
+      (companyName ||
+        legalRepresentative ||
+        companyType ||
+        atecoCode ||
+        jobRole ||
+        pecEmail)
+    ) {
       throw new BadRequestException(
-        'Company name and Partita IVA are both required to turn this account into a business',
+        'Company details belong to a business account. This account is personal, and an account type never changes',
       );
     }
 
@@ -501,65 +507,28 @@ export class UsersService {
 
     // The account row and the company row move together. Saved separately, a
     // company row that failed left the account carrying an edit — a new email,
-    // a switch to business — whose other half never landed.
+    // a corrected VAT number — whose other half never landed.
     try {
       await this.dataSource.transaction(async (manager) => {
-        const profileToDrop = becomingPersonal ? user.businessProfile : null;
-        if (profileToDrop) {
-          // Detached before the account is saved, not only deleted after:
-          // `User.businessProfile` cascades, so leaving the loaded row hanging
-          // off the entity would have the save write it straight back.
-          user.businessProfile = null as unknown as BusinessProfile;
-        }
-
         Object.assign(user, userData);
-        // A company keeps no personal tax code. An account switched from
-        // personal to business would otherwise carry the one it was registered
-        // with, and every screen reading "the account's tax ID" would find two.
-        if (nextRole === UserRole.BUSINESS) {
+        // A company keeps no personal tax code. The role cannot move, so this
+        // is an invariant rather than a conversion: it holds the line for rows
+        // that predate the rule and still carry one.
+        if (isBusiness) {
           user.codiceFiscale = null as unknown as string;
         }
         await manager.save(User, user);
 
-        // A company that is no longer a company does not keep its company row.
-        // Left behind it was invisible — nothing reads `businessProfile` on a
-        // personal account — while its Partita IVA went on holding the unique
-        // index, so the real company could never register that VAT again. It
-        // goes inside the same transaction as the role change, because a row
-        // deleted next to a role that then failed to save is worse than either.
-        if (profileToDrop) {
-          await manager.delete(BusinessProfile, { userId: user.id });
-        }
-
-        // The account's own address is retyped with the role, in the same
-        // transaction. A person has a residence and a company a registered
-        // office, so an account switched to business that kept its
-        // `residential` row went on saying the company lived there — and the
-        // type is the only thing that tells the two apart, so nothing reading
-        // it afterwards could have known better. `supply` and `billing` rows
-        // are places rather than statements about the holder, and are left
-        // alone.
-        if (becomingBusiness || becomingPersonal) {
-          await manager.update(
-            UserAddress,
-            {
-              userId: user.id,
-              addressType: forbiddenAccountAddressTypeFor(nextRole),
-            },
-            { addressType: accountAddressTypeFor(nextRole) },
-          );
-        }
-
-        // After the retype above, never before it: writing first would insert
-        // the row under the new role's type while the old row was still
-        // waiting to be retyped into it, and the account would end up holding
-        // two registered offices.
+        // Filed under the type the account's own — unchanging — role calls for:
+        // `legal`, the registered office, for a company, `residential` for a
+        // person. Nothing retypes an existing row here any more, because
+        // nothing can put it under the wrong type in the first place.
         if (address) {
-          await this.writeUserAddress(manager, user.id, nextRole, address);
+          await this.writeUserAddress(manager, user.id, user.role, address);
         }
 
         // Update business profile if business fields are provided
-        if (nextRole === UserRole.BUSINESS) {
+        if (isBusiness) {
           const businessData: Partial<BusinessProfile> = {};
           if (companyName !== undefined) businessData.companyName = companyName;
           if (partitaIva !== undefined) businessData.partitaIva = partitaIva;

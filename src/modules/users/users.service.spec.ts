@@ -541,110 +541,106 @@ describe('UsersService — customers created by an admin', () => {
   });
 });
 
-describe('UsersService — an admin moving an account between the two types', () => {
+describe('UsersService — an account type never changes', () => {
   /**
-   * Left behind, the company row was invisible: nothing reads `businessProfile`
-   * on a personal account. Its Partita IVA went on holding the unique index all
-   * the same, so the company that actually owns that VAT could never register
-   * it — a failure with no symptom at the account it was stranded on and no
-   * explanation at the one it blocked.
+   * The account type is settled when the account is opened and stays settled.
+   * It decides which tax identifier the account carries, which address type its
+   * own address is filed under, and which tariffs may be sent to it — so moving
+   * it underneath a live account silently invalidated all three at once. There
+   * is no route that does it any more, for an admin no more than the customer.
+   *
+   * `role` is off `UpdateUserDto`, and the global pipe runs with
+   * `forbidNonWhitelisted`, so a request carrying one never reaches the service.
+   * These call the service directly, past the pipe, which is the only way the
+   * old behaviour could still be reached.
    */
-  it('drops the company row when a business becomes personal', async () => {
-    const { service, profiles } = makeService([
+  it('leaves a business account a business, whatever the payload asks for', async () => {
+    const { service, users } = makeService([
       makeUser({ role: UserRole.BUSINESS }),
     ]);
-    seedCompany(profiles, { partitaIva: '12345678903' });
 
     const updated = await service.adminUpdateUser(USER_ID, {
       role: UserRole.PERSONAL,
+      phone: '+393331234567',
+    } as any);
+
+    expect(updated.role).toBe(UserRole.BUSINESS);
+    expect(users.rows[0].role).toBe(UserRole.BUSINESS);
+    // The rest of the save still lands: the role is dropped, not the request.
+    expect(users.rows[0].phone).toBe('+393331234567');
+  });
+
+  it('leaves a personal account personal, whatever the payload asks for', async () => {
+    const { service, users } = makeService([makeUser()]);
+
+    const updated = await service.adminUpdateUser(USER_ID, {
+      role: UserRole.BUSINESS,
+      phone: '+393331234567',
     } as any);
 
     expect(updated.role).toBe(UserRole.PERSONAL);
-    expect(profiles.rows).toHaveLength(0);
-  });
-
-  it('frees the Partita IVA for the company that actually holds it', async () => {
-    const { service, profiles } = makeService([
-      makeUser({ role: UserRole.BUSINESS }),
-      makeUser({ id: OTHER_ID, email: 'other@business.it', role: UserRole.BUSINESS }),
-    ]);
-    seedCompany(profiles, { partitaIva: '12345678903' });
-
-    await service.adminUpdateUser(USER_ID, { role: UserRole.PERSONAL } as any);
-
-    // Would have been a 409 while the stranded row still held the number.
-    await expect(
-      service.adminUpdateUser(OTHER_ID, {
-        companyName: 'Rossi S.r.l.',
-        partitaIva: '12345678903',
-      } as any),
-    ).resolves.toMatchObject({ id: OTHER_ID });
-  });
-
-  /**
-   * `UpdateUserDto` is a PartialType, so the `ValidateIf` that makes these two
-   * required on create never fires for a field the request simply omits. A bare
-   * `PATCH { role: 'business' }` therefore used to produce a business account
-   * with no company at all — invisible until the switch flow went looking for a
-   * Partita IVA and found none.
-   */
-  it('refuses to make an account a business with nothing to identify it', async () => {
-    const { service, profiles } = makeService([makeUser()]);
-
-    await expect(
-      service.adminUpdateUser(USER_ID, { role: UserRole.BUSINESS } as any),
-    ).rejects.toBeInstanceOf(BadRequestException);
-    expect(profiles.rows).toHaveLength(0);
-  });
-
-  it('leaves the account personal when it refuses', async () => {
-    const { service, users } = makeService([makeUser()]);
-
-    await expect(
-      service.adminUpdateUser(USER_ID, {
-        role: UserRole.BUSINESS,
-        companyName: 'Rossi S.r.l.',
-      } as any),
-    ).rejects.toBeInstanceOf(BadRequestException);
     expect(users.rows[0].role).toBe(UserRole.PERSONAL);
   });
 
-  it('promotes an account that brings both, writing the company row', async () => {
-    const { service, profiles } = makeService([makeUser()]);
-
-    await service.adminUpdateUser(USER_ID, {
-      role: UserRole.BUSINESS,
-      companyName: 'Rossi S.r.l.',
-      partitaIva: '12345678903',
-      pecEmail: 'rossi@pec.it',
-    } as any);
-
-    expect(profiles.rows).toHaveLength(1);
-    expect(profiles.rows[0]).toMatchObject({
-      userId: USER_ID,
-      companyName: 'Rossi S.r.l.',
-      partitaIva: '12345678903',
-      pecEmail: 'rossi@pec.it',
-    });
-  });
-
   /**
-   * The customer form sends `role` on every save, so an edit that changes a
-   * phone number arrives carrying the type the account already is. That must
-   * not read as a change and must not disturb the company row.
+   * The company row used to be dropped when a business was made personal. With
+   * the role pinned there is nothing to drop, and the row has to survive a save
+   * that asks for the switch — losing it would strand the account's Partita IVA
+   * and take its VAT number out of the switch flow.
    */
-  it('leaves the company row alone when the role is merely restated', async () => {
+  it('keeps the company row when a payload asks to make a business personal', async () => {
     const { service, profiles } = makeService([
       makeUser({ role: UserRole.BUSINESS }),
     ]);
     const company = seedCompany(profiles, { partitaIva: '12345678903' });
 
     await service.adminUpdateUser(USER_ID, {
-      role: UserRole.BUSINESS,
-      phone: '+393331234567',
+      role: UserRole.PERSONAL,
     } as any);
 
     expect(profiles.rows).toEqual([company]);
+  });
+
+  /**
+   * Company details name something a personal account cannot hold. Written,
+   * they would have produced the company row that the removed role switch used
+   * to create; ignored, they would be a 200 that saved none of what was typed.
+   */
+  it('refuses company details on a personal account rather than opening a company', async () => {
+    const { service, profiles } = makeService([makeUser()]);
+
+    await expect(
+      service.adminUpdateUser(USER_ID, {
+        companyName: 'Rossi S.r.l.',
+        partitaIva: '12345678903',
+      } as any),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(profiles.rows).toHaveLength(0);
+  });
+
+  it('refuses a PEC on a personal account too', async () => {
+    const { service } = makeService([makeUser()]);
+
+    await expect(
+      service.adminUpdateUser(USER_ID, { pecEmail: 'rossi@pec.it' } as any),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('still corrects the company details of an account that is a business', async () => {
+    const { service, profiles } = makeService([
+      makeUser({ role: UserRole.BUSINESS }),
+    ]);
+    seedCompany(profiles, { companyName: 'Old S.r.l.', partitaIva: '12345678903' });
+
+    await service.adminUpdateUser(USER_ID, {
+      companyName: 'Rossi S.r.l.',
+      pecEmail: 'rossi@pec.it',
+    } as any);
+
+    expect(profiles.rows[0]).toMatchObject({
+      companyName: 'Rossi S.r.l.',
+      pecEmail: 'rossi@pec.it',
+    });
   });
 
   /** Null and the empty string both mean "there is none", not "leave it". */
@@ -661,6 +657,7 @@ describe('UsersService — an admin moving an account between the two types', ()
     expect(profiles.rows[0].pecEmail).toBeNull();
   });
 });
+
 
 /**
  * A person has a residence; a company has a registered office — a sede legale —
@@ -787,20 +784,25 @@ describe('UsersService — the account address follows the account type', () => 
     return row;
   }
 
-  it('turns the residence into a registered office when an account becomes a company', async () => {
+  /**
+   * The type used to be rewritten when an admin moved an account between the
+   * two. Nothing moves an account any more, so the type an address was filed
+   * under at registration is the type it keeps — a save that asks for the other
+   * role changes neither the account nor its address.
+   */
+  it('leaves a residence a residence when a payload asks for a business', async () => {
     const { service, addresses } = makeService([makeUser()]);
     seedAddress(addresses, AddressType.RESIDENTIAL);
 
     await service.adminUpdateUser(USER_ID, {
       role: UserRole.BUSINESS,
-      companyName: 'Verdi S.r.l.',
-      partitaIva: '12345678901',
+      firstName: 'Marco',
     } as any);
 
-    expect(addresses.rows[0].addressType).toBe(AddressType.LEGAL);
+    expect(addresses.rows[0].addressType).toBe(AddressType.RESIDENTIAL);
   });
 
-  it('turns the registered office back into a residence when an account becomes personal', async () => {
+  it('leaves a registered office a registered office', async () => {
     const { service, profiles, addresses } = makeService([
       makeUser({ role: UserRole.BUSINESS }),
     ]);
@@ -809,34 +811,30 @@ describe('UsersService — the account address follows the account type', () => 
 
     await service.adminUpdateUser(USER_ID, { role: UserRole.PERSONAL } as any);
 
-    expect(addresses.rows[0].addressType).toBe(AddressType.RESIDENTIAL);
+    expect(addresses.rows[0].addressType).toBe(AddressType.LEGAL);
   });
 
   /**
    * Where the energy arrives and where the invoice is posted are statements
-   * about places, not about who the holder is, so a role change leaves them
-   * exactly where they were. Rewriting them would lose a supply point.
+   * about places, not about who the holder is, and were never retyped. They
+   * stay untouched here for the same reason everything else does.
    */
-  it('leaves supply and billing addresses alone across a role change', async () => {
+  it('leaves supply and billing addresses alone', async () => {
     const { service, addresses } = makeService([makeUser()]);
     seedAddress(addresses, AddressType.RESIDENTIAL);
     seedAddress(addresses, AddressType.SUPPLY);
     seedAddress(addresses, AddressType.BILLING);
 
-    await service.adminUpdateUser(USER_ID, {
-      role: UserRole.BUSINESS,
-      companyName: 'Verdi S.r.l.',
-      partitaIva: '12345678901',
-    } as any);
+    await service.adminUpdateUser(USER_ID, { firstName: 'Marco' } as any);
 
     expect(addresses.rows.map((r) => r.addressType)).toEqual([
-      AddressType.LEGAL,
+      AddressType.RESIDENTIAL,
       AddressType.SUPPLY,
       AddressType.BILLING,
     ]);
   });
 
-  /** An edit that does not touch the role must not touch the address either. */
+
   it('leaves the address type alone on an edit that keeps the role', async () => {
     const { service, addresses } = makeService([makeUser()]);
     seedAddress(addresses, AddressType.RESIDENTIAL);
@@ -972,27 +970,24 @@ describe('UsersService — an address sent to the update routes', () => {
   });
 
   /**
-   * The address is written after the role retype, never before: writing first
-   * would insert under the new type while the old row was still waiting to be
-   * retyped into it, leaving the account with two registered offices.
+   * The address used to be written after a role retype, so that the two could
+   * not both land under the same type. With the role pinned there is no retype
+   * to sequence against: the row replaces the one of the account's own type and
+   * the account is left holding exactly one.
    */
-  it('lands one registered office when the role changes in the same save', async () => {
+  it('replaces the account address rather than adding a second', async () => {
     const { service, addresses } = makeService([makeUser()]);
     seedAddress(addresses, AddressType.RESIDENTIAL);
 
-    await service.adminUpdateUser(USER_ID, {
-      role: UserRole.BUSINESS,
-      companyName: 'Verdi S.r.l.',
-      partitaIva: '12345678901',
-      address,
-    } as any);
+    await service.adminUpdateUser(USER_ID, { address } as any);
 
     expect(addresses.rows).toHaveLength(1);
     expect(addresses.rows[0]).toMatchObject({
       streetAddress: 'Via Nuova 9',
-      addressType: AddressType.LEGAL,
+      addressType: AddressType.RESIDENTIAL,
     });
   });
+
 
   it('leaves the address alone on a save that does not carry one', async () => {
     const { service, addresses } = makeService([makeUser()]);

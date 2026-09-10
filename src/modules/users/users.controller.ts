@@ -112,8 +112,8 @@ export class UsersController {
     description:
       'Updates the authenticated user\'s profile fields. All fields are optional. ' +
       'Users cannot change their own role or status — the account type is settled ' +
-      'when the account is created and never changes, so `role` is ignored here ' +
-      'whatever it says. The password field is not accepted (use auth endpoints ' +
+      'when the account is created and never changes, and `role` is not a field on ' +
+      'this payload at all. The password field is not accepted (use auth endpoints ' +
       'for password changes). Company fields are written only for an account that ' +
       'registered as a business. One account carries one tax identifier: a ' +
       'personal account sends `codiceFiscale` and a business account ' +
@@ -528,11 +528,14 @@ export class UsersController {
     summary: 'Update user by ID (admin only)',
     description:
       'Updates a user\'s profile fields by UUID. All fields are optional. ' +
-      'Admins can update role, status, and all profile fields. The password field is excluded from updates. ' +
+      'Admins can update status and all profile fields. The password field is excluded from updates. ' +
+      '`role` is not accepted at all: the account type is settled when the account is created and ' +
+      'never changes, for an admin no more than for the customer, so no request moves an account ' +
+      'between personal and business. Company fields sent to a personal account are refused with a ' +
+      '400 rather than ignored. ' +
       'An `address` replaces the one the account already holds of that type, or writes a first one. ' +
       'Its type follows the account: `legal` — the registered office — on a business account and ' +
-      '`residential` on a personal one, and sending the other is refused with a 400. Changing the ' +
-      'role in the same request re-files the existing address under the new type.',
+      '`residential` on a personal one, and sending the other is refused with a 400.',
   })
   @ApiBody({ type: UpdateUserDto })
   @ApiOkResponse({

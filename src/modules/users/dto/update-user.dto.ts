@@ -21,7 +21,17 @@ import {
  * check every tax ID in this codebase gets: the check character, not the shape.
  */
 export class UpdateUserDto extends PartialType(
-  OmitType(CreateUserDto, ['password', 'codiceFiscale', 'partitaIva'] as const),
+  OmitType(CreateUserDto, [
+    'password',
+    'codiceFiscale',
+    'partitaIva',
+    // Omitted, not merely ignored. The account type is settled when the account
+    // is created and never changes afterwards — for anyone, admin included — so
+    // there is no route that reads it off a PATCH. Leaving it on the DTO
+    // advertised a field in Swagger that nothing acts on, which is how it came
+    // to be sent on every save from the dashboard's edit form.
+    'role',
+  ] as const),
 ) {
   @ApiPropertyOptional({
     example: 'RSSMRA85T10A562S',

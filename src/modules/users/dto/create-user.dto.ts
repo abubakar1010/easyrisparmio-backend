@@ -74,9 +74,11 @@ export class CreateUserDto {
   @ApiPropertyOptional({
     example: 'RSSMRA85T10A562S',
     description:
-      "The account holder's own Codice Fiscale (16 chars) — what identifies a " +
-      'personal account. Refused on a business account, which is identified by ' +
-      'its `partitaIva`: one account carries one tax identifier, never both.',
+      'The Codice Fiscale (16 chars) of the person behind the account — the ' +
+      'customer on a personal account, the owner who signs on a business one. ' +
+      'Accepted on both: a company is identified by its `partitaIva`, which is ' +
+      "what the direct debit mandate is filed against, with its owner's code " +
+      'recorded alongside.',
   })
   // Stored the way it is compared: upper case, no separators. Otherwise the
   // same code saved as 'rssmra…' and as 'RSSMRA…' are two different values,

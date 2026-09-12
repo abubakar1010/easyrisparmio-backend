@@ -138,14 +138,13 @@ export class UsersService {
             phone: dto.phone,
             role: dto.role,
             status: dto.status || UserStatus.ACTIVE,
-            // One account, one tax identifier: a company is identified by the
-            // Partita IVA on its company row, so the user row's tax code stays
-            // empty on a business account. `CreateUserDto` refuses one outright;
-            // this is what makes the rule true of the row as well as the request.
-            codiceFiscale:
-              dto.role === UserRole.BUSINESS
-                ? undefined
-                : dto.codiceFiscale || undefined,
+            // The Codice Fiscale of whoever is behind the account: the customer
+            // on a personal one, the owner who signs on a business one. A
+            // company is identified by the Partita IVA on its company row, and
+            // that is what the direct debit mandate is filed against — but the
+            // supplier still asks a company for its owner's code, so the column
+            // is filled on either kind of account.
+            codiceFiscale: dto.codiceFiscale || undefined,
             emailVerified: true, // Admin-created users are pre-verified
           }),
         );
@@ -339,13 +338,18 @@ export class UsersService {
   }
 
   /**
-   * One account, one tax identifier.
+   * A VAT number belongs to a company and to nothing else.
    *
-   * A personal account is identified by its holder's Codice Fiscale and a
-   * business account by the company's Partita IVA. Neither may carry the other,
-   * so a request offering the wrong one is refused by name rather than quietly
-   * dropped — an admin who typed a VAT number into the tax code box has made a
-   * mistake worth hearing about, and a silent drop reads as a save that worked.
+   * A personal account has no Partita IVA to carry, so a request offering one
+   * is refused by name rather than quietly dropped — an admin who typed a VAT
+   * number into a private customer's form has made a mistake worth hearing
+   * about, and a silent drop reads as a save that worked.
+   *
+   * The Codice Fiscale has no matching rule: it identifies a natural person,
+   * and both kinds of account have one behind them — the customer on a personal
+   * account, the owner who signs on a business one. What stays company-only is
+   * the identifier the direct debit mandate is filed against, which is the
+   * Partita IVA (`CasesService.assertHolderTaxIdMatchesRole`).
    *
    * Checked here rather than on `UpdateUserDto`, because a PATCH need not carry
    * `role`: the app's own profile save sends none, and the rule has to be read
@@ -355,11 +359,6 @@ export class UsersService {
     isBusiness: boolean,
     dto: { codiceFiscale?: string | null; partitaIva?: string | null },
   ): void {
-    if (isBusiness && dto.codiceFiscale) {
-      throw new BadRequestException(
-        'A business account is identified by its Partita IVA and does not carry a Codice Fiscale',
-      );
-    }
     if (!isBusiness && dto.partitaIva) {
       throw new BadRequestException(
         'A personal account is identified by its Codice Fiscale and does not carry a Partita IVA',
@@ -467,8 +466,8 @@ export class UsersService {
     // The stored role, then, and only ever the stored role.
     const isBusiness = user.role === UserRole.BUSINESS;
 
-    // Which tax identifier the account may carry follows from that same stored
-    // role: a personal account its Codice Fiscale, a company its Partita IVA.
+    // A VAT number is a company's, and follows that same stored role — it may
+    // not be written onto a private customer.
     this.assertTaxIdsMatchRole(isBusiness, dto);
 
     // A company's identifying details may be corrected, never introduced onto
@@ -511,12 +510,6 @@ export class UsersService {
     try {
       await this.dataSource.transaction(async (manager) => {
         Object.assign(user, userData);
-        // A company keeps no personal tax code. The role cannot move, so this
-        // is an invariant rather than a conversion: it holds the line for rows
-        // that predate the rule and still carry one.
-        if (isBusiness) {
-          user.codiceFiscale = null as unknown as string;
-        }
         await manager.save(User, user);
 
         // Filed under the type the account's own — unchanging — role calls for:
@@ -645,8 +638,8 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    // The account's own role decides which tax identifier it may send: a
-    // personal account its Codice Fiscale, a company its Partita IVA.
+    // A VAT number belongs to a company: the account's own role decides whether
+    // it may send one at all.
     this.assertTaxIdsMatchRole(user.role === UserRole.BUSINESS, dto);
 
     // Only allow users to update certain fields on their own profile.
@@ -658,7 +651,9 @@ export class UsersService {
     if (dto.firstName !== undefined) allowedFields.firstName = dto.firstName;
     if (dto.lastName !== undefined) allowedFields.lastName = dto.lastName;
     if (dto.phone !== undefined) allowedFields.phone = dto.phone;
-    if (dto.codiceFiscale !== undefined && user.role !== UserRole.BUSINESS) {
+    // Accepted on either kind of account: it is the code of the person behind
+    // it, which a company has as much as a private customer does.
+    if (dto.codiceFiscale !== undefined) {
       allowedFields.codiceFiscale = dto.codiceFiscale;
     }
     if (dto.avatar !== undefined) allowedFields.avatar = dto.avatar;

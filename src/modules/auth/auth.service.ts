@@ -122,17 +122,14 @@ export class AuthService {
             lastName: dto.lastName,
             phone: dto.phone,
             role: dto.role,
-            // The personal account's own identifier. Sign-up asks neither
-            // account kind for it — the profile screen and the switch request
-            // form do — but it is stored when a client sends one. Never on a
-            // business account: that one is identified by the Partita IVA on
-            // its company row, and carrying both is what made every screen ask
-            // which of the two "the tax code" meant. `RegisterDto` refuses one
-            // outright; this keeps the row honest whatever reaches it.
-            codiceFiscale:
-              dto.role === UserRole.BUSINESS
-                ? undefined
-                : dto.codiceFiscale || undefined,
+            // The Codice Fiscale of the person behind the account — the
+            // customer on a personal one, the owner who signs on a business
+            // one. Sign-up asks neither account kind for it — the profile
+            // screen and the switch request form do — but it is stored when a
+            // client sends one. A company is still identified by the Partita
+            // IVA on its company row, and that is what the direct debit mandate
+            // is filed against; this is the signatory's own code beside it.
+            codiceFiscale: dto.codiceFiscale || undefined,
             status: UserStatus.PENDING_VERIFICATION,
           }),
         );

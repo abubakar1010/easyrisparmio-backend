@@ -51,15 +51,16 @@ describe('RegisterDto — the three identifiers a business sign-up carries', () 
   );
 
   /**
-   * The VAT number is the company's identifier, so a Codice Fiscale on a
-   * business sign-up is refused rather than stored alongside it. Two tax IDs on
-   * one account is what left every screen having to say which of them it meant,
-   * and the switch request filing the mandate against whichever it read first.
+   * The two codes identify two different parties, so a business sign-up may
+   * carry both: the Partita IVA is the company's, the Codice Fiscale belongs to
+   * the owner who signs. Which of them the direct debit mandate is filed
+   * against is settled on the case — always the VAT number for a company — so
+   * nothing downstream has to guess from the account alone.
    */
-  it('refuses a business sign-up that also offers a Codice Fiscale', async () => {
+  it('accepts a business sign-up that also offers the owner Codice Fiscale', async () => {
     expect(
       await failedOn({ ...BUSINESS, codiceFiscale: 'RSSMRA85T10A562S' }),
-    ).toContain('codiceFiscale');
+    ).not.toContain('codiceFiscale');
   });
 
   /**

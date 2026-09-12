@@ -164,13 +164,14 @@ export class RegisterDto {
 
   @ApiPropertyOptional({
     description:
-      "The account holder's own Codice Fiscale. A personal account is " +
-      'identified by it; a business account is identified by its `partitaIva` ' +
-      'and is refused this field outright — one account carries one tax ' +
-      'identifier, never both. Optional even for a personal sign-up: it is ' +
-      'asked for on the profile screen and on the switch request form, which ' +
-      'is where the SEPA mandate needs it. Still checked when it is given — ' +
-      'optional is not unvalidated.',
+      "The Codice Fiscale of the natural person behind the account — the " +
+      'customer themselves on a personal account, the owner who signs on a ' +
+      'business one. Accepted on both: a company is identified by its ' +
+      '`partitaIva`, and that is what the SEPA mandate is filed against, but ' +
+      "the supplier still asks for its owner's code beside it. Optional at " +
+      'sign-up: it is asked for on the profile screen and on the switch ' +
+      'request form. Still checked when it is given — optional is not ' +
+      'unvalidated.',
     example: 'RSSMRA85T10A562S',
   })
   @Transform(({ value }) =>

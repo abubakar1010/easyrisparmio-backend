@@ -225,24 +225,29 @@ const targetsBusiness = (object: unknown): boolean =>
 /**
  * A Codice Fiscale field on a DTO that carries its own `role`.
  *
- * Personal: optional, and checked against its check character when given.
- * Business: refused outright — the company's Partita IVA is what identifies it,
- * and an account holding both is the ambiguity this rule exists to remove.
+ * Optional on either kind of account, and checked against its check character
+ * whenever one is given.
+ *
+ * It used to be refused on a business payload, under a rule that an account
+ * holds exactly one tax identifier. That rule confused two different things: a
+ * company is identified by its Partita IVA, but the natural person who signs
+ * for it still has a Codice Fiscale, and the supplier asks for both. So a
+ * business account carries the company's VAT number *and* its owner's code —
+ * the direct debit mandate is still filed against the Partita IVA, which is
+ * where the "one identifier" rule actually belongs (see
+ * `CasesService.assertHolderTaxIdMatchesRole`).
  */
 @ValidatorConstraint({ async: false })
 export class IsPersonalTaxCodeConstraint
   implements ValidatorConstraintInterface
 {
-  validate(value: unknown, args?: { object?: unknown }): boolean {
-    if (targetsBusiness(args?.object)) return isBlank(value);
+  validate(value: unknown): boolean {
     if (isBlank(value)) return true;
     return typeof value === 'string' && isValidCodiceFiscale(value);
   }
 
-  defaultMessage(args?: { object?: unknown }): string {
-    return targetsBusiness(args?.object)
-      ? 'A business account is identified by its Partita IVA and does not carry a Codice Fiscale'
-      : 'Codice Fiscale is not valid — check the 16 characters, the last one is derived from the other fifteen';
+  defaultMessage(): string {
+    return 'Codice Fiscale is not valid — check the 16 characters, the last one is derived from the other fifteen';
   }
 }
 
@@ -272,7 +277,11 @@ export class IsBusinessTaxIdConstraint implements ValidatorConstraintInterface {
   }
 }
 
-/** The account tax code a personal account may carry, and a business may not. */
+/**
+ * The Codice Fiscale of the natural person behind the account — the customer
+ * themselves on a personal account, the owner who signs on a business one.
+ * Optional on both.
+ */
 export const IsPersonalTaxCode = decoratorFor(IsPersonalTaxCodeConstraint);
 
 /** The VAT number a business account must carry, and a personal may not. */

@@ -15,10 +15,11 @@ import {
  * On `CreateUserDto` the rule reads `role` off the payload, which a create
  * always carries. A PATCH does not: the app's own profile save sends a company's
  * Partita IVA with no role at all, and inheriting the create rule would read
- * that as a personal account offering a VAT number and refuse it. So which of
- * the two the account may carry is settled in `UsersService` against the role
- * actually stored — see `assertTaxIdsMatchRole` — and what stays here is the
- * check every tax ID in this codebase gets: the check character, not the shape.
+ * that as a personal account offering a VAT number and refuse it. So whether
+ * the account may carry a VAT number at all is settled in `UsersService`
+ * against the role actually stored — see `assertTaxIdsMatchRole` — and what
+ * stays here is the check every tax ID in this codebase gets: the check
+ * character, not the shape.
  */
 export class UpdateUserDto extends PartialType(
   OmitType(CreateUserDto, [

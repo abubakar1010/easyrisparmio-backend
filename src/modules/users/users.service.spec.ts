@@ -369,8 +369,7 @@ describe('UsersService — company details on the own-profile update', () => {
   });
 
   /**
-   * One account, one tax identifier. A private customer is identified by their
-   * Codice Fiscale and a company by its Partita IVA, so the VAT number is
+   * A VAT number belongs to a company. A private customer has none, so it is
    * refused here by name rather than quietly dropped: a save that reports
    * success and stores nothing is how a customer ends up at the switch request
    * form wondering where the number they typed went.
@@ -384,17 +383,25 @@ describe('UsersService — company details on the own-profile update', () => {
     expect(profiles.rows).toHaveLength(0);
   });
 
-  it('refuses a Codice Fiscale on a business account', async () => {
+  /**
+   * The Codice Fiscale identifies a natural person, and a company has one
+   * behind it: the owner who signs the contract. The supplier asks a business
+   * customer for both codes, so the account carries both — the company's
+   * Partita IVA and its owner's Codice Fiscale. What stays company-only is the
+   * identifier the direct debit mandate is filed against, and that rule lives
+   * on the case, not here.
+   */
+  it('stores the owner Codice Fiscale on a business account', async () => {
     const { service, users } = makeService([
       makeUser({ role: UserRole.BUSINESS }),
     ]);
 
-    await expect(
-      service.updateProfile(USER_ID, {
-        codiceFiscale: 'RSSMRA85T10A562S',
-      } as any),
-    ).rejects.toThrow(BadRequestException);
-    expect(users.rows[0].codiceFiscale).toBeFalsy();
+    const updated = await service.updateProfile(USER_ID, {
+      codiceFiscale: 'RSSMRA85T10A562S',
+    } as any);
+
+    expect(updated.codiceFiscale).toBe('RSSMRA85T10A562S');
+    expect(users.rows[0].codiceFiscale).toBe('RSSMRA85T10A562S');
   });
 
   /**

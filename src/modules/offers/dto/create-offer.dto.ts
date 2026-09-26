@@ -11,6 +11,7 @@ import {
   MaxLength,
   Min,
   Max,
+  ValidateIf,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
@@ -20,6 +21,7 @@ import {
   UserTarget,
 } from '../../../common/enums/offer.enum';
 import { OfferStatus } from '../../../common/enums/offer-status.enum';
+import { MAX_CONTRACT_DURATION_MONTHS } from '../entities/offer.entity';
 
 export class CreateOfferDto {
   @ApiProperty({ description: 'Offer name', example: 'Casa Luce Fix 12', maxLength: 255 })
@@ -77,10 +79,22 @@ export class CreateOfferDto {
   @Max(99999999.99)
   activationCost: number;
 
-  @ApiProperty({ description: 'Contract duration in days', example: 365 })
+  @ApiProperty({
+    description:
+      'How long the offer conditions stay valid for the customer after activation, in months. ' +
+      'null means indefinite (no fixed term). Independent of validFrom/validUntil, which only bound when the offer can be sold.',
+    example: 12,
+    nullable: true,
+    type: Number,
+    minimum: 1,
+    maximum: MAX_CONTRACT_DURATION_MONTHS,
+  })
+  // Required, but null is a real answer (indefinite) rather than a missing one.
+  @ValidateIf((_, value) => value !== null)
   @IsInt()
   @Min(1)
-  contractDurationDays: number;
+  @Max(MAX_CONTRACT_DURATION_MONTHS)
+  contractDurationMonths: number | null;
 
   @ApiPropertyOptional({ description: 'Whether the energy is from green sources', example: true, default: false })
   @IsOptional()

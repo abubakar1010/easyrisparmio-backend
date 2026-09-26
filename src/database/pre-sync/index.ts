@@ -307,6 +307,60 @@ async function retireBusinessTerms(ds: DataSource): Promise<void> {
 }
 
 /**
+ * Gives offers a real contract duration, in months, separate from the dates the
+ * offer is on sale.
+ *
+ * Until now the dashboard never asked for a duration: it derived one from the
+ * validity dates, so offers told customers their contract lasted "1 day" or
+ * "6 days". Those values are recognised as either shorter than a month or equal
+ * to the validity window, and become indefinite (NULL) — nobody ever chose a
+ * term for them, and a guess would be shown to customers as a commitment. Every
+ * other row (seeded, or API-created with a deliberate value) is converted to the
+ * nearest whole month.
+ *
+ * `contract_duration_days` is then re-derived from the months (0 = indefinite)
+ * so the clients still reading days agree with the dashboard. Runs only on the
+ * boot that adds the column; afterwards the months are the admin's.
+ */
+async function addOfferContractDurationMonths(ds: DataSource): Promise<void> {
+  if (!(await tableExists(ds, 'offers'))) return;
+  if (await columnExists(ds, 'offers', 'contract_duration_months')) return;
+
+  await ds.query(
+    `ALTER TABLE offers ADD COLUMN contract_duration_months integer NULL`,
+  );
+
+  await ds.query(
+    `UPDATE offers
+        SET contract_duration_months = CASE
+              WHEN valid_until IS NOT NULL
+               AND contract_duration_days = (valid_until - valid_from) THEN NULL
+              WHEN contract_duration_days >= 28
+                THEN LEAST(60, GREATEST(1, ROUND(contract_duration_days * 12 / 365.0)))::int
+              ELSE NULL
+            END`,
+  );
+  await ds.query(
+    `UPDATE offers
+        SET contract_duration_days = CASE
+              WHEN contract_duration_months IS NULL THEN 0
+              ELSE ROUND(contract_duration_months * 365 / 12.0)::int
+            END`,
+  );
+
+  const unset = await ds.query(
+    `SELECT COUNT(*)::int AS count FROM offers WHERE contract_duration_months IS NULL`,
+  );
+  const reset = unset?.[0]?.count ?? 0;
+  if (reset > 0) {
+    logger.warn(
+      `${reset} offer(s) had no real contract duration (it was derived from the validity dates); ` +
+        `they are now "indefinite" — set the real duration in the dashboard.`,
+    );
+  }
+}
+
+/**
  * Files every account's own address under the type its role calls for.
  *
  * A person has a residence; a company has a registered office — a sede legale —
@@ -378,6 +432,7 @@ export async function runPreSyncMigrations(ds: DataSource): Promise<void> {
     await seedSentOfferDisplayOrder(ds);
     await retireBusinessTerms(ds);
     await realignAccountAddressTypes(ds);
+    await addOfferContractDurationMonths(ds);
   } catch (error: any) {
     logger.error(`Pre-sync migration failed: ${error?.message ?? error}`);
     throw error;

@@ -1131,6 +1131,7 @@ export class BillsService implements OnModuleInit {
       marketType: offer.marketType,
       paymentMethod: offer.paymentMethod,
       target: offer.target,
+      contractDurationMonths: offer.contractDurationMonths,
       contractDurationDays: offer.contractDurationDays,
       isGreenEnergy: offer.isGreenEnergy,
       estimatedSavings: savingsMap.has(offer.id)

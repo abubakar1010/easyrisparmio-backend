@@ -6,7 +6,10 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, Not } from 'typeorm';
-import { Offer } from './entities/offer.entity';
+import {
+  Offer,
+  contractDurationMonthsToDays,
+} from './entities/offer.entity';
 import { SentOffer } from './entities/sent-offer.entity';
 import { SwitchCase } from '../cases/entities/switch-case.entity';
 import { Supplier } from '../suppliers/entities/supplier.entity';
@@ -92,6 +95,9 @@ export class OffersService {
 
     const offer = this.offerRepository.create({
       ...dto,
+      contractDurationDays: contractDurationMonthsToDays(
+        dto.contractDurationMonths,
+      ),
       createdBy: adminId,
       updatedBy: adminId,
     });
@@ -336,6 +342,11 @@ export class OffersService {
     }
 
     Object.assign(offer, updateData);
+    if (updateData.contractDurationMonths !== undefined) {
+      offer.contractDurationDays = contractDurationMonthsToDays(
+        offer.contractDurationMonths,
+      );
+    }
     this.assertPricingComplete(offer.marketType, offer.energyType, offer);
     offer.updatedBy = adminId;
     try {

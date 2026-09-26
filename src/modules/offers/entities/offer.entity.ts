@@ -16,6 +16,19 @@ import {
 import { OfferStatus } from '../../../common/enums/offer-status.enum';
 import { Supplier } from '../../suppliers/entities/supplier.entity';
 
+/** Longest fixed term an offer may carry; beyond it clients that read days as `days / 30` drift. */
+export const MAX_CONTRACT_DURATION_MONTHS = 60;
+
+/**
+ * Days equivalent of a contract term, using an average month so 12/24/36 months
+ * land on 365/730/1095. Null (indefinite) becomes 0, which every client already
+ * renders as "no fixed term".
+ */
+export function contractDurationMonthsToDays(months: number | null): number {
+  if (months == null || months <= 0) return 0;
+  return Math.round((months * 365) / 12);
+}
+
 @Entity('offers')
 @Index(['supplierId', 'energyType'])
 export class Offer extends BaseEntity {
@@ -87,6 +100,20 @@ export class Offer extends BaseEntity {
   })
   activationCost: number;
 
+  /**
+   * How long the offer's conditions stay locked for a customer once their
+   * supply is activated — 12, 24, 36 months — or null when the contract has no
+   * fixed term (indefinite). Nothing to do with `validFrom`/`validUntil`, which
+   * only say when the offer can be sold.
+   */
+  @Column({ name: 'contract_duration_months', type: 'int', nullable: true })
+  contractDurationMonths: number | null;
+
+  /**
+   * `contractDurationMonths` expressed in days, kept for the clients that still
+   * read it (the mobile app, sent-offer snapshots). Always derived through
+   * `contractDurationMonthsToDays`, never written on its own; 0 means indefinite.
+   */
   @Column({ name: 'contract_duration_days', type: 'int' })
   contractDurationDays: number;
 

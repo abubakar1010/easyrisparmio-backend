@@ -160,7 +160,7 @@ async function main() {
         name: 'Verify Offer',
         energyType: EnergyType.ELECTRICITY,
         marketType: MarketType.FIXED,
-        contractDurationDays: 365,
+        contractDurationMonths: 12,
         validFrom: '2026-01-01',
         supplierId: goodSupplier.id,
         offerStatus: OfferStatus.ACTIVE,

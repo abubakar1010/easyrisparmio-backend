@@ -81,7 +81,7 @@ ARCHIVED ARCHIVED  ARCHIVED  ARCHIVED
 | `pricePerSmc` | decimal(10,6) | No | Gas price per standard cubic meter |
 | `fixedMonthlyFee` | decimal(10,2) | Yes | Monthly fixed fee (default: 0) |
 | `activationCost` | decimal(10,2) | Yes | One-time activation cost (default: 0) |
-| `contractDurationMonths` | int | Yes | Contract duration in months |
+| `contractDurationMonths` | int \| null | Yes | How long the offer conditions stay valid for the customer after activation (1–60 months). `null` = indefinite. Unrelated to `validFrom`/`validUntil`, which only bound when the offer can be sold. Responses also carry the derived `contractDurationDays` (0 = indefinite) for older clients |
 | `isGreenEnergy` | boolean | No | Green energy certified (default: false) |
 | `isActive` | boolean | No | Active flag (default: true) |
 | `validFrom` | date | Yes | Offer validity start (ISO 8601) |

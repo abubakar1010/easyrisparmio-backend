@@ -512,7 +512,8 @@ Table offers [headercolor: #9b59b6] {
   price_per_smc decimal(10,6)
   fixed_monthly_fee decimal(10,2) [not null, default: 0]
   activation_cost decimal(10,2) [not null, default: 0]
-  contract_duration_months int [not null]
+  contract_duration_months int [note: 'NULL = indefinite']
+  contract_duration_days int [not null, note: 'Derived from months; 0 = indefinite']
   is_green_energy boolean [not null, default: false]
   is_active boolean [not null, default: true]
   status offer_status [not null, default: 'draft']

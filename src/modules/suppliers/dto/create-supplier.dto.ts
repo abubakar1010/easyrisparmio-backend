@@ -16,7 +16,6 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { SupplierStatus, Commodity } from '../../../common/enums/supplier.enum';
 import { IsPhoneNumber } from '../../../common/validators/is-phone-number.validator';
 import { IsItalianTaxId } from '../../../common/validators/is-italian-tax-id.validator';
-import { IsItalianIban } from '../../../common/validators/is-italian-iban.validator';
 
 export class CreateSupplierDto {
   @ApiProperty({ description: 'Supplier brand name', example: 'Enel Energia', maxLength: 255 })
@@ -112,13 +111,6 @@ export class CreateSupplierDto {
   @IsNotEmpty({ message: 'ZIP code is required' })
   @Matches(/^\d{5}$/, { message: 'ZIP code must be a valid 5-digit Italian CAP (e.g., 00198)' })
   zipCode: string;
-
-  @ApiProperty({ description: 'Italian IBAN (27 characters, starts with IT)', example: 'IT60X0542811101000000123456', maxLength: 34 })
-  @IsString()
-  @IsNotEmpty({ message: 'IBAN is required' })
-  @MaxLength(34)
-  @IsItalianIban()
-  iban: string;
 
   @ApiPropertyOptional({ description: 'Contract start date (ISO 8601)', example: '2025-01-01' })
   @IsOptional()

@@ -423,6 +423,10 @@ async function realignAccountAddressTypes(ds: DataSource): Promise<void> {
  */
 export async function runPreSyncMigrations(ds: DataSource): Promise<void> {
   try {
+    if (await columnExists(ds, 'suppliers', 'iban')) {
+      await ds.query('ALTER TABLE "suppliers" DROP COLUMN "iban"');
+      logger.log('Removed the obsolete supplier IBAN column');
+    }
     await retireContractStatuses(ds);
     await moveContractDatesOntoCases(ds);
     await renameReconciliationMatchColumn(ds);

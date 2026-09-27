@@ -73,9 +73,6 @@ export class Supplier extends BaseEntity {
   @Column({ type: 'varchar', length: 100, nullable: true })
   country: string | null;
 
-  @Column({ type: 'varchar', length: 34, nullable: true })
-  iban: string | null;
-
   @Column({ name: 'contract_start_date', type: 'date', nullable: true })
   contractStartDate: Date | null;
 

@@ -62,7 +62,7 @@ export class SuppliersService {
   ): Promise<PaginatedResponseDto<Supplier>> {
     const qb = this.supplierRepository
       .createQueryBuilder('supplier')
-      .where('supplier.isActive = :isActive', { isActive: true });
+      .where('supplier.status = :status', { status: SupplierStatus.ACTIVE });
 
     if (query.search) {
       qb.andWhere(
@@ -85,12 +85,6 @@ export class SuppliersService {
     const qb = this.supplierRepository
       .createQueryBuilder('supplier')
       .leftJoinAndSelect('supplier.offers', 'offers');
-
-    if (query.isActive !== undefined) {
-      qb.andWhere('supplier.isActive = :isActive', {
-        isActive: query.isActive,
-      });
-    }
 
     if (query.status) {
       qb.andWhere('supplier.status = :status', { status: query.status });
@@ -170,7 +164,7 @@ export class SuppliersService {
       );
     }
 
-    supplier.isActive = dto.isActive;
+    supplier.status = dto.status;
     supplier.updatedBy = adminId;
     return this.supplierRepository.save(supplier);
   }
@@ -222,7 +216,6 @@ export class SuppliersService {
     }, new Date(0));
 
     supplier.status = SupplierStatus.PENDING_DELETION;
-    supplier.isActive = false;
     supplier.scheduledDeletionDate = latestExpiry;
     supplier.updatedBy = adminId;
     await this.supplierRepository.save(supplier);

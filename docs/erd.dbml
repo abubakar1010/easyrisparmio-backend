@@ -486,7 +486,7 @@ Table suppliers [headercolor: #9b59b6] {
   logo_url varchar(500)
   description text
   rating decimal(3,2) [not null, default: 0]
-  is_active boolean [not null, default: true]
+  status supplier_status [not null, default: 'active', note: 'active | inactive | pending_deletion; only active suppliers carry offers']
   contact_email varchar(255)
   contact_phone varchar(20)
   website varchar(500)
@@ -497,7 +497,7 @@ Table suppliers [headercolor: #9b59b6] {
   updated_at timestamptz [not null, default: `now()`]
 
   indexes {
-    (is_active)
+    (status)
   }
 }
 

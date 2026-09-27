@@ -307,6 +307,55 @@ async function retireBusinessTerms(ds: DataSource): Promise<void> {
 }
 
 /**
+ * Makes `status` the only thing that says whether a supplier is usable.
+ *
+ * Suppliers used to carry two flags: `status` (active / warning / inactive /
+ * pending_deletion), shown as the badge, and `is_active`, the switch that
+ * actually gated offers. The switch never touched the status, so a supplier
+ * switched off still showed "active" and silently vanished from the offer
+ * form. Now:
+ *
+ *  - a switched-off supplier that is not already inactive or pending deletion
+ *    becomes `inactive`, so nothing that was blocked becomes usable;
+ *  - `warning` is retired. Every warning row left after that step was switched
+ *    on and could carry offers, so it becomes `active` — its behaviour is kept.
+ *    The rows have to move before `synchronize` rebuilds the enum without the
+ *    value, or the cast fails;
+ *  - `is_active` is dropped once its meaning lives in `status`, so no
+ *    information is lost.
+ *
+ * Idempotent: every step is a no-op once the column and the value are gone.
+ */
+async function foldSupplierActiveFlagIntoStatus(ds: DataSource): Promise<void> {
+  if (!(await tableExists(ds, 'suppliers'))) return;
+
+  if (await columnExists(ds, 'suppliers', 'is_active')) {
+    const result = await ds.query(
+      `UPDATE suppliers SET status = 'inactive'
+        WHERE is_active = false
+          AND status::text NOT IN ('inactive', 'pending_deletion')`,
+    );
+    const moved = result?.[1] ?? 0;
+    if (moved > 0) {
+      logger.log(`Marked ${moved} switched-off supplier(s) as inactive`);
+    }
+  }
+
+  const warnings = await ds.query(
+    `UPDATE suppliers SET status = 'active' WHERE status::text = 'warning'`,
+  );
+  const retired = warnings?.[1] ?? 0;
+  if (retired > 0) {
+    logger.log(`Moved ${retired} supplier(s) off the retired "warning" status`);
+  }
+
+  if (await columnExists(ds, 'suppliers', 'is_active')) {
+    await ds.query(`ALTER TABLE suppliers DROP COLUMN is_active`);
+    logger.log('Dropped suppliers.is_active; status now decides whether a supplier is usable');
+  }
+}
+
+/**
  * Gives offers a real contract duration, in months, separate from the dates the
  * offer is on sale.
  *
@@ -437,6 +486,7 @@ export async function runPreSyncMigrations(ds: DataSource): Promise<void> {
     await retireBusinessTerms(ds);
     await realignAccountAddressTypes(ds);
     await addOfferContractDurationMonths(ds);
+    await foldSupplierActiveFlagIntoStatus(ds);
   } catch (error: any) {
     logger.error(`Pre-sync migration failed: ${error?.message ?? error}`);
     throw error;

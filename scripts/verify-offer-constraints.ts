@@ -125,12 +125,11 @@ async function main() {
   // ─── Fixtures ────────────────────────────────────────────
   const supplierRepo = dataSource.getRepository(Supplier);
   const goodSupplier = await supplierRepo.save(
-    supplierRepo.create({ name: 'Verify Energia', isActive: true, status: SupplierStatus.ACTIVE }),
+    supplierRepo.create({ name: 'Verify Energia', status: SupplierStatus.ACTIVE }),
   );
   const dyingSupplier = await supplierRepo.save(
     supplierRepo.create({
       name: 'Verify Uscente',
-      isActive: true,
       status: SupplierStatus.PENDING_DELETION,
     }),
   );

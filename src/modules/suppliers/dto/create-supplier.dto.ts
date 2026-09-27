@@ -5,6 +5,7 @@ import {
   IsUrl,
   IsEmail,
   IsEnum,
+  IsIn,
   IsDateString,
   MaxLength,
   Min,
@@ -13,7 +14,11 @@ import {
   Matches,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { SupplierStatus, Commodity } from '../../../common/enums/supplier.enum';
+import {
+  ADMIN_SETTABLE_SUPPLIER_STATUSES,
+  SupplierStatus,
+  Commodity,
+} from '../../../common/enums/supplier.enum';
 import { IsPhoneNumber } from '../../../common/validators/is-phone-number.validator';
 import { IsItalianTaxId } from '../../../common/validators/is-italian-tax-id.validator';
 
@@ -55,9 +60,13 @@ export class CreateSupplierDto {
   @Max(5)
   rating?: number;
 
-  @ApiProperty({ description: 'Supplier status', example: 'active', enum: SupplierStatus })
-  @IsEnum(SupplierStatus, { message: 'Status must be one of: active, warning, inactive' })
-  status: SupplierStatus;
+  @ApiProperty({
+    description: 'Supplier status. Only an active supplier can carry offers; pending_deletion is set by the deletion flow.',
+    example: 'active',
+    enum: ADMIN_SETTABLE_SUPPLIER_STATUSES,
+  })
+  @IsIn(ADMIN_SETTABLE_SUPPLIER_STATUSES, { message: 'Status must be one of: active, inactive' })
+  status: SupplierStatus.ACTIVE | SupplierStatus.INACTIVE;
 
   @ApiProperty({ description: 'Commodity type', example: 'electricity', enum: Commodity })
   @IsEnum(Commodity, { message: 'Commodity must be one of: electricity, gas, dual' })

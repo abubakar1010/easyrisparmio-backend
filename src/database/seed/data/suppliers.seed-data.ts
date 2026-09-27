@@ -18,7 +18,6 @@ export async function seedSuppliers(
       description:
         'Il principale fornitore di energia elettrica e gas in Italia, con oltre 10 milioni di clienti su tutto il territorio nazionale. Offerte per il mercato libero residenziale e business.',
       rating: 4.2,
-      isActive: true,
       status: SupplierStatus.ACTIVE,
       commodity: Commodity.DUAL,
       contactName: 'Servizio Partner',
@@ -42,7 +41,6 @@ export async function seedSuppliers(
       description:
         'Società Benefit del gruppo Eni per la vendita di luce, gas e soluzioni energetiche. Presente su tutto il territorio italiano con offerte per privati e imprese.',
       rating: 3.9,
-      isActive: true,
       status: SupplierStatus.ACTIVE,
       commodity: Commodity.DUAL,
       contactName: 'Ufficio Agenzie',
@@ -66,7 +64,6 @@ export async function seedSuppliers(
       description:
         'Multiutility leader nel nord Italia per energia elettrica, gas, teleriscaldamento e servizi ambientali. Forte presenza in Lombardia.',
       rating: 4.0,
-      isActive: true,
       status: SupplierStatus.ACTIVE,
       commodity: Commodity.DUAL,
       contactName: 'Ufficio Commerciale',
@@ -90,7 +87,6 @@ export async function seedSuppliers(
       description:
         'Storica azienda energetica italiana, tra le prime in Europa. Offerte luce e gas per privati e aziende con forte attenzione alla sostenibilità.',
       rating: 3.9,
-      isActive: true,
       status: SupplierStatus.ACTIVE,
       commodity: Commodity.DUAL,
       contactName: 'Area Partner',
@@ -114,7 +110,6 @@ export async function seedSuppliers(
       description:
         'Multiutility con sede a Bologna, opera nel settore energetico e ambientale nel centro-nord Italia. Gruppo Hera.',
       rating: 3.7,
-      isActive: false,
       status: SupplierStatus.INACTIVE,
       commodity: Commodity.DUAL,
       contactName: 'Servizio Clienti',
@@ -138,7 +133,6 @@ export async function seedSuppliers(
       description:
         'Servizio di maggior tutela per la fornitura di energia elettrica. Società del gruppo Enel che gestisce i clienti domestici non vulnerabili in fase di transizione al mercato libero.',
       rating: 3.5,
-      isActive: true,
       status: SupplierStatus.ACTIVE,
       commodity: Commodity.ELECTRICITY,
       contactEmail: 'info@servizioelettriconazionale.it',
@@ -160,7 +154,6 @@ export async function seedSuppliers(
       description:
         "Multiutility del nord Italia attiva nella vendita di energia elettrica, gas e servizi per l'efficienza energetica. Forte presenza in Piemonte, Liguria, Emilia-Romagna e Toscana.",
       rating: 3.8,
-      isActive: true,
       status: SupplierStatus.ACTIVE,
       commodity: Commodity.DUAL,
       contactName: 'Servizio Clienti',
@@ -184,7 +177,6 @@ export async function seedSuppliers(
       description:
         'Società del Gruppo Acea per la vendita di energia elettrica e gas naturale. Presenza storica e capillare nel centro Italia, in particolare nel Lazio.',
       rating: 3.7,
-      isActive: true,
       status: SupplierStatus.ACTIVE,
       commodity: Commodity.DUAL,
       contactName: 'Ufficio Commerciale',
@@ -208,7 +200,6 @@ export async function seedSuppliers(
       description:
         'Filiale italiana del gruppo energetico europeo E.ON. Offerte luce e gas per residenziali e business con forte presenza digitale e attenzione alla transizione energetica.',
       rating: 3.9,
-      isActive: true,
       status: SupplierStatus.ACTIVE,
       commodity: Commodity.DUAL,
       contactName: 'Ufficio Partner',
@@ -232,7 +223,6 @@ export async function seedSuppliers(
       description:
         'Operatore energetico digitale italiano. Offerte 100% online per energia elettrica e gas naturale. Prima azienda energetica italiana a proporre un modello full-digital.',
       rating: 4.1,
-      isActive: true,
       status: SupplierStatus.ACTIVE,
       commodity: Commodity.DUAL,
       contactName: 'Team Digital',
@@ -256,7 +246,6 @@ export async function seedSuppliers(
       description:
         'Filiale italiana del gruppo francese ENGIE, leader globale nella transizione energetica. Servizi integrati di energia, gas e efficienza energetica per privati e aziende.',
       rating: 3.8,
-      isActive: true,
       status: SupplierStatus.ACTIVE,
       commodity: Commodity.DUAL,
       contactName: 'Divisione Clienti',
@@ -280,7 +269,6 @@ export async function seedSuppliers(
       description:
         'Fornitore di energia elettrica e gas naturale con sede a Bologna. Offerte competitive per privati e aziende con servizio clienti dedicato.',
       rating: 3.6,
-      isActive: true,
       status: SupplierStatus.ACTIVE,
       commodity: Commodity.DUAL,
       contactName: 'Servizio Clienti',
@@ -304,7 +292,6 @@ export async function seedSuppliers(
       description:
         'Multiutility del Trentino-Alto Adige, leader nazionale nella produzione di energia da fonti rinnovabili (idroelettrico). Energia 100% verde certificata.',
       rating: 4.1,
-      isActive: true,
       status: SupplierStatus.ACTIVE,
       commodity: Commodity.DUAL,
       contactName: 'Area Clienti',
@@ -328,7 +315,6 @@ export async function seedSuppliers(
       description:
         'Fornitore digitale di energia elettrica e gas con modello pay-per-use. App dedicata per gestione consumi, pagamenti e monitoraggio in tempo reale.',
       rating: 3.5,
-      isActive: true,
       status: SupplierStatus.ACTIVE,
       commodity: Commodity.DUAL,
       contactName: 'Customer Support',
@@ -352,7 +338,6 @@ export async function seedSuppliers(
       description:
         "Azienda energetica dell'Alto Adige con forte vocazione per le energie rinnovabili. Produttore e fornitore di energia 100% da fonti rinnovabili (idroelettrico alpino).",
       rating: 4.0,
-      isActive: true,
       status: SupplierStatus.ACTIVE,
       commodity: Commodity.DUAL,
       contactName: 'Ufficio Clienti',
@@ -376,7 +361,6 @@ export async function seedSuppliers(
       description:
         'Operatore energetico specializzato in energia verde certificata con Garanzia d\'Origine. Offerte luce e gas per privati e imprese attente alla sostenibilità.',
       rating: 3.6,
-      isActive: true,
       status: SupplierStatus.ACTIVE,
       commodity: Commodity.DUAL,
       contactName: 'Ufficio Commerciale',
@@ -400,7 +384,6 @@ export async function seedSuppliers(
       description:
         "Operatore multiservizio che integra luce, gas, telefonia e internet in un'unica bolletta. Soluzione all-in-one per famiglie e aziende.",
       rating: 3.5,
-      isActive: true,
       status: SupplierStatus.ACTIVE,
       commodity: Commodity.DUAL,
       contactName: 'Servizio Clienti',
@@ -424,7 +407,6 @@ export async function seedSuppliers(
       description:
         'Multiutility toscana attiva nella vendita di gas naturale e energia elettrica. Forte radicamento nel centro Italia con servizio clienti locale.',
       rating: 3.6,
-      isActive: true,
       status: SupplierStatus.ACTIVE,
       commodity: Commodity.DUAL,
       contactName: 'Area Clienti',
@@ -448,7 +430,6 @@ export async function seedSuppliers(
       description:
         'Brand digitale del gruppo Axpo Italia. Fornitore 100% online di luce e gas con offerte semplici e trasparenti. App dedicata per la gestione della fornitura.',
       rating: 3.8,
-      isActive: true,
       status: SupplierStatus.ACTIVE,
       commodity: Commodity.DUAL,
       contactName: 'Digital Support',
@@ -472,7 +453,6 @@ export async function seedSuppliers(
       description:
         "Fornitore digitale di luce e gas con modello ad abbonamento mensile fisso. Rata calcolata sul consumo reale stimato, con conguaglio annuale. Nessuna bolletta a sorpresa.",
       rating: 3.9,
-      isActive: true,
       status: SupplierStatus.ACTIVE,
       commodity: Commodity.DUAL,
       contactName: 'Team NeN',
@@ -496,7 +476,6 @@ export async function seedSuppliers(
       description:
         'Società del Gruppo Duferco che dal 2010 vende energia elettrica e gas nel mercato libero, con sede legale a Genova. Serve oltre 650.000 punti di fornitura in tutta Italia tra clienti domestici, condomini e imprese, e produce energia da impianti fotovoltaici e idroelettrici di proprietà.',
       rating: 3.9,
-      isActive: true,
       status: SupplierStatus.ACTIVE,
       commodity: Commodity.DUAL,
       contactName: 'Servizio Clienti',

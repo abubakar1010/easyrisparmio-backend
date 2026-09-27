@@ -42,7 +42,7 @@ function matches(operator: unknown, value: string): boolean {
 function makeService(options: {
   offerStatus: OfferStatus;
   cases?: FakeCase[];
-  supplier?: { isActive: boolean; status: SupplierStatus };
+  supplier?: { status: SupplierStatus };
   offer?: Partial<Offer>;
 }) {
   const offer = {
@@ -52,7 +52,7 @@ function makeService(options: {
     energyType: EnergyType.ELECTRICITY,
     marketType: MarketType.FIXED,
     pricePerKwh: 0.115,
-    supplier: options.supplier ?? { isActive: true, status: SupplierStatus.ACTIVE },
+    supplier: options.supplier ?? { status: SupplierStatus.ACTIVE },
     ...options.offer,
   } as unknown as Offer;
 
@@ -147,7 +147,7 @@ describe('OffersService — un-archiving', () => {
   it('refuses to republish an offer whose supplier is on the way out', async () => {
     const { service } = makeService({
       offerStatus: OfferStatus.ARCHIVED,
-      supplier: { isActive: true, status: SupplierStatus.PENDING_DELETION },
+      supplier: { status: SupplierStatus.PENDING_DELETION },
     });
 
     await expect(
@@ -158,7 +158,7 @@ describe('OffersService — un-archiving', () => {
   it('refuses to republish an offer whose supplier is inactive', async () => {
     const { service } = makeService({
       offerStatus: OfferStatus.ARCHIVED,
-      supplier: { isActive: false, status: SupplierStatus.INACTIVE },
+      supplier: { status: SupplierStatus.INACTIVE },
     });
 
     await expect(

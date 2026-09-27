@@ -67,7 +67,7 @@ export class SuppliersController {
                 logoUrl: 'https://cdn.easyresparmio.it/logos/enel-energia.png',
                 description: 'Leading Italian energy supplier since 1962',
                 rating: '4.50',
-                isActive: true,
+                status: 'active',
                 contactEmail: 'info@enelenergia.it',
                 contactPhone: '+39023456789',
                 website: 'https://www.enelenergia.it',
@@ -110,7 +110,7 @@ export class SuppliersController {
                 logoUrl: 'https://cdn.easyresparmio.it/logos/enel-energia.png',
                 description: 'Leading Italian energy supplier since 1962',
                 rating: '4.50',
-                isActive: true,
+                status: 'active',
                 contactEmail: 'info@enelenergia.it',
                 contactPhone: '+39023456789',
                 website: 'https://www.enelenergia.it',
@@ -126,7 +126,7 @@ export class SuppliersController {
                 logoUrl: null,
                 description: null,
                 rating: '3.80',
-                isActive: false,
+                status: 'inactive',
                 contactEmail: 'info@edison.it',
                 contactPhone: null,
                 website: 'https://www.edison.it',
@@ -212,7 +212,7 @@ export class SuppliersController {
             logoUrl: 'https://cdn.easyresparmio.it/logos/enel-energia.png',
             description: 'Leading Italian energy supplier since 1962',
             rating: '4.50',
-            isActive: true,
+            status: 'active',
             contactEmail: 'info@enelenergia.it',
             contactPhone: '+39023456789',
             website: 'https://www.enelenergia.it',
@@ -265,7 +265,7 @@ export class SuppliersController {
             logoUrl: 'https://cdn.easyresparmio.it/logos/enel-energia.png',
             description: 'Leading Italian energy supplier since 1962',
             rating: '4.50',
-            isActive: true,
+            status: 'active',
             contactEmail: 'info@enelenergia.it',
             contactPhone: '+39023456789',
             website: 'https://www.enelenergia.it',
@@ -327,10 +327,10 @@ export class SuppliersController {
   @ApiBearerAuth()
   @Roles(UserRole.ADMIN)
   @ApiOperation({
-    summary: 'Toggle supplier active status (admin)',
+    summary: 'Set a supplier active or inactive (admin)',
     description:
-      'Activates or deactivates a supplier. Active suppliers are visible in the public listing; ' +
-      'inactive suppliers are hidden from public but still visible to admins.',
+      'Sets the supplier status to active or inactive. Only active suppliers are listed publicly and can carry offers; ' +
+      'inactive suppliers stay visible to admins. A supplier pending deletion cannot be changed here.',
   })
   @ApiBody({ type: UpdateSupplierStatusDto })
   @ApiOkResponse({
@@ -345,7 +345,7 @@ export class SuppliersController {
               data: {
                 id: 's1a2b3c4-d5e6-7890-abcd-ef1234567890',
                 name: 'Enel Energia',
-                isActive: true,
+                status: 'active',
                 updatedBy: 'admin-uuid',
                 updatedAt: '2026-06-10T14:00:00.000Z',
               },
@@ -358,7 +358,7 @@ export class SuppliersController {
               data: {
                 id: 's1a2b3c4-d5e6-7890-abcd-ef1234567890',
                 name: 'Enel Energia',
-                isActive: false,
+                status: 'inactive',
                 updatedBy: 'admin-uuid',
                 updatedAt: '2026-06-10T14:00:00.000Z',
               },
@@ -386,7 +386,7 @@ export class SuppliersController {
     @CurrentUser('id') adminId: string,
   ) {
     const result = await this.suppliersService.toggleStatus(id, dto, adminId);
-    void this.activityLogService.log(adminId, 'Supplier Status Toggled', 'supplier', id, { isActive: dto.isActive });
+    void this.activityLogService.log(adminId, 'Supplier Status Toggled', 'supplier', id, { status: dto.status });
     return result;
   }
 

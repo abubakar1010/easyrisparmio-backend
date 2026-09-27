@@ -29,9 +29,6 @@ export class Supplier extends BaseEntity {
   @Column({ type: 'decimal', precision: 3, scale: 2, default: 0 })
   rating: number;
 
-  @Column({ name: 'is_active', type: 'boolean', default: true })
-  isActive: boolean;
-
   @Column({
     type: 'enum',
     enum: SupplierStatus,

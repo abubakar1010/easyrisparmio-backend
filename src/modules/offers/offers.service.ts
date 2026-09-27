@@ -590,14 +590,14 @@ export class OffersService {
     if (!supplier) {
       throw new NotFoundException('Supplier not found');
     }
-    if (!supplier.isActive) {
-      throw new BadRequestException(
-        'Cannot publish offers for an inactive supplier',
-      );
-    }
     if (supplier.status === SupplierStatus.PENDING_DELETION) {
       throw new BadRequestException(
         'Cannot publish offers for a supplier that is pending deletion',
+      );
+    }
+    if (supplier.status !== SupplierStatus.ACTIVE) {
+      throw new BadRequestException(
+        'Cannot publish offers for an inactive supplier',
       );
     }
   }

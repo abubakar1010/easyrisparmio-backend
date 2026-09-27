@@ -20,6 +20,12 @@ describe('priority task buckets', () => {
     BillStatus.CANCELLED,
   ];
 
+  /**
+   * Statuses still open but waiting on nobody here: the supplier is switching
+   * the supply on, so the operator has nothing to do until it goes live.
+   */
+  const MONITOR_ONLY_STATUSES: BillStatus[] = [BillStatus.AWAITING_ACTIVATION];
+
   it('never puts one bill status in two buckets', () => {
     const seen = new Set<BillStatus>();
     const duplicated: BillStatus[] = [];
@@ -34,9 +40,11 @@ describe('priority task buckets', () => {
     expect(duplicated).toEqual([]);
   });
 
-  it('accounts for every pipeline status that is still open', () => {
+  it('accounts for every pipeline status that still needs work', () => {
     const open = Object.values(BillStatus).filter(
-      (status) => !CLOSED_STATUSES.includes(status),
+      (status) =>
+        !CLOSED_STATUSES.includes(status) &&
+        !MONITOR_ONLY_STATUSES.includes(status),
     );
 
     expect([...PRIORITY_TASK_BILL_STATUSES].sort()).toEqual(open.sort());
@@ -44,6 +52,12 @@ describe('priority task buckets', () => {
 
   it('leaves finished applications out of the buckets', () => {
     for (const status of CLOSED_STATUSES) {
+      expect(PRIORITY_TASK_BILL_STATUSES).not.toContain(status);
+    }
+  });
+
+  it('does not count applications waiting on the supplier to activate', () => {
+    for (const status of MONITOR_ONLY_STATUSES) {
       expect(PRIORITY_TASK_BILL_STATUSES).not.toContain(status);
     }
   });

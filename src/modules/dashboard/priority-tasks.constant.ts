@@ -14,7 +14,10 @@ import { BillStatus } from '../../common/enums/bill.enum';
  *
  * The buckets partition the open pipeline: every bill waiting on somebody lands
  * in exactly one of them, so the category counts always sum to the total on the
- * card. Renewals are the one bucket that is not a pipeline stage — an activated
+ * card. `awaiting_activation` is deliberately left out: by then the operator
+ * has nothing left to do and the application is only waiting on the supplier
+ * to switch the supply on, so it is monitoring, not work — the case management
+ * list's "In Activation" filter is where it is followed up. Renewals are the one bucket that is not a pipeline stage — an activated
  * case whose contract runs out soon — and it cannot collide with the rest
  * because `activated` is a finished pipeline status.
  */
@@ -31,7 +34,11 @@ export enum PriorityTaskCategory {
   OFFERS_TO_SEND = 'offers_to_send',
   /** Offers the customer has been sitting on long enough to warrant a call. */
   FOLLOW_UP_REQUIRED = 'follow_up_required',
-  /** Accepted offer through to activation — the contract lane. */
+  /**
+   * Accepted offer until the contract is handed to the supplier — the contract
+   * lane. It stops at `contract_sent`: once an application is `In Activation`
+   * our side of the work is done and only the supplier's go-live is pending.
+   */
   CONTRACTS_TO_PROCESS = 'contracts_to_process',
   /** A live supply whose contract is about to run out. */
   EXPIRING_CONTRACTS = 'expiring_contracts',
@@ -110,7 +117,6 @@ export const PRIORITY_TASK_DEFINITIONS: readonly PriorityTaskDefinition[] = [
     billStatuses: [
       BillStatus.OFFER_ACCEPTED,
       BillStatus.CONTRACT_SENT,
-      BillStatus.AWAITING_ACTIVATION,
     ],
     severity: 'medium',
     owner: 'admin',

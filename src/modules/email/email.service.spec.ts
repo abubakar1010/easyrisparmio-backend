@@ -153,9 +153,7 @@ describe('EmailService', () => {
         'email_verification',
       );
 
-      expect(sentMessage().from).toBe(
-        'EasyRisparmio <noreply@easyrisparmio.it>',
-      );
+      expect(sentMessage().from).toEqual({ name: 'VYZI', address: 'noreply@easyrisparmio.it' });
     });
 
     it('prefers an explicit EMAIL_FROM', async () => {
@@ -169,9 +167,7 @@ describe('EmailService', () => {
         'email_verification',
       );
 
-      expect(sentMessage().from).toBe(
-        'EasyRisparmio <noreply@easyresparmio.it>',
-      );
+      expect(sentMessage().from).toEqual({ name: 'VYZI', address: 'noreply@easyresparmio.it' });
     });
 
     it('warns when EMAIL_FROM does not match the account domain', async () => {
@@ -190,6 +186,21 @@ describe('EmailService', () => {
   });
 
   describe('message shape', () => {
+    it.each(['it', 'en', 'en-US'])('brands and localizes password recovery in %s', async (locale) => {
+      const service = buildService(GMAIL);
+      await service.sendOtpEmail('user@example.com', '012345', 'password_reset', locale);
+      const message = sentMessage();
+      expect(message.subject).toContain('VYZI');
+      expect(message.html).toContain('cid:vyzi-logo');
+      expect(message.attachments).toEqual([expect.objectContaining({ cid: 'vyzi-logo', contentType: 'image/png' })]);
+      expect(message.text).toContain('012345');
+      expect(message.text).not.toContain('EasyRisparmio');
+      expect(message.text).not.toContain('un account è stato registrato');
+      expect(message.text).not.toContain('an account was registered');
+      expect(message.text).toContain(locale.startsWith('en') ? 'a password reset was requested' : 'è stata richiesta la reimpostazione della password');
+      expect(message.text).toContain(locale.startsWith('en') ? '10 minutes' : '10 minuti');
+    });
+
     it('sends a text alternative alongside the HTML', async () => {
       const service = buildService(GMAIL);
       await service.sendOtpEmail(
@@ -233,7 +244,7 @@ describe('EmailService', () => {
         'password_reset',
       );
       expect(sendMail.mock.calls[0][0].subject).toContain(
-        'Codice di reset password',
+        'Reimposta la tua password',
       );
 
       await service.sendOtpEmail(

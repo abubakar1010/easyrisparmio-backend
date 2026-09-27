@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
+import { existsSync } from 'fs';
+import { join } from 'path';
 import * as nodemailer from 'nodemailer';
 import type { SendMailOptions, Transporter } from 'nodemailer';
 
@@ -39,6 +41,17 @@ const TRANSIENT_CODES = new Set([
 const MAX_SEND_ATTEMPTS = 2;
 const RETRY_DELAY_MS = 1_000;
 
+const resolveLogoPath = (): string | null => {
+  const candidates = [
+    join(__dirname, 'assets', 'vyzi.png'),
+    // Nest CLI currently emits configured assets under dist/modules while
+    // compiled code lives under dist/src/modules.
+    join(__dirname, '..', '..', '..', 'modules', 'email', 'assets', 'vyzi.png'),
+    join(process.cwd(), 'src', 'modules', 'email', 'assets', 'vyzi.png'),
+  ];
+  return candidates.find((candidate) => existsSync(candidate)) ?? null;
+};
+
 type OtpEmailType = 'email_verification' | 'password_reset';
 
 const sleep = (ms: number): Promise<void> =>
@@ -60,8 +73,7 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
   private readonly user: string;
 
   constructor(private readonly configService: ConfigService) {
-    this.appName =
-      this.configService.get<string>('email.appName') || 'EasyRisparmio';
+    this.appName = 'VYZI';
     this.fromAddress =
       this.configService.get<string>('email.fromAddress') || '';
     this.replyTo = this.configService.get<string>('email.replyTo') || '';
@@ -224,14 +236,32 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
       throw new EmailDeliveryError('SMTP is not configured');
     }
 
+    const logoPath = resolveLogoPath();
+    if (!logoPath) {
+      this.logger.warn('VYZI email logo asset was not found; sending without inline logo');
+    }
+
     const payload: SendMailOptions = {
-      from: this.fromAddress,
+      from: {
+        name: this.appName,
+        address: this.fromAddress.match(/<([^>]+)>/)?.[1] ?? this.fromAddress,
+      },
       to: message.to,
       subject: message.subject,
       // A text alternative is the cheapest deliverability win available:
       // HTML-only messages carry a real spam-score penalty.
       text: message.text,
       html: message.html,
+      ...(logoPath
+        ? {
+            attachments: [{
+              filename: 'vyzi.png',
+              path: logoPath,
+              cid: 'vyzi-logo',
+              contentType: 'image/png',
+            }],
+          }
+        : {}),
       // Gmail threads by subject, and a resent OTP that collapses into the
       // previous message leaves the user reading a code that no longer works.
       headers: { 'X-Entity-Ref-ID': randomUUID() },
@@ -277,7 +307,7 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
           instruction:
             'Use the code below to reset your password. If you did not request this, ignore this email.',
           expiry: 'This code expires in 10 minutes.',
-          footer: `You received this email because an account was registered on ${this.appName} with this address. If you didn't request this, you can safely ignore it.`,
+          footer: `You received this email because a password reset was requested for a ${this.appName} account associated with this address. If this was not you, you can ignore this message.`,
         },
       },
       it: {
@@ -290,17 +320,17 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
           footer: `Hai ricevuto questa email perché un account è stato registrato su ${this.appName} con questo indirizzo. Se non hai effettuato questa richiesta, puoi ignorare questo messaggio.`,
         },
         password_reset: {
-          subject: `${this.appName} — Codice di reset password`,
+          subject: `${this.appName} — Reimposta la tua password`,
           heading: 'Reimposta la tua password',
           instruction:
             'Usa il codice qui sotto per reimpostare la tua password. Se non hai effettuato questa richiesta, ignora questa email.',
           expiry: 'Questo codice scade tra 10 minuti.',
-          footer: `Hai ricevuto questa email perché un account è stato registrato su ${this.appName} con questo indirizzo. Se non hai effettuato questa richiesta, puoi ignorare questo messaggio.`,
+          footer: `Hai ricevuto questa email perché è stata richiesta la reimpostazione della password per un account ${this.appName} associato a questo indirizzo. Se non sei stato tu, puoi ignorare questo messaggio.`,
         },
       },
     };
 
-    const lang = locale in templates ? locale : 'it';
+    const lang = locale.toLowerCase().split(/[-_]/)[0] === 'en' ? 'en' : 'it';
     return templates[lang][type];
   }
 
@@ -314,6 +344,9 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
 
     const html = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
+        <div style="width:72px; height:72px; max-width:72px; max-height:72px; margin:0 auto 12px; overflow:hidden; text-align:center;">
+          <img src="cid:vyzi-logo" alt="VYZI" width="72" height="72" style="display:block !important; width:72px !important; height:72px !important; max-width:72px !important; max-height:72px !important; object-fit:contain; margin:0 auto;" />
+        </div>
         <h2 style="color: #6D28D9; margin-bottom: 8px;">${this.appName}</h2>
         <h3 style="color: #1f2937; margin-top: 0;">${content.heading}</h3>
         <p style="color: #4b5563; line-height: 1.6;">${content.instruction}</p>

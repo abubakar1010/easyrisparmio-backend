@@ -10,7 +10,7 @@ const asBool = (value: string | undefined, fallback: boolean): boolean =>
   !value ? fallback : value.trim().toLowerCase() === 'true';
 
 export default registerAs('email', () => {
-  const appName = process.env.APP_NAME || 'EasyRisparmio';
+  const appName = 'VYZI';
   const port = parseInt(process.env.SMTP_PORT || '587', 10);
 
   // Port 465 speaks TLS from the first byte; every other port (587, 25, 2525)

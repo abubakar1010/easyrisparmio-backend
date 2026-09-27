@@ -17,6 +17,7 @@ import { AuthService } from './auth.service';
 import { OtpCode } from './entities/otp-code.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { ForgotPasswordDto } from './dto/reset-password.dto';
+import { ResendOtpDto } from './dto/resend-otp.dto';
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../../common/enums/role.enum';
 import { AuthProvider, OtpType, UserStatus } from '../../common/enums/user.enum';
@@ -194,6 +195,16 @@ describe('AuthService — password reset', () => {
   });
 
   describe('forgotPassword', () => {
+    it('passes the requested language to password-reset email delivery', async () => {
+      await service.forgotPassword({ email: ACTIVE_EMAIL } as ForgotPasswordDto, 'en');
+      expect(sendOtpEmail).toHaveBeenCalledWith(ACTIVE_EMAIL, expect.any(String), 'password_reset', 'en');
+    });
+
+    it('passes the requested language to password-reset resends', async () => {
+      await service.resendOtp({ email: ACTIVE_EMAIL, type: OtpType.PASSWORD_RESET } as ResendOtpDto, 'en');
+      expect(sendOtpEmail).toHaveBeenCalledWith(ACTIVE_EMAIL, expect.any(String), 'password_reset', 'en');
+    });
+
     it('answers identically for a registered, an unknown and a suspended address', async () => {
       users.set(
         'user-2',

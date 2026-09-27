@@ -360,7 +360,7 @@ export class AuthService {
     return { message: 'OTP verified successfully' };
   }
 
-  async resendOtp(dto: ResendOtpDto) {
+  async resendOtp(dto: ResendOtpDto, locale = 'it') {
     // Only allow email_verification and password_reset
     if (dto.type === OtpType.PHONE_VERIFICATION) {
       throw new BadRequestException('Phone verification OTP cannot be resent via this endpoint');
@@ -395,12 +395,12 @@ export class AuthService {
       return { message: RESEND_OTP_REPLY };
     }
 
-    await this.generateAndSaveOtp(user, dto.type);
+    await this.generateAndSaveOtp(user, dto.type, locale);
 
     return { message: RESEND_OTP_REPLY };
   }
 
-  async forgotPassword(dto: ForgotPasswordDto) {
+  async forgotPassword(dto: ForgotPasswordDto, locale = 'it') {
     const user = await this.usersService.findByEmail(dto.email);
 
     // Unknown address, suspended account, still inside the cooldown — every
@@ -422,7 +422,7 @@ export class AuthService {
       return { message: FORGOT_PASSWORD_REPLY };
     }
 
-    await this.generateAndSaveOtp(user, OtpType.PASSWORD_RESET);
+    await this.generateAndSaveOtp(user, OtpType.PASSWORD_RESET, locale);
 
     return { message: FORGOT_PASSWORD_REPLY };
   }
@@ -888,7 +888,7 @@ export class AuthService {
    * code would sit there tripping the cooldown and locking the user out of
    * retrying the very request that failed.
    */
-  private async generateAndSaveOtp(user: User, type: OtpType): Promise<string> {
+  private async generateAndSaveOtp(user: User, type: OtpType, locale = 'it'): Promise<string> {
     // Invalidate any existing unused OTPs of this type
     await this.otpCodeRepository.update(
       { userId: user.id, type, used: false },
@@ -921,7 +921,7 @@ export class AuthService {
           ? 'email_verification'
           : 'password_reset';
       try {
-        await this.emailService.sendOtpEmail(user.email, code, emailType);
+        await this.emailService.sendOtpEmail(user.email, code, emailType, locale);
       } catch (error) {
         await this.otpCodeRepository.delete({ id: otpCode.id });
         this.logger.error(

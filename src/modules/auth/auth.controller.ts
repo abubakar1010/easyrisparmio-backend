@@ -649,8 +649,8 @@ export class AuthController {
       },
     },
   })
-  async resendOtp(@Body() dto: ResendOtpDto) {
-    return this.authService.resendOtp(dto);
+  async resendOtp(@Body() dto: ResendOtpDto, @Req() req: Request) {
+    return this.authService.resendOtp(dto, (req as Request & { locale?: string }).locale);
   }
 
   // ─── Password Reset ───────────────────────────────────────
@@ -700,8 +700,8 @@ export class AuthController {
       },
     },
   })
-  async forgotPassword(@Body() dto: ForgotPasswordDto) {
-    return this.authService.forgotPassword(dto);
+  async forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req: Request) {
+    return this.authService.forgotPassword(dto, (req as Request & { locale?: string }).locale);
   }
 
   @Post('reset-password')

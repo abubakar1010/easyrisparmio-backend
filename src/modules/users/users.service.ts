@@ -347,9 +347,7 @@ export class UsersService {
    *
    * The Codice Fiscale has no matching rule: it identifies a natural person,
    * and both kinds of account have one behind them — the customer on a personal
-   * account, the owner who signs on a business one. What stays company-only is
-   * the identifier the direct debit mandate is filed against, which is the
-   * Partita IVA (`CasesService.assertHolderTaxIdMatchesRole`).
+   * account, the owner who signs on a business one.
    *
    * Checked here rather than on `UpdateUserDto`, because a PATCH need not carry
    * `role`: the app's own profile save sends none, and the rule has to be read

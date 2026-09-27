@@ -232,10 +232,7 @@ const targetsBusiness = (object: unknown): boolean =>
  * holds exactly one tax identifier. That rule confused two different things: a
  * company is identified by its Partita IVA, but the natural person who signs
  * for it still has a Codice Fiscale, and the supplier asks for both. So a
- * business account carries the company's VAT number *and* its owner's code —
- * the direct debit mandate is still filed against the Partita IVA, which is
- * where the "one identifier" rule actually belongs (see
- * `CasesService.assertHolderTaxIdMatchesRole`).
+ * business account carries the company's VAT number *and* its owner's code.
  */
 @ValidatorConstraint({ async: false })
 export class IsPersonalTaxCodeConstraint

@@ -88,17 +88,13 @@ describe('case contract detail DTOs', () => {
     });
 
     /**
-     * Either form passes here. Which one this particular case may carry follows
-     * from the account behind it — a company is identified by its Partita IVA
-     * and a private customer by their Codice Fiscale — and the DTO has the
-     * case's fields but not the case, so that half of the rule is
-     * `CasesService`'s (see `assertHolderTaxIdMatchesRole`). What is settled
-     * here is that a *valid* VAT number is not refused on its face.
+     * Either form passes, on either kind of account: the holder may be a
+     * person or a company whatever the account is.
      */
     it.each([
       ['a bare Partita IVA', '00743110157'],
       ['a Partita IVA with its IT prefix', 'IT00743110157'],
-    ])('accepts %s, leaving the role rule to the service', async (_label, ibanHolderTaxCode) => {
+    ])('accepts %s', async (_label, ibanHolderTaxCode) => {
       const errors = await errorsFor(CreateCaseDto, { ...BASE, ibanHolderTaxCode });
       expect(errors).toHaveLength(0);
     });

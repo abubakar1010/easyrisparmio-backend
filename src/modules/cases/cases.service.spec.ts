@@ -121,10 +121,9 @@ describe('CasesService.createCase — direct debit details', () => {
   });
 
   /**
-   * One account, one tax identifier: the mandate on a company's own account is
-   * filed against its Partita IVA, and on a private customer's against their
-   * Codice Fiscale. Each account kind is refused the other's, because a code
-   * that identifies somebody else is what the supplier bounces.
+   * The holder's tax ID is either form on either kind of account: a Codice
+   * Fiscale or a Partita IVA, whoever holds the IBAN. Only its formal validity
+   * is checked, and that is the DTO's job.
    */
   describe('whose tax ID the mandate may carry', () => {
     const directDebit = (ibanHolderTaxCode: string, ibanSameAsContract = true) =>
@@ -135,36 +134,21 @@ describe('CasesService.createCase — direct debit details', () => {
         ibanHolderTaxCode,
       });
 
-    it('takes the VAT number on a business account', async () => {
-      const { service, saved } = makeService(UserRole.BUSINESS);
-      await service.createCase(USER_ID, directDebit('00743110157'));
-      expect(saved[0].ibanHolderTaxCode).toBe('00743110157');
-    });
-
-    it('refuses a Codice Fiscale on a business account', async () => {
-      const { service } = makeService(UserRole.BUSINESS);
-      await expect(
-        service.createCase(USER_ID, directDebit('RSSMRA85T10A562S')),
-      ).rejects.toThrow(/Partita IVA/);
-    });
-
-    it('refuses a VAT number on a personal account', async () => {
-      const { service } = makeService(UserRole.PERSONAL);
-      await expect(
-        service.createCase(USER_ID, directDebit('00743110157')),
-      ).rejects.toThrow(/Codice Fiscale/);
-    });
-
-    /**
-     * The third-party holder is neither account: whoever signs a mandate for
-     * someone else may be a person or a company, so both forms stay open once
-     * the customer has said the account is not theirs.
-     */
-    it('takes either form once the holder is not the contract holder', async () => {
-      const { service, saved } = makeService(UserRole.PERSONAL);
-      await service.createCase(USER_ID, directDebit('00743110157', false));
-      expect(saved[0].ibanHolderTaxCode).toBe('00743110157');
-    });
+    it.each([
+      [UserRole.PERSONAL, 'RSSMRA85T10A562S', true],
+      [UserRole.PERSONAL, '00743110157', true],
+      [UserRole.BUSINESS, '00743110157', true],
+      [UserRole.BUSINESS, 'RSSMRA85T10A562S', true],
+      [UserRole.PERSONAL, '00743110157', false],
+      [UserRole.BUSINESS, 'RSSMRA85T10A562S', false],
+    ])(
+      'takes it on a %s account: %s (same holder: %s)',
+      async (role, taxCode, sameAsContract) => {
+        const { service, saved } = makeService(role);
+        await service.createCase(USER_ID, directDebit(taxCode, sameAsContract));
+        expect(saved[0].ibanHolderTaxCode).toBe(taxCode);
+      },
+    );
   });
 
   it('leaves a postal order alone — it has no account to file against', async () => {

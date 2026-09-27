@@ -128,11 +128,12 @@ export class DashboardService {
         ),
         conversion_all AS (
           SELECT
-            COUNT(*) FILTER (WHERE sc.status != 'cancelled')::int AS total_eligible,
+            -- Cancelled cases stay in the denominator, as in the conversion funnel.
+            COUNT(*)::int AS total_eligible,
             COUNT(*) FILTER (WHERE sc.status = 'activated')::int AS total_activated,
-            COUNT(*) FILTER (WHERE sc.status != 'cancelled' AND sc.created_at >= dr.current_month_start)::int AS curr_eligible,
+            COUNT(*) FILTER (WHERE sc.created_at >= dr.current_month_start)::int AS curr_eligible,
             COUNT(*) FILTER (WHERE sc.status = 'activated' AND sc.created_at >= dr.current_month_start)::int AS curr_activated,
-            COUNT(*) FILTER (WHERE sc.status != 'cancelled' AND sc.created_at >= dr.prev_month_start AND sc.created_at < dr.prev_month_end)::int AS prev_eligible,
+            COUNT(*) FILTER (WHERE sc.created_at >= dr.prev_month_start AND sc.created_at < dr.prev_month_end)::int AS prev_eligible,
             COUNT(*) FILTER (WHERE sc.status = 'activated' AND sc.created_at >= dr.prev_month_start AND sc.created_at < dr.prev_month_end)::int AS prev_activated
           FROM switch_cases sc, date_ranges dr
           WHERE sc.deleted_at IS NULL
@@ -187,7 +188,7 @@ export class DashboardService {
           COALESCE((
             SELECT ROUND(
               COUNT(*) FILTER (WHERE status = 'activated')::numeric * 100.0 /
-              NULLIF(COUNT(*) FILTER (WHERE status != 'cancelled')::numeric, 0), 2)
+              NULLIF(COUNT(*)::numeric, 0), 2)
             FROM switch_cases
             WHERE created_at >= m.month_start AND created_at < m.month_start + INTERVAL '1 month'
               AND deleted_at IS NULL
@@ -506,13 +507,16 @@ export class DashboardService {
   // ─── Conversion Funnel ──────────────────────────────────
 
   private async getConversionFunnel() {
+    // A cancelled request still came in: it belongs in the top of the funnel and
+    // shows up as a drop-off, the same way a rejected one does.
     const result = await this.dataSource.query(`
       SELECT
-        COUNT(*) FILTER (WHERE status != 'cancelled')::int AS request_received,
+        COUNT(*)::int AS request_received,
         COUNT(*) FILTER (WHERE status NOT IN ('new', 'cancelled', 'rejected'))::int AS documentation,
         COUNT(*) FILTER (WHERE status NOT IN ('new', 'in_progress', 'documents_pending', 'cancelled', 'rejected'))::int AS validation,
         COUNT(*) FILTER (WHERE status = 'activated')::int AS activation,
-        COUNT(*) FILTER (WHERE status = 'rejected')::int AS rejected
+        COUNT(*) FILTER (WHERE status = 'rejected')::int AS rejected,
+        COUNT(*) FILTER (WHERE status = 'cancelled')::int AS cancelled
       FROM switch_cases
       WHERE deleted_at IS NULL
     `);
@@ -527,6 +531,7 @@ export class DashboardService {
       validation: row.validation || 0,
       activation,
       rejected: row.rejected || 0,
+      cancelled: row.cancelled || 0,
       conversionRate: requestReceived > 0
         ? roundPercent((activation / requestReceived) * 100)
         : 0,

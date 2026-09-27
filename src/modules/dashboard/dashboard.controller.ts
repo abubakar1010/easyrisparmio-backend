@@ -55,6 +55,7 @@ export class DashboardController {
               validation: 267,
               activation: 234,
               rejected: 44,
+              cancelled: 18,
               conversionRate: 68.4,
             },
             activeAlerts: [

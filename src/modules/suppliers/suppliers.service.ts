@@ -144,7 +144,7 @@ export class SuppliersService {
     supplierId: string,
     dto: CreateSupplierFaqDto,
   ): Promise<SupplierFaq> {
-    await this.assertSupplierExists(supplierId);
+    await this.assertSupplierEditable(supplierId);
     const faq = this.supplierFaqRepository.create({ ...dto, supplierId });
     return this.supplierFaqRepository.save(faq);
   }
@@ -154,14 +154,35 @@ export class SuppliersService {
     faqId: string,
     dto: UpdateSupplierFaqDto,
   ): Promise<SupplierFaq> {
+    await this.assertSupplierEditable(supplierId);
     const faq = await this.findFaqOrFail(supplierId, faqId);
     Object.assign(faq, dto);
     return this.supplierFaqRepository.save(faq);
   }
 
   async deleteFaq(supplierId: string, faqId: string): Promise<void> {
+    await this.assertSupplierEditable(supplierId);
     const faq = await this.findFaqOrFail(supplierId, faqId);
     await this.supplierFaqRepository.remove(faq);
+  }
+
+  /**
+   * FAQs are part of the supplier, so they freeze with it while a deletion is
+   * pending — the same rule `update` applies to the supplier's own fields.
+   */
+  private async assertSupplierEditable(supplierId: string): Promise<void> {
+    const supplier = await this.supplierRepository.findOne({
+      where: { id: supplierId },
+      select: { id: true, status: true },
+    });
+    if (!supplier) {
+      throw new NotFoundException('Supplier not found');
+    }
+    if (supplier.status === SupplierStatus.PENDING_DELETION) {
+      throw new BadRequestException(
+        'Cannot modify a supplier pending deletion. Cancel the deletion first.',
+      );
+    }
   }
 
   /** Matched on the supplier too, so a FAQ can't be edited through another supplier's URL. */

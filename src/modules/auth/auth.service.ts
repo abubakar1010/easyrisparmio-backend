@@ -32,6 +32,7 @@ import { ReferralsService } from '../referrals/referrals.service';
 import { EmailService } from '../email/email.service';
 import { LegalService } from '../legal/legal.service';
 import { LegalAcceptanceSource } from '../../common/enums/legal.enum';
+import { DEFAULT_LOCALE } from '../../common/middleware/locale.middleware';
 
 const MAX_OTP_ATTEMPTS = 5;
 const OTP_TTL_MINUTES = 10;
@@ -78,7 +79,7 @@ export class AuthService {
     private readonly dataSource: DataSource,
   ) {}
 
-  async register(dto: RegisterDto) {
+  async register(dto: RegisterDto, locale: string = DEFAULT_LOCALE) {
     if ((dto.role as string) === UserRole.ADMIN) {
       throw new BadRequestException('Cannot register as admin');
     }
@@ -206,7 +207,7 @@ export class AuthService {
     // through resend-otp, which `generateAndSaveOtp` has left uncooled.
     let emailWarning: string | undefined;
     try {
-      await this.generateAndSaveOtp(user, OtpType.EMAIL_VERIFICATION);
+      await this.generateAndSaveOtp(user, OtpType.EMAIL_VERIFICATION, locale);
     } catch (error) {
       this.logger.error(
         `Registration succeeded but the verification email to user ${user.id} failed: ${error?.message || error}`,
@@ -247,7 +248,7 @@ export class AuthService {
 
   async login(
     user: User,
-    meta?: { ipAddress?: string; deviceInfo?: string },
+    meta?: { ipAddress?: string; deviceInfo?: string; locale?: string },
   ) {
     if (user.status === UserStatus.PENDING_VERIFICATION) {
       // Subject to the same cooldown as resend-otp. Knowing the password is not
@@ -257,7 +258,7 @@ export class AuthService {
       // verification token to reach the OTP screen.
       if (!(await this.otpCooldownRemaining(user.id, OtpType.EMAIL_VERIFICATION))) {
         try {
-          await this.generateAndSaveOtp(user, OtpType.EMAIL_VERIFICATION);
+          await this.generateAndSaveOtp(user, OtpType.EMAIL_VERIFICATION, meta?.locale);
         } catch (error) {
           this.logger.error(
             `Could not send the verification email to user ${user.id} on login: ${error?.message || error}`,
@@ -888,7 +889,7 @@ export class AuthService {
    * code would sit there tripping the cooldown and locking the user out of
    * retrying the very request that failed.
    */
-  private async generateAndSaveOtp(user: User, type: OtpType, locale = 'it'): Promise<string> {
+  private async generateAndSaveOtp(user: User, type: OtpType, locale: string = DEFAULT_LOCALE): Promise<string> {
     // Invalidate any existing unused OTPs of this type
     await this.otpCodeRepository.update(
       { userId: user.id, type, used: false },

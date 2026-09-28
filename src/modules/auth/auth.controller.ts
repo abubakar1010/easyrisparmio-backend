@@ -192,8 +192,8 @@ export class AuthController {
       },
     },
   })
-  async register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+  async register(@Body() dto: RegisterDto, @Req() req: Request) {
+    return this.authService.register(dto, (req as Request & { locale?: string }).locale);
   }
 
   // ─── Login ────────────────────────────────────────────────
@@ -298,6 +298,7 @@ export class AuthController {
     return this.authService.login(user, {
       ipAddress: req.ip,
       deviceInfo: req.headers['user-agent'],
+      locale: (req as Request & { locale?: string }).locale,
     });
   }
 

@@ -484,6 +484,18 @@ describe('AuthService — sign-up email verification', () => {
     return mailedCode();
   };
 
+  it('mails the verification code in the language the login asked for', async () => {
+    await service.login(users.get('user-1')!, { locale: 'en' }).catch(() => undefined);
+
+    expect(sendOtpEmail).toHaveBeenCalledWith(EMAIL, expect.any(String), 'email_verification', 'en');
+  });
+
+  it('mails the verification code in Italian when the login names no language', async () => {
+    await service.login(users.get('user-1')!).catch(() => undefined);
+
+    expect(sendOtpEmail).toHaveBeenCalledWith(EMAIL, expect.any(String), 'email_verification', 'it');
+  });
+
   it('hands back a session, so the app is not left signed out on the home screen', async () => {
     const code = await requestCode();
 

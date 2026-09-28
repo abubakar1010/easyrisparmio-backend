@@ -14,6 +14,8 @@ import {
   LIVE_UTILITY_CASE_STATUSES,
 } from '../../common/enums/case.enum';
 import { AlertStatus } from '../../common/enums/alert.enum';
+import { BillStatus } from '../../common/enums/bill.enum';
+import { PIPELINE_STATUS_ORDER } from '../../common/utils/bill-status-transitions';
 import { PaginatedResponseDto } from '../../common/dto/pagination.dto';
 import {
   CONTRACT_EXPIRY_WINDOW_DAYS,
@@ -99,6 +101,15 @@ export class DashboardService {
 
   // ─── KPI Stats ──────────────────────────────────────────
 
+  /**
+   * The bills that count as a switch request, for the funnel and the
+   * conversion-rate KPI alike. A `pending_email` placeholder is excluded: no
+   * bill has arrived yet, and it may never be claimed by a customer.
+   */
+  private static readonly REQUEST_BILL_SQL = `
+    b.deleted_at IS NULL AND b.status::text <> '${BillStatus.PENDING_EMAIL}'
+  `;
+
   private async getKpiStats() {
     const [result, sparklineRows] = await Promise.all([
       this.dataSource.query(`
@@ -126,17 +137,18 @@ export class DashboardService {
             AND u.role IN ('personal', 'business')
             AND u.deleted_at IS NULL
         ),
+        -- Same population as the conversion funnel: every request, from the
+        -- bill that started it, so the card and the funnel show one rate.
         conversion_all AS (
           SELECT
-            -- Cancelled cases stay in the denominator, as in the conversion funnel.
             COUNT(*)::int AS total_eligible,
-            COUNT(*) FILTER (WHERE sc.status = 'activated')::int AS total_activated,
-            COUNT(*) FILTER (WHERE sc.created_at >= dr.current_month_start)::int AS curr_eligible,
-            COUNT(*) FILTER (WHERE sc.status = 'activated' AND sc.created_at >= dr.current_month_start)::int AS curr_activated,
-            COUNT(*) FILTER (WHERE sc.created_at >= dr.prev_month_start AND sc.created_at < dr.prev_month_end)::int AS prev_eligible,
-            COUNT(*) FILTER (WHERE sc.status = 'activated' AND sc.created_at >= dr.prev_month_start AND sc.created_at < dr.prev_month_end)::int AS prev_activated
-          FROM switch_cases sc, date_ranges dr
-          WHERE sc.deleted_at IS NULL
+            COUNT(*) FILTER (WHERE b.status = 'activated')::int AS total_activated,
+            COUNT(*) FILTER (WHERE b.created_at >= dr.current_month_start)::int AS curr_eligible,
+            COUNT(*) FILTER (WHERE b.status = 'activated' AND b.created_at >= dr.current_month_start)::int AS curr_activated,
+            COUNT(*) FILTER (WHERE b.created_at >= dr.prev_month_start AND b.created_at < dr.prev_month_end)::int AS prev_eligible,
+            COUNT(*) FILTER (WHERE b.status = 'activated' AND b.created_at >= dr.prev_month_start AND b.created_at < dr.prev_month_end)::int AS prev_activated
+          FROM energy_bills b, date_ranges dr
+          WHERE ${DashboardService.REQUEST_BILL_SQL}
         ),
         processing_time AS (
           SELECT
@@ -187,11 +199,11 @@ export class DashboardService {
              AND deleted_at IS NULL) AS customers,
           COALESCE((
             SELECT ROUND(
-              COUNT(*) FILTER (WHERE status = 'activated')::numeric * 100.0 /
+              COUNT(*) FILTER (WHERE b.status = 'activated')::numeric * 100.0 /
               NULLIF(COUNT(*)::numeric, 0), 2)
-            FROM switch_cases
-            WHERE created_at >= m.month_start AND created_at < m.month_start + INTERVAL '1 month'
-              AND deleted_at IS NULL
+            FROM energy_bills b
+            WHERE b.created_at >= m.month_start AND b.created_at < m.month_start + INTERVAL '1 month'
+              AND ${DashboardService.REQUEST_BILL_SQL}
           ), 0) AS conversion_rate,
           COALESCE((
             SELECT ROUND(AVG(EXTRACT(EPOCH FROM (ce.created_at - sc.created_at)) / 86400)::numeric, 2)
@@ -506,20 +518,59 @@ export class DashboardService {
 
   // ─── Conversion Funnel ──────────────────────────────────
 
+  /**
+   * One row per bill: a request starts the moment a bill arrives, long before
+   * a case exists (see `CasesService.createCase`), so a case-based funnel never
+   * saw the requests that dropped out before an offer was accepted.
+   *
+   * Each stage counts the bills that *reached* it, not the ones sitting in it,
+   * so a bill cancelled after its offers went out still counts as offered. The
+   * status alone cannot say that once the bill is cancelled; its sent offers
+   * and its case can, because neither is removed by a cancellation.
+   */
   private async getConversionFunnel() {
-    // A cancelled request still came in: it belongs in the top of the funnel and
-    // shows up as a drop-off, the same way a rejected one does.
-    const result = await this.dataSource.query(`
+    const from = (status: BillStatus) =>
+      PIPELINE_STATUS_ORDER.slice(PIPELINE_STATUS_ORDER.indexOf(status));
+
+    const result = await this.dataSource.query(
+      `
+      WITH requests AS (
+        SELECT
+          b.status::text AS status,
+          EXISTS (SELECT 1 FROM sent_offers so WHERE so.bill_id = b.id) AS has_offers,
+          EXISTS (
+            SELECT 1 FROM switch_cases sc
+            WHERE sc.bill_id = b.id AND sc.deleted_at IS NULL
+          ) AS has_case,
+          (
+            SELECT sc.status::text FROM switch_cases sc
+            WHERE sc.bill_id = b.id AND sc.deleted_at IS NULL
+            ORDER BY sc.created_at DESC
+            LIMIT 1
+          ) AS latest_case_status
+        FROM energy_bills b
+        WHERE ${DashboardService.REQUEST_BILL_SQL}
+      )
       SELECT
         COUNT(*)::int AS request_received,
-        COUNT(*) FILTER (WHERE status NOT IN ('new', 'cancelled', 'rejected'))::int AS documentation,
-        COUNT(*) FILTER (WHERE status NOT IN ('new', 'in_progress', 'documents_pending', 'cancelled', 'rejected'))::int AS validation,
-        COUNT(*) FILTER (WHERE status = 'activated')::int AS activation,
-        COUNT(*) FILTER (WHERE status = 'rejected')::int AS rejected,
-        COUNT(*) FILTER (WHERE status = 'cancelled')::int AS cancelled
-      FROM switch_cases
-      WHERE deleted_at IS NULL
-    `);
+        COUNT(*) FILTER (WHERE has_offers OR has_case OR status = ANY($1::text[]))::int AS verified,
+        COUNT(*) FILTER (WHERE has_offers OR has_case OR status = ANY($2::text[]))::int AS offer_sent,
+        COUNT(*) FILTER (WHERE has_case OR status = ANY($3::text[]))::int AS offer_accepted,
+        COUNT(*) FILTER (WHERE status = '${BillStatus.ACTIVATED}')::int AS activation,
+        -- Rejection is recorded on the case only; the bill keeps its status.
+        COUNT(*) FILTER (
+          WHERE latest_case_status = '${CaseStatus.REJECTED}'
+            AND status NOT IN ('${BillStatus.CANCELLED}', '${BillStatus.ACTIVATED}')
+        )::int AS rejected,
+        COUNT(*) FILTER (WHERE status = '${BillStatus.CANCELLED}')::int AS cancelled
+      FROM requests
+      `,
+      [
+        from(BillStatus.VERIFIED),
+        from(BillStatus.OFFER_SENT),
+        from(BillStatus.OFFER_ACCEPTED),
+      ],
+    );
 
     const row = result[0] || {};
     const requestReceived = row.request_received || 0;
@@ -527,8 +578,9 @@ export class DashboardService {
 
     return {
       requestReceived,
-      documentation: row.documentation || 0,
-      validation: row.validation || 0,
+      verified: row.verified || 0,
+      offerSent: row.offer_sent || 0,
+      offerAccepted: row.offer_accepted || 0,
       activation,
       rejected: row.rejected || 0,
       cancelled: row.cancelled || 0,

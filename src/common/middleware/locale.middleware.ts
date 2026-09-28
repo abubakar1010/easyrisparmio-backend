@@ -1,23 +1,25 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 
-const SUPPORTED_LOCALES = ['it', 'en'];
-const DEFAULT_LOCALE = 'it';
+export type Locale = 'it' | 'en';
+
+const SUPPORTED_LOCALES: Locale[] = ['it', 'en'];
+
+/** Italian first: every response is Italian unless the client explicitly asks for English. */
+export const DEFAULT_LOCALE: Locale = 'it';
+
+/** The locale for an `Accept-Language` header, falling back to Italian. */
+export function resolveLocale(acceptLanguage: string | string[] | undefined): Locale {
+  const header = Array.isArray(acceptLanguage) ? acceptLanguage[0] : acceptLanguage;
+  if (!header) return DEFAULT_LOCALE;
+  const preferred = header.split(',')[0].trim().substring(0, 2).toLowerCase();
+  return SUPPORTED_LOCALES.find((locale) => locale === preferred) ?? DEFAULT_LOCALE;
+}
 
 @Injectable()
 export class LocaleMiddleware implements NestMiddleware {
   use(req: Request, _res: Response, next: NextFunction) {
-    const acceptLanguage = req.headers['accept-language'];
-    let locale = DEFAULT_LOCALE;
-
-    if (acceptLanguage) {
-      const preferred = acceptLanguage.split(',')[0].trim().substring(0, 2).toLowerCase();
-      if (SUPPORTED_LOCALES.includes(preferred)) {
-        locale = preferred;
-      }
-    }
-
-    (req as any).locale = locale;
+    (req as any).locale = resolveLocale(req.headers['accept-language']);
     next();
   }
 }

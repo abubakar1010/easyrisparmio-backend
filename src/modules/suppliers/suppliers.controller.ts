@@ -35,6 +35,19 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserRole } from '../../common/enums/role.enum';
 import { ActivityLogService } from '../activity-log/activity-log.service';
+import { CreateSupplierFaqDto } from './dto/create-supplier-faq.dto';
+import { UpdateSupplierFaqDto } from './dto/update-supplier-faq.dto';
+
+const SUPPLIER_FAQ_EXAMPLE = {
+  id: 'f1a2b3c4-d5e6-7890-abcd-ef1234567890',
+  supplierId: 's1a2b3c4-d5e6-7890-abcd-ef1234567890',
+  question: 'How do I read my Enel bill?',
+  answer: 'Your consumption is on page 2, under "Dettaglio consumi".',
+  sortOrder: 0,
+  isActive: true,
+  createdAt: '2026-06-10T12:00:00.000Z',
+  updatedAt: '2026-06-10T12:00:00.000Z',
+};
 
 @ApiTags('Suppliers')
 @Controller('suppliers')
@@ -516,5 +529,102 @@ export class SuppliersController {
       { scheduledDeletionDate: result.scheduledDeletionDate || null },
     );
     return result;
+  }
+
+  // ─── Supplier FAQs ────────────────────────────────────────
+
+  @Get(':id/faqs')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'List a supplier\'s FAQs (admin)',
+    description:
+      'Returns every FAQ on the supplier, active and inactive, in display order. ' +
+      'The active ones are what customers see in the FAQ section of the utility details, ' +
+      'on every supply this supplier serves (`supplierFaqs` on `GET meters/my-services`).',
+  })
+  @ApiOkResponse({
+    description: 'The supplier\'s FAQs',
+    content: { 'application/json': { example: { success: true, data: [SUPPLIER_FAQ_EXAMPLE] } } },
+  })
+  @ApiNotFoundResponse({
+    description: 'Supplier not found',
+    content: { 'application/json': { example: { success: false, statusCode: 404, message: ['Supplier not found'], timestamp: '2026-06-10T12:00:00.000Z' } } },
+  })
+  findFaqs(@Param('id', ParseUUIDPipe) id: string) {
+    return this.suppliersService.findFaqs(id);
+  }
+
+  @Post(':id/faqs')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Add a FAQ to a supplier (admin)' })
+  @ApiBody({ type: CreateSupplierFaqDto })
+  @ApiCreatedResponse({
+    description: 'FAQ created',
+    content: { 'application/json': { example: { success: true, data: SUPPLIER_FAQ_EXAMPLE } } },
+  })
+  @ApiNotFoundResponse({
+    description: 'Supplier not found',
+    content: { 'application/json': { example: { success: false, statusCode: 404, message: ['Supplier not found'], timestamp: '2026-06-10T12:00:00.000Z' } } },
+  })
+  async createFaq(
+    @CurrentUser('id') adminId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateSupplierFaqDto,
+  ) {
+    const faq = await this.suppliersService.createFaq(id, dto);
+    void this.activityLogService.log(adminId, 'Supplier FAQ Created', 'supplier', id, { faqId: faq.id });
+    return faq;
+  }
+
+  @Patch(':id/faqs/:faqId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Update a supplier FAQ (admin)', description: 'All fields are optional.' })
+  @ApiBody({ type: UpdateSupplierFaqDto })
+  @ApiOkResponse({
+    description: 'FAQ updated',
+    content: { 'application/json': { example: { success: true, data: SUPPLIER_FAQ_EXAMPLE } } },
+  })
+  @ApiNotFoundResponse({
+    description: 'FAQ not found on this supplier',
+    content: { 'application/json': { example: { success: false, statusCode: 404, message: ['FAQ not found'], timestamp: '2026-06-10T12:00:00.000Z' } } },
+  })
+  async updateFaq(
+    @CurrentUser('id') adminId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('faqId', ParseUUIDPipe) faqId: string,
+    @Body() dto: UpdateSupplierFaqDto,
+  ) {
+    const faq = await this.suppliersService.updateFaq(id, faqId, dto);
+    void this.activityLogService.log(adminId, 'Supplier FAQ Updated', 'supplier', id, { faqId });
+    return faq;
+  }
+
+  @Delete(':id/faqs/:faqId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Delete a supplier FAQ (admin)' })
+  @ApiOkResponse({
+    description: 'FAQ deleted',
+    content: { 'application/json': { example: { success: true, data: { message: 'FAQ deleted successfully' } } } },
+  })
+  @ApiNotFoundResponse({
+    description: 'FAQ not found on this supplier',
+    content: { 'application/json': { example: { success: false, statusCode: 404, message: ['FAQ not found'], timestamp: '2026-06-10T12:00:00.000Z' } } },
+  })
+  async deleteFaq(
+    @CurrentUser('id') adminId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('faqId', ParseUUIDPipe) faqId: string,
+  ) {
+    await this.suppliersService.deleteFaq(id, faqId);
+    void this.activityLogService.log(adminId, 'Supplier FAQ Deleted', 'supplier', id, { faqId });
+    return { message: 'FAQ deleted successfully' };
   }
 }

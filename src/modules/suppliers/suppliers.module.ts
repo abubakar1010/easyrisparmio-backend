@@ -3,13 +3,14 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { SuppliersController } from './suppliers.controller';
 import { SuppliersService } from './suppliers.service';
 import { Supplier } from './entities/supplier.entity';
+import { SupplierFaq } from './entities/supplier-faq.entity';
 import { Offer } from '../offers/entities/offer.entity';
 import { SwitchCase } from '../cases/entities/switch-case.entity';
 import { ActivityLogModule } from '../activity-log/activity-log.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Supplier, Offer, SwitchCase]),
+    TypeOrmModule.forFeature([Supplier, SupplierFaq, Offer, SwitchCase]),
     ActivityLogModule,
   ],
   controllers: [SuppliersController],

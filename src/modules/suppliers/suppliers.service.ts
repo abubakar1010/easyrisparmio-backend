@@ -9,12 +9,15 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, LessThanOrEqual } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Supplier } from './entities/supplier.entity';
+import { SupplierFaq } from './entities/supplier-faq.entity';
 import { Offer } from '../offers/entities/offer.entity';
 import { SwitchCase } from '../cases/entities/switch-case.entity';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
 import { UpdateSupplierStatusDto } from './dto/update-supplier-status.dto';
 import { QuerySuppliersDto } from './dto/query-suppliers.dto';
+import { CreateSupplierFaqDto } from './dto/create-supplier-faq.dto';
+import { UpdateSupplierFaqDto } from './dto/update-supplier-faq.dto';
 import {
   PaginationDto,
   PaginatedResponseDto,
@@ -32,6 +35,8 @@ export class SuppliersService {
   constructor(
     @InjectRepository(Supplier)
     private readonly supplierRepository: Repository<Supplier>,
+    @InjectRepository(SupplierFaq)
+    private readonly supplierFaqRepository: Repository<SupplierFaq>,
     @InjectRepository(Offer)
     private readonly offerRepository: Repository<Offer>,
     @InjectRepository(SwitchCase)
@@ -122,6 +127,64 @@ export class SuppliersService {
     }
 
     return supplier;
+  }
+
+  // ─── Supplier FAQs ────────────────────────────────────────
+
+  /** Every FAQ on the supplier, hidden ones included, in display order. */
+  async findFaqs(supplierId: string): Promise<SupplierFaq[]> {
+    await this.assertSupplierExists(supplierId);
+    return this.supplierFaqRepository.find({
+      where: { supplierId },
+      order: { sortOrder: 'ASC', createdAt: 'ASC' },
+    });
+  }
+
+  async createFaq(
+    supplierId: string,
+    dto: CreateSupplierFaqDto,
+  ): Promise<SupplierFaq> {
+    await this.assertSupplierExists(supplierId);
+    const faq = this.supplierFaqRepository.create({ ...dto, supplierId });
+    return this.supplierFaqRepository.save(faq);
+  }
+
+  async updateFaq(
+    supplierId: string,
+    faqId: string,
+    dto: UpdateSupplierFaqDto,
+  ): Promise<SupplierFaq> {
+    const faq = await this.findFaqOrFail(supplierId, faqId);
+    Object.assign(faq, dto);
+    return this.supplierFaqRepository.save(faq);
+  }
+
+  async deleteFaq(supplierId: string, faqId: string): Promise<void> {
+    const faq = await this.findFaqOrFail(supplierId, faqId);
+    await this.supplierFaqRepository.remove(faq);
+  }
+
+  /** Matched on the supplier too, so a FAQ can't be edited through another supplier's URL. */
+  private async findFaqOrFail(
+    supplierId: string,
+    faqId: string,
+  ): Promise<SupplierFaq> {
+    const faq = await this.supplierFaqRepository.findOne({
+      where: { id: faqId, supplierId },
+    });
+    if (!faq) {
+      throw new NotFoundException('FAQ not found');
+    }
+    return faq;
+  }
+
+  private async assertSupplierExists(supplierId: string): Promise<void> {
+    const exists = await this.supplierRepository.exists({
+      where: { id: supplierId },
+    });
+    if (!exists) {
+      throw new NotFoundException('Supplier not found');
+    }
   }
 
   async update(

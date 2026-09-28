@@ -4,13 +4,14 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Meter } from './entities/meter.entity';
 import { CreateMeterDto } from './dto/create-meter.dto';
 import { UpdateMeterDto } from './dto/update-meter.dto';
 import { QueryMetersDto } from './dto/query-meters.dto';
 import { PaginatedResponseDto } from '../../common/dto/pagination.dto';
 import { SwitchCase } from '../cases/entities/switch-case.entity';
+import { SupplierFaq } from '../suppliers/entities/supplier-faq.entity';
 import { EnergyBill } from '../bills/entities/energy-bill.entity';
 import { LIVE_UTILITY_CASE_STATUSES } from '../../common/enums/case.enum';
 import { BillType } from '../../common/enums/bill.enum';
@@ -24,6 +25,8 @@ export class MetersService {
     private readonly meterRepository: Repository<Meter>,
     @InjectRepository(SwitchCase)
     private readonly caseRepository: Repository<SwitchCase>,
+    @InjectRepository(SupplierFaq)
+    private readonly supplierFaqRepository: Repository<SupplierFaq>,
   ) {}
 
   // ─── Admin Methods ────────────────────────────────────────
@@ -162,6 +165,10 @@ export class MetersService {
       .orderBy('sc.createdAt', 'DESC')
       .getMany();
 
+    const faqsBySupplier = await this.activeFaqsBySupplier(
+      cases.map((c) => c.selectedOffer?.supplier?.id),
+    );
+
     return cases.map((switchCase) => ({
       id: switchCase.id,
       caseId: switchCase.id,
@@ -195,6 +202,11 @@ export class MetersService {
       // rather than show an empty heading.
       supplierDescription:
         switchCase.selectedOffer?.supplier?.description || null,
+      // The FAQs the admin wrote for this supplier, in display order, shown
+      // as the FAQ section of the utility details. Empty when there are none,
+      // and the client leaves the section out.
+      supplierFaqs:
+        faqsBySupplier.get(switchCase.selectedOffer?.supplier?.id ?? '') ?? [],
       // The customer's reference for this supply. There is no contract number
       // to quote any more — nobody enters one, because the contract is signed
       // outside the application — so the case number is what identifies it.
@@ -233,6 +245,32 @@ export class MetersService {
       isGreenEnergy: switchCase.selectedOffer?.isGreenEnergy || false,
       status: switchCase.status,
     }));
+  }
+
+  /**
+   * The active FAQs of each supplier, keyed by supplier, in display order —
+   * one query for the whole list rather than one per utility.
+   */
+  private async activeFaqsBySupplier(
+    supplierIds: (string | undefined)[],
+  ): Promise<Map<string, { id: string; question: string; answer: string }[]>> {
+    const ids = [...new Set(supplierIds.filter((id): id is string => !!id))];
+    const bySupplier = new Map<
+      string,
+      { id: string; question: string; answer: string }[]
+    >();
+    if (ids.length === 0) return bySupplier;
+
+    const faqs = await this.supplierFaqRepository.find({
+      where: { supplierId: In(ids), isActive: true },
+      order: { sortOrder: 'ASC', createdAt: 'ASC' },
+    });
+    for (const faq of faqs) {
+      const list = bySupplier.get(faq.supplierId) ?? [];
+      list.push({ id: faq.id, question: faq.question, answer: faq.answer });
+      bySupplier.set(faq.supplierId, list);
+    }
+    return bySupplier;
   }
 
   /**

@@ -56,6 +56,8 @@ export class MetersController {
       'and site, each null when the supplier has none on file. ' +
       '`supplierDescription` is the free-text blurb the admin wrote about the ' +
       'supplier, null when they wrote none. ' +
+      '`supplierFaqs` are the active FAQs the admin wrote for the supplier, in ' +
+      'display order — empty when there are none. ' +
       '`contractDurationDays` is ' +
       'derived from this contract\'s own activation and expiry dates, not from the ' +
       'offer — clients are expected to quote it in months. `energyType` is the supply ' +
@@ -91,6 +93,13 @@ export class MetersController {
               supplierWebsite: 'enerenergia.it',
               supplierDescription:
                 'Ener Energia supplies electricity and gas to over two million Italian homes.',
+              supplierFaqs: [
+                {
+                  id: 'faq-uuid',
+                  question: 'How do I read my Ener Energia bill?',
+                  answer: 'Your consumption is on page 2, under "Dettaglio consumi".',
+                },
+              ],
               contractNumber: 'CASE-20260630-00001',
               podPdrNumber: 'IT001E556779',
               meterNumber: '14528796',

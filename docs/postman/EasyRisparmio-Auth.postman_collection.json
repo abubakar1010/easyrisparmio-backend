@@ -2188,11 +2188,11 @@
     },
     {
       "name": "Suppliers",
-      "description": "Energy supplier management. Public users browse active suppliers. Admins manage the full lifecycle including creation, updates, activation/deactivation, and soft-deletion.",
+      "description": "Energy supplier management. Public users browse active suppliers. Admins manage the full lifecycle: creation, updates, activation/deactivation through `status`, and deletion (immediate or scheduled).",
       "item": [
         {
           "name": "Public",
-          "description": "Public supplier endpoints. No authentication required. Returns only active suppliers.",
+          "description": "Public supplier endpoints. No authentication required. The list returns only suppliers whose `status` is `active`.",
           "item": [
             {
               "name": "List Active Suppliers",
@@ -2227,7 +2227,8 @@
                     }
                   ]
                 },
-                "description": "Returns a paginated list of active suppliers. No authentication required.\n\nSupports text search by supplier name and supplier code.\n\n**Query parameters:**\n- `page` \u2014 Page number (default: 1)\n- `limit` \u2014 Items per page (default: 20, max: 100)\n- `search` \u2014 Search by supplier name or supplier code"
+                "header": [],
+                "description": "Returns a paginated list of suppliers whose `status` is `active`, sorted by name. No authentication required.\n\n**Query parameters:**\n- `page` \u2014 Page number (default: 1)\n- `limit` \u2014 Items per page (default: 20, max: 100)\n- `search` \u2014 Search by supplier name or supplier code"
               },
               "response": [
                 {
@@ -2240,7 +2241,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"data\": [\n      {\n        \"id\": \"s1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n        \"name\": \"Enel Energia\",\n        \"logoUrl\": \"https://cdn.easyresparmio.it/logos/enel-energia.png\",\n        \"description\": \"Leading Italian energy supplier since 1962\",\n        \"rating\": \"4.50\",\n        \"isActive\": true,\n        \"contactEmail\": \"info@enelenergia.it\",\n        \"contactPhone\": \"+39023456789\",\n        \"website\": \"https://www.enelenergia.it\",\n        \"supplierCode\": \"ENEL-001\",\n        \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n        \"updatedAt\": \"2026-06-01T10:00:00.000Z\"\n      },\n      {\n        \"id\": \"s2b3c4d5-e6f7-8901-bcde-f23456789012\",\n        \"name\": \"Eni Plenitude\",\n        \"logoUrl\": \"https://cdn.easyresparmio.it/logos/eni-plenitude.png\",\n        \"description\": \"Italian energy and gas supplier\",\n        \"rating\": \"4.20\",\n        \"isActive\": true,\n        \"contactEmail\": \"info@eniplenitude.it\",\n        \"contactPhone\": \"+39024567890\",\n        \"website\": \"https://www.eniplenitude.com\",\n        \"supplierCode\": \"ENI-001\",\n        \"createdAt\": \"2026-05-20T08:00:00.000Z\",\n        \"updatedAt\": \"2026-05-20T08:00:00.000Z\"\n      }\n    ],\n    \"meta\": {\n      \"total\": 2,\n      \"page\": 1,\n      \"limit\": 20,\n      \"totalPages\": 1\n    }\n  }\n}"
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"data\": [\n      {\n        \"id\": \"s1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n        \"name\": \"Enel Energia\",\n        \"legalName\": \"Enel Energia S.p.A.\",\n        \"taxId\": \"IT06655971007\",\n        \"logoUrl\": \"/uploads/enel-energia.png\",\n        \"description\": \"Leading Italian energy supplier since 1962\",\n        \"rating\": \"4.50\",\n        \"status\": \"active\",\n        \"commodity\": \"dual\",\n        \"contactName\": \"Marco Bianchi\",\n        \"contactEmail\": \"info@enelenergia.it\",\n        \"contactPhone\": \"+39800900860\",\n        \"website\": \"https://www.enelenergia.it\",\n        \"streetAddress\": \"Viale Regina Margherita 137\",\n        \"city\": \"Roma\",\n        \"province\": \"RM\",\n        \"zipCode\": \"00198\",\n        \"country\": \"Italy\",\n        \"contractStartDate\": \"2025-01-01\",\n        \"notes\": \"Primary energy partner. Volume bonus reviewed quarterly.\",\n        \"contractSigningInstructions\": null,\n        \"contractSigningDocumentUrl\": null,\n        \"contractSigningDocumentName\": null,\n        \"supplierCode\": \"ENEL-001\",\n        \"scheduledDeletionDate\": null,\n        \"createdBy\": \"admin-uuid\",\n        \"updatedBy\": \"admin-uuid\",\n        \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n        \"updatedAt\": \"2026-06-01T10:00:00.000Z\",\n        \"deletedAt\": null\n      }\n    ],\n    \"meta\": {\n      \"total\": 1,\n      \"page\": 1,\n      \"limit\": 20,\n      \"totalPages\": 1\n    }\n  }\n}"
                 },
                 {
                   "name": "200 - Empty List",
@@ -2272,7 +2273,8 @@
                     "{{supplierId}}"
                   ]
                 },
-                "description": "Returns a single supplier with its associated offers. No authentication required.\n\n**Path parameters:**\n- `id` \u2014 Supplier UUID"
+                "header": [],
+                "description": "Returns a single supplier with its offers. No authentication required.\n\n**Path parameters:**\n- `id` \u2014 Supplier UUID"
               },
               "response": [
                 {
@@ -2285,7 +2287,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"s1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"name\": \"Enel Energia\",\n    \"logoUrl\": \"https://cdn.easyresparmio.it/logos/enel-energia.png\",\n    \"description\": \"Leading Italian energy supplier since 1962\",\n    \"rating\": \"4.50\",\n    \"isActive\": true,\n    \"contactEmail\": \"info@enelenergia.it\",\n    \"contactPhone\": \"+39023456789\",\n    \"website\": \"https://www.enelenergia.it\",\n    \"supplierCode\": \"ENEL-001\",\n    \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-01T10:00:00.000Z\",\n    \"offers\": [\n      {\n        \"id\": \"o1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n        \"name\": \"Casa Luce Fix\",\n        \"energyType\": \"electricity\",\n        \"status\": \"active\"\n      }\n    ]\n  }\n}"
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"s1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"name\": \"Enel Energia\",\n    \"legalName\": \"Enel Energia S.p.A.\",\n    \"taxId\": \"IT06655971007\",\n    \"logoUrl\": \"/uploads/enel-energia.png\",\n    \"description\": \"Leading Italian energy supplier since 1962\",\n    \"rating\": \"4.50\",\n    \"status\": \"active\",\n    \"commodity\": \"dual\",\n    \"contactName\": \"Marco Bianchi\",\n    \"contactEmail\": \"info@enelenergia.it\",\n    \"contactPhone\": \"+39800900860\",\n    \"website\": \"https://www.enelenergia.it\",\n    \"streetAddress\": \"Viale Regina Margherita 137\",\n    \"city\": \"Roma\",\n    \"province\": \"RM\",\n    \"zipCode\": \"00198\",\n    \"country\": \"Italy\",\n    \"contractStartDate\": \"2025-01-01\",\n    \"notes\": \"Primary energy partner. Volume bonus reviewed quarterly.\",\n    \"contractSigningInstructions\": null,\n    \"contractSigningDocumentUrl\": null,\n    \"contractSigningDocumentName\": null,\n    \"supplierCode\": \"ENEL-001\",\n    \"scheduledDeletionDate\": null,\n    \"createdBy\": \"admin-uuid\",\n    \"updatedBy\": \"admin-uuid\",\n    \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-01T10:00:00.000Z\",\n    \"deletedAt\": null,\n    \"offers\": [\n      {\n        \"id\": \"o1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n        \"name\": \"Casa Luce Fix\",\n        \"energyType\": \"electricity\",\n        \"offerStatus\": \"active\"\n      }\n    ]\n  }\n}"
                 },
                 {
                   "name": "404 - Supplier Not Found",
@@ -2297,7 +2299,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Supplier not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\n    \"Supplier not found\"\n  ],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
                 }
               ]
             }
@@ -2305,7 +2307,7 @@
         },
         {
           "name": "Admin",
-          "description": "Admin endpoints for managing energy suppliers. Requires `admin` role.\n\nAdmin can create, update, soft-delete, and toggle active/inactive status of suppliers. Inactive suppliers are hidden from the public listing but remain visible to admins.",
+          "description": "Admin endpoints for managing energy suppliers. Requires `admin` role.\n\n**Supplier status** is the only thing that decides whether a supplier is usable:\n- `active` \u2014 listed publicly and can carry offers\n- `inactive` \u2014 hidden from the public listing, cannot carry offers, still visible to admins\n- `pending_deletion` \u2014 set only by the deletion flow; nothing can be changed until the deletion runs or is cancelled",
           "item": [
             {
               "name": "Create Supplier",
@@ -2351,14 +2353,14 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"name\": \"Enel Energia\",\n  \"logoUrl\": \"https://cdn.easyresparmio.it/logos/enel-energia.png\",\n  \"description\": \"Leading Italian energy supplier since 1962\",\n  \"rating\": 4.5,\n  \"contactEmail\": \"info@enelenergia.it\",\n  \"contactPhone\": \"+39023456789\",\n  \"website\": \"https://www.enelenergia.it\",\n  \"supplierCode\": \"ENEL-001\"\n}",
+                  "raw": "{\n  \"name\": \"Enel Energia\",\n  \"legalName\": \"Enel Energia S.p.A.\",\n  \"taxId\": \"IT06655971007\",\n  \"status\": \"active\",\n  \"commodity\": \"dual\",\n  \"contactName\": \"Marco Bianchi\",\n  \"contactEmail\": \"info@enelenergia.it\",\n  \"contactPhone\": \"+39800900860\",\n  \"streetAddress\": \"Viale Regina Margherita 137\",\n  \"city\": \"Roma\",\n  \"province\": \"RM\",\n  \"zipCode\": \"00198\",\n  \"logoUrl\": \"/uploads/enel-energia.png\",\n  \"description\": \"Leading Italian energy supplier since 1962\",\n  \"rating\": 4.5,\n  \"website\": \"https://www.enelenergia.it\",\n  \"contractStartDate\": \"2025-01-01\",\n  \"notes\": \"Primary energy partner. Volume bonus reviewed quarterly.\",\n  \"supplierCode\": \"ENEL-001\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
                     }
                   }
                 },
-                "description": "Creates a new energy supplier.\n\n**Body Fields:**\n- `name` \u2014 (required) supplier name, max 255 characters\n- `logoUrl` \u2014 (optional) URL to the supplier's logo image\n- `description` \u2014 (optional) supplier description\n- `rating` \u2014 (optional) supplier rating, decimal from 0.00 to 5.00 (default: 0)\n- `contactEmail` \u2014 (optional) supplier contact email\n- `contactPhone` \u2014 (optional) supplier contact phone number\n- `website` \u2014 (optional) supplier website URL\n- `supplierCode` \u2014 (optional) unique internal supplier code, max 50 characters\n- `isActive` \u2014 (optional) boolean, whether the supplier is visible to users (default: true)\n\nRequires **admin** role."
+                "description": "Creates a new energy supplier.\n\n**Required fields:**\n- `name` \u2014 brand name, max 255\n- `legalName` \u2014 legal entity name, max 255\n- `taxId` \u2014 Codice Fiscale (16 chars) or Partita IVA (11 digits, optional `IT` prefix)\n- `status` \u2014 `active` or `inactive` (`pending_deletion` is not accepted; it comes from DELETE)\n- `commodity` \u2014 `electricity`, `gas` or `dual`\n- `contactName` \u2014 primary contact, max 255\n- `contactEmail` \u2014 valid email, max 255\n- `contactPhone` \u2014 international format, e.g. `+39800900860`\n- `streetAddress`, `city`, `province` \u2014 registered office\n- `zipCode` \u2014 5-digit Italian CAP\n\n**Optional fields:**\n- `logoUrl` \u2014 URL or `/uploads/...` path\n- `description`, `notes`\n- `rating` \u2014 0 to 5, two decimals (default 0)\n- `website` \u2014 URL\n- `contractStartDate` \u2014 ISO date\n- `supplierCode` \u2014 unique internal code, max 50\n- `contractSigningInstructions`, `contractSigningDocumentUrl`, `contractSigningDocumentName` \u2014 shown to users signing this supplier's contract\n\nThe new supplier's id is saved to the `supplierId` collection variable.\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -2371,7 +2373,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"s1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"name\": \"Enel Energia\",\n    \"logoUrl\": \"https://cdn.easyresparmio.it/logos/enel-energia.png\",\n    \"description\": \"Leading Italian energy supplier since 1962\",\n    \"rating\": \"4.50\",\n    \"isActive\": true,\n    \"contactEmail\": \"info@enelenergia.it\",\n    \"contactPhone\": \"+39023456789\",\n    \"website\": \"https://www.enelenergia.it\",\n    \"supplierCode\": \"ENEL-001\",\n    \"createdBy\": \"admin-uuid\",\n    \"updatedBy\": \"admin-uuid\",\n    \"createdAt\": \"2026-06-10T12:00:00.000Z\",\n    \"updatedAt\": \"2026-06-10T12:00:00.000Z\"\n  }\n}"
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"s1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"name\": \"Enel Energia\",\n    \"legalName\": \"Enel Energia S.p.A.\",\n    \"taxId\": \"IT06655971007\",\n    \"logoUrl\": \"/uploads/enel-energia.png\",\n    \"description\": \"Leading Italian energy supplier since 1962\",\n    \"rating\": \"4.50\",\n    \"status\": \"active\",\n    \"commodity\": \"dual\",\n    \"contactName\": \"Marco Bianchi\",\n    \"contactEmail\": \"info@enelenergia.it\",\n    \"contactPhone\": \"+39800900860\",\n    \"website\": \"https://www.enelenergia.it\",\n    \"streetAddress\": \"Viale Regina Margherita 137\",\n    \"city\": \"Roma\",\n    \"province\": \"RM\",\n    \"zipCode\": \"00198\",\n    \"country\": \"Italy\",\n    \"contractStartDate\": \"2025-01-01\",\n    \"notes\": \"Primary energy partner. Volume bonus reviewed quarterly.\",\n    \"contractSigningInstructions\": null,\n    \"contractSigningDocumentUrl\": null,\n    \"contractSigningDocumentName\": null,\n    \"supplierCode\": \"ENEL-001\",\n    \"scheduledDeletionDate\": null,\n    \"createdBy\": \"admin-uuid\",\n    \"updatedBy\": \"admin-uuid\",\n    \"createdAt\": \"2026-06-10T12:00:00.000Z\",\n    \"updatedAt\": \"2026-06-10T12:00:00.000Z\",\n    \"deletedAt\": null\n  }\n}"
                 },
                 {
                   "name": "400 - Validation Error",
@@ -2383,7 +2385,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\n    \"name should not be empty\",\n    \"name must be a string\"\n  ],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\n    \"Legal name is required\",\n    \"Status must be one of: active, inactive\",\n    \"ZIP code must be a valid 5-digit Italian CAP (e.g., 00198)\"\n  ],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
                 },
                 {
                   "name": "409 - Duplicate Supplier Code",
@@ -2395,7 +2397,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": false,\n  \"statusCode\": 409,\n  \"message\": [\"A supplier with this supplier code already exists\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 409,\n  \"message\": [\n    \"A supplier with this supplier code already exists\"\n  ],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
                 },
                 {
                   "name": "401 - Unauthorized",
@@ -2407,7 +2409,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\"Unauthorized\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": [\n    \"Unauthorized\"\n  ],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
                 },
                 {
                   "name": "403 - Forbidden (Not Admin)",
@@ -2419,7 +2421,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\n    \"Forbidden resource\"\n  ],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
                 }
               ]
             },
@@ -2450,10 +2452,16 @@
                       "description": "Items per page (default: 20, max: 100)"
                     },
                     {
-                      "key": "isActive",
-                      "value": "true",
+                      "key": "status",
+                      "value": "active",
                       "disabled": true,
-                      "description": "Filter by active status: true or false (optional)"
+                      "description": "Filter by status: active, inactive or pending_deletion (optional)"
+                    },
+                    {
+                      "key": "commodity",
+                      "value": "electricity",
+                      "disabled": true,
+                      "description": "Filter by commodity: electricity, gas or dual (optional)"
                     },
                     {
                       "key": "search",
@@ -2469,7 +2477,7 @@
                     "value": "Bearer {{accessToken}}"
                   }
                 ],
-                "description": "Returns a paginated list of all suppliers (active and inactive). Requires admin role.\n\n**Query parameters:**\n- `page` \u2014 Page number (default: 1)\n- `limit` \u2014 Items per page (default: 20, max: 100)\n- `isActive` \u2014 Filter by active status (`true` or `false`)\n- `search` \u2014 Search by name, email, or supplier code"
+                "description": "Returns a paginated list of all suppliers, whatever their status, with their offers. Requires admin role.\n\n**Query parameters:**\n- `page` \u2014 Page number (default: 1)\n- `limit` \u2014 Items per page (default: 20, max: 100)\n- `status` \u2014 `active`, `inactive` or `pending_deletion`\n- `commodity` \u2014 `electricity`, `gas` or `dual`\n- `search` \u2014 Search by name or supplier code"
               },
               "response": [
                 {
@@ -2482,7 +2490,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"data\": [\n      {\n        \"id\": \"s1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n        \"name\": \"Enel Energia\",\n        \"logoUrl\": \"https://cdn.easyresparmio.it/logos/enel-energia.png\",\n        \"description\": \"Leading Italian energy supplier since 1962\",\n        \"rating\": \"4.50\",\n        \"isActive\": true,\n        \"contactEmail\": \"info@enelenergia.it\",\n        \"contactPhone\": \"+39023456789\",\n        \"website\": \"https://www.enelenergia.it\",\n        \"supplierCode\": \"ENEL-001\",\n        \"createdBy\": \"admin-uuid\",\n        \"updatedBy\": \"admin-uuid\",\n        \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n        \"updatedAt\": \"2026-06-01T10:00:00.000Z\"\n      },\n      {\n        \"id\": \"s2b3c4d5-e6f7-8901-bcde-f23456789012\",\n        \"name\": \"Edison Energia\",\n        \"logoUrl\": null,\n        \"description\": null,\n        \"rating\": \"3.80\",\n        \"isActive\": false,\n        \"contactEmail\": \"info@edison.it\",\n        \"contactPhone\": null,\n        \"website\": \"https://www.edison.it\",\n        \"supplierCode\": \"EDIS-001\",\n        \"createdBy\": \"admin-uuid\",\n        \"updatedBy\": \"admin-uuid\",\n        \"createdAt\": \"2026-05-15T08:00:00.000Z\",\n        \"updatedAt\": \"2026-06-05T14:00:00.000Z\"\n      }\n    ],\n    \"meta\": {\n      \"total\": 2,\n      \"page\": 1,\n      \"limit\": 20,\n      \"totalPages\": 1\n    }\n  }\n}"
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"data\": [\n      {\n        \"id\": \"s1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n        \"name\": \"Enel Energia\",\n        \"legalName\": \"Enel Energia S.p.A.\",\n        \"taxId\": \"IT06655971007\",\n        \"logoUrl\": \"/uploads/enel-energia.png\",\n        \"description\": \"Leading Italian energy supplier since 1962\",\n        \"rating\": \"4.50\",\n        \"status\": \"active\",\n        \"commodity\": \"dual\",\n        \"contactName\": \"Marco Bianchi\",\n        \"contactEmail\": \"info@enelenergia.it\",\n        \"contactPhone\": \"+39800900860\",\n        \"website\": \"https://www.enelenergia.it\",\n        \"streetAddress\": \"Viale Regina Margherita 137\",\n        \"city\": \"Roma\",\n        \"province\": \"RM\",\n        \"zipCode\": \"00198\",\n        \"country\": \"Italy\",\n        \"contractStartDate\": \"2025-01-01\",\n        \"notes\": \"Primary energy partner. Volume bonus reviewed quarterly.\",\n        \"contractSigningInstructions\": null,\n        \"contractSigningDocumentUrl\": null,\n        \"contractSigningDocumentName\": null,\n        \"supplierCode\": \"ENEL-001\",\n        \"scheduledDeletionDate\": null,\n        \"createdBy\": \"admin-uuid\",\n        \"updatedBy\": \"admin-uuid\",\n        \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n        \"updatedAt\": \"2026-06-01T10:00:00.000Z\",\n        \"deletedAt\": null,\n        \"offers\": []\n      },\n      {\n        \"id\": \"s2b3c4d5-e6f7-8901-bcde-f23456789012\",\n        \"name\": \"Edison Energia\",\n        \"legalName\": \"Edison Energia S.p.A.\",\n        \"taxId\": \"IT08526440154\",\n        \"logoUrl\": null,\n        \"description\": null,\n        \"rating\": \"3.80\",\n        \"status\": \"inactive\",\n        \"commodity\": \"electricity\",\n        \"contactName\": \"Servizio Clienti\",\n        \"contactEmail\": \"info@edison.it\",\n        \"contactPhone\": \"+39800031141\",\n        \"website\": \"https://www.edison.it\",\n        \"streetAddress\": \"Foro Buonaparte 31\",\n        \"city\": \"Milano\",\n        \"province\": \"MI\",\n        \"zipCode\": \"20121\",\n        \"country\": \"Italy\",\n        \"contractStartDate\": null,\n        \"notes\": null,\n        \"contractSigningInstructions\": null,\n        \"contractSigningDocumentUrl\": null,\n        \"contractSigningDocumentName\": null,\n        \"supplierCode\": \"EDIS-001\",\n        \"scheduledDeletionDate\": null,\n        \"createdBy\": \"admin-uuid\",\n        \"updatedBy\": \"admin-uuid\",\n        \"createdAt\": \"2026-05-15T08:00:00.000Z\",\n        \"updatedAt\": \"2026-06-05T14:00:00.000Z\",\n        \"deletedAt\": null,\n        \"offers\": []\n      }\n    ],\n    \"meta\": {\n      \"total\": 2,\n      \"page\": 1,\n      \"limit\": 20,\n      \"totalPages\": 1\n    }\n  }\n}"
                 },
                 {
                   "name": "403 - Forbidden (Not Admin)",
@@ -2494,7 +2502,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\"Forbidden resource\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 403,\n  \"message\": [\n    \"Forbidden resource\"\n  ],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
                 }
               ]
             },
@@ -2533,7 +2541,7 @@
                     }
                   }
                 },
-                "description": "Updates an existing supplier's details. All fields are optional \u2014 only provided fields are updated.\n\n**Body Fields (all optional):**\n- `name` \u2014 supplier name, max 255 characters\n- `logoUrl` \u2014 URL to the supplier's logo image\n- `description` \u2014 supplier description\n- `rating` \u2014 decimal from 0.00 to 5.00\n- `contactEmail` \u2014 contact email\n- `contactPhone` \u2014 contact phone number\n- `website` \u2014 website URL\n- `supplierCode` \u2014 unique internal supplier code, max 50 characters\n\nRequires **admin** role."
+                "description": "Updates an existing supplier. Every field from Create Supplier is accepted and optional \u2014 only the fields sent are changed. `status` may be set to `active` or `inactive` here too.\n\nA supplier pending deletion cannot be edited; cancel the deletion first.\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -2546,7 +2554,19 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"s1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"name\": \"Enel Energia\",\n    \"logoUrl\": \"https://cdn.easyresparmio.it/logos/enel-energia.png\",\n    \"description\": \"Updated description after rebrand\",\n    \"rating\": \"4.70\",\n    \"isActive\": true,\n    \"contactEmail\": \"info@enelenergia.it\",\n    \"contactPhone\": \"+39023456789\",\n    \"website\": \"https://www.enelenergia.it\",\n    \"supplierCode\": \"ENEL-001\",\n    \"createdBy\": \"admin-uuid\",\n    \"updatedBy\": \"admin-uuid\",\n    \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-10T14:00:00.000Z\"\n  }\n}"
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"s1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"name\": \"Enel Energia\",\n    \"legalName\": \"Enel Energia S.p.A.\",\n    \"taxId\": \"IT06655971007\",\n    \"logoUrl\": \"/uploads/enel-energia.png\",\n    \"description\": \"Updated description after rebrand\",\n    \"rating\": \"4.70\",\n    \"status\": \"active\",\n    \"commodity\": \"dual\",\n    \"contactName\": \"Marco Bianchi\",\n    \"contactEmail\": \"info@enelenergia.it\",\n    \"contactPhone\": \"+39800900860\",\n    \"website\": \"https://www.enelenergia.it\",\n    \"streetAddress\": \"Viale Regina Margherita 137\",\n    \"city\": \"Roma\",\n    \"province\": \"RM\",\n    \"zipCode\": \"00198\",\n    \"country\": \"Italy\",\n    \"contractStartDate\": \"2025-01-01\",\n    \"notes\": \"Primary energy partner. Volume bonus reviewed quarterly.\",\n    \"contractSigningInstructions\": null,\n    \"contractSigningDocumentUrl\": null,\n    \"contractSigningDocumentName\": null,\n    \"supplierCode\": \"ENEL-001\",\n    \"scheduledDeletionDate\": null,\n    \"createdBy\": \"admin-uuid\",\n    \"updatedBy\": \"admin-uuid\",\n    \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-10T14:00:00.000Z\",\n    \"deletedAt\": null\n  }\n}"
+                },
+                {
+                  "name": "400 - Pending Deletion",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\n    \"Cannot modify a supplier pending deletion. Cancel the deletion first.\"\n  ],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
                 },
                 {
                   "name": "404 - Supplier Not Found",
@@ -2558,7 +2578,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Supplier not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\n    \"Supplier not found\"\n  ],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
                 },
                 {
                   "name": "409 - Duplicate Supplier Code",
@@ -2570,58 +2590,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": false,\n  \"statusCode\": 409,\n  \"message\": [\"A supplier with this supplier code already exists\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
-                }
-              ]
-            },
-            {
-              "name": "Soft-Delete Supplier",
-              "request": {
-                "method": "DELETE",
-                "url": {
-                  "raw": "{{baseUrl}}/api/v1/suppliers/{{supplierId}}",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "api",
-                    "v1",
-                    "suppliers",
-                    "{{supplierId}}"
-                  ]
-                },
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{accessToken}}"
-                  }
-                ],
-                "description": "Soft-deletes a supplier by setting `deleted_at` timestamp. The supplier is hidden from all queries but preserved in the database.\n\nThis is a permanent action \u2014 unlike toggling `isActive`, soft-deleted suppliers cannot be recovered via the API."
-              },
-              "response": [
-                {
-                  "name": "200 - Supplier Deleted",
-                  "status": "OK",
-                  "code": 200,
-                  "header": [
-                    {
-                      "key": "Content-Type",
-                      "value": "application/json"
-                    }
-                  ],
-                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Supplier deleted successfully\"\n  }\n}"
-                },
-                {
-                  "name": "404 - Supplier Not Found",
-                  "status": "Not Found",
-                  "code": 404,
-                  "header": [
-                    {
-                      "key": "Content-Type",
-                      "value": "application/json"
-                    }
-                  ],
-                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Supplier not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 409,\n  \"message\": [\n    \"A supplier with this supplier code already exists\"\n  ],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
                 }
               ]
             },
@@ -2654,14 +2623,14 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"isActive\": true\n}",
+                  "raw": "{\n  \"status\": \"active\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
                     }
                   }
                 },
-                "description": "Activates a supplier/agreement, making it visible to users.\n\n**Body Fields:**\n- `isActive` \u2014 (required) boolean. Set to `true` to make the entity visible to users, `false` to hide it.\n\nRequires **admin** role."
+                "description": "Sets the supplier to `active`: it is listed publicly again and can carry offers.\n\n**Body Fields:**\n- `status` \u2014 (required) `active` or `inactive`. `pending_deletion` is rejected; use DELETE.\n\nA supplier pending deletion cannot be changed; cancel the deletion first.\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -2674,7 +2643,31 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"s1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"name\": \"Enel Energia\",\n    \"logoUrl\": \"https://cdn.easyresparmio.it/logos/enel-energia.png\",\n    \"description\": \"Leading Italian energy supplier since 1962\",\n    \"rating\": \"4.50\",\n    \"isActive\": true,\n    \"contactEmail\": \"info@enelenergia.it\",\n    \"contactPhone\": \"+39023456789\",\n    \"website\": \"https://www.enelenergia.it\",\n    \"supplierCode\": \"ENEL-001\",\n    \"createdBy\": \"admin-uuid\",\n    \"updatedBy\": \"admin-uuid\",\n    \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-10T14:00:00.000Z\"\n  }\n}"
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"s1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"name\": \"Enel Energia\",\n    \"legalName\": \"Enel Energia S.p.A.\",\n    \"taxId\": \"IT06655971007\",\n    \"logoUrl\": \"/uploads/enel-energia.png\",\n    \"description\": \"Leading Italian energy supplier since 1962\",\n    \"rating\": \"4.50\",\n    \"status\": \"active\",\n    \"commodity\": \"dual\",\n    \"contactName\": \"Marco Bianchi\",\n    \"contactEmail\": \"info@enelenergia.it\",\n    \"contactPhone\": \"+39800900860\",\n    \"website\": \"https://www.enelenergia.it\",\n    \"streetAddress\": \"Viale Regina Margherita 137\",\n    \"city\": \"Roma\",\n    \"province\": \"RM\",\n    \"zipCode\": \"00198\",\n    \"country\": \"Italy\",\n    \"contractStartDate\": \"2025-01-01\",\n    \"notes\": \"Primary energy partner. Volume bonus reviewed quarterly.\",\n    \"contractSigningInstructions\": null,\n    \"contractSigningDocumentUrl\": null,\n    \"contractSigningDocumentName\": null,\n    \"supplierCode\": \"ENEL-001\",\n    \"scheduledDeletionDate\": null,\n    \"createdBy\": \"admin-uuid\",\n    \"updatedBy\": \"admin-uuid\",\n    \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-10T14:00:00.000Z\",\n    \"deletedAt\": null\n  }\n}"
+                },
+                {
+                  "name": "400 - Invalid Status",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\n    \"Status must be one of: active, inactive\"\n  ],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "400 - Pending Deletion",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\n    \"Cannot modify a supplier pending deletion. Cancel the deletion first.\"\n  ],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
                 },
                 {
                   "name": "404 - Supplier Not Found",
@@ -2686,7 +2679,7 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Supplier not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\n    \"Supplier not found\"\n  ],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
                 }
               ]
             },
@@ -2719,14 +2712,14 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"isActive\": false\n}",
+                  "raw": "{\n  \"status\": \"inactive\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
                     }
                   }
                 },
-                "description": "Deactivates a supplier/agreement, hiding it from users.\n\n**Body Fields:**\n- `isActive` \u2014 (required) boolean. Set to `true` to make the entity visible to users, `false` to hide it.\n\nRequires **admin** role."
+                "description": "Sets the supplier to `inactive`: it disappears from the public listing and the offer form, and new offers cannot be created or published for it. Existing data is kept.\n\n**Body Fields:**\n- `status` \u2014 (required) `active` or `inactive`. `pending_deletion` is rejected; use DELETE.\n\nA supplier pending deletion cannot be changed; cancel the deletion first.\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -2739,7 +2732,31 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"s1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"name\": \"Enel Energia\",\n    \"logoUrl\": \"https://cdn.easyresparmio.it/logos/enel-energia.png\",\n    \"description\": \"Leading Italian energy supplier since 1962\",\n    \"rating\": \"4.50\",\n    \"isActive\": false,\n    \"contactEmail\": \"info@enelenergia.it\",\n    \"contactPhone\": \"+39023456789\",\n    \"website\": \"https://www.enelenergia.it\",\n    \"supplierCode\": \"ENEL-001\",\n    \"createdBy\": \"admin-uuid\",\n    \"updatedBy\": \"admin-uuid\",\n    \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-10T14:00:00.000Z\"\n  }\n}"
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"s1a2b3c4-d5e6-7890-abcd-ef1234567890\",\n    \"name\": \"Enel Energia\",\n    \"legalName\": \"Enel Energia S.p.A.\",\n    \"taxId\": \"IT06655971007\",\n    \"logoUrl\": \"/uploads/enel-energia.png\",\n    \"description\": \"Leading Italian energy supplier since 1962\",\n    \"rating\": \"4.50\",\n    \"status\": \"inactive\",\n    \"commodity\": \"dual\",\n    \"contactName\": \"Marco Bianchi\",\n    \"contactEmail\": \"info@enelenergia.it\",\n    \"contactPhone\": \"+39800900860\",\n    \"website\": \"https://www.enelenergia.it\",\n    \"streetAddress\": \"Viale Regina Margherita 137\",\n    \"city\": \"Roma\",\n    \"province\": \"RM\",\n    \"zipCode\": \"00198\",\n    \"country\": \"Italy\",\n    \"contractStartDate\": \"2025-01-01\",\n    \"notes\": \"Primary energy partner. Volume bonus reviewed quarterly.\",\n    \"contractSigningInstructions\": null,\n    \"contractSigningDocumentUrl\": null,\n    \"contractSigningDocumentName\": null,\n    \"supplierCode\": \"ENEL-001\",\n    \"scheduledDeletionDate\": null,\n    \"createdBy\": \"admin-uuid\",\n    \"updatedBy\": \"admin-uuid\",\n    \"createdAt\": \"2026-06-01T10:00:00.000Z\",\n    \"updatedAt\": \"2026-06-10T14:00:00.000Z\",\n    \"deletedAt\": null\n  }\n}"
+                },
+                {
+                  "name": "400 - Invalid Status",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\n    \"Status must be one of: active, inactive\"\n  ],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "400 - Pending Deletion",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\n    \"Cannot modify a supplier pending deletion. Cancel the deletion first.\"\n  ],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
                 },
                 {
                   "name": "404 - Supplier Not Found",
@@ -2751,7 +2768,210 @@
                       "value": "application/json"
                     }
                   ],
-                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\"Supplier not found\"],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\n    \"Supplier not found\"\n  ],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Delete Supplier",
+              "request": {
+                "method": "DELETE",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/suppliers/{{supplierId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "suppliers",
+                    "{{supplierId}}"
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "description": "Deletes a supplier.\n\n- **No live utilities** on this supplier's offers \u2192 deleted immediately (soft delete).\n- **Live utilities exist** \u2192 the supplier becomes `pending_deletion` and is deleted automatically once the last supply expires. Early-stage cases for its offers are cancelled, and no offers can be created, published or sent for it meanwhile.\n\nEvery live utility needs an expiry date for the deletion to be scheduled. Calling this again while pending is a no-op.\n\nRequires **admin** role."
+              },
+              "response": [
+                {
+                  "name": "200 - Deleted Immediately",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Supplier deleted successfully\"\n  }\n}"
+                },
+                {
+                  "name": "200 - Deletion Scheduled",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Supplier deletion scheduled for 2027-03-15\",\n    \"scheduledDeletionDate\": \"2027-03-15\",\n    \"cancelledCases\": 2\n  }\n}"
+                },
+                {
+                  "name": "400 - Live Utility Without Expiry",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\n    \"Cannot schedule deletion: the following live utilities have no expiry date set: CASE-20260610-0001. Please set expiry dates on them first.\"\n  ],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "404 - Supplier Not Found",
+                  "status": "Not Found",
+                  "code": 404,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\n    \"Supplier not found\"\n  ],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Get Deletion Status",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/suppliers/{{supplierId}}/deletion-status",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "suppliers",
+                    "{{supplierId}}",
+                    "deletion-status"
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "description": "Returns the supplier's status, its scheduled deletion date (if any) and how many live utilities still keep it alive (`activeContractsCount`, name kept for the dashboard).\n\nRequires **admin** role."
+              },
+              "response": [
+                {
+                  "name": "200 - Pending Deletion",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"status\": \"pending_deletion\",\n    \"scheduledDeletionDate\": \"2027-03-15\",\n    \"activeContractsCount\": 3\n  }\n}"
+                },
+                {
+                  "name": "200 - Not Scheduled",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"status\": \"active\",\n    \"scheduledDeletionDate\": null,\n    \"activeContractsCount\": 0\n  }\n}"
+                },
+                {
+                  "name": "404 - Supplier Not Found",
+                  "status": "Not Found",
+                  "code": 404,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\n    \"Supplier not found\"\n  ],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Cancel Deletion",
+              "request": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/suppliers/{{supplierId}}/cancel-deletion",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "suppliers",
+                    "{{supplierId}}",
+                    "cancel-deletion"
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "description": "Cancels a scheduled deletion. The supplier returns as `inactive` \u2014 reactivate it with Toggle Status \u2014 Activate when it should carry offers again.\n\nRequires **admin** role."
+              },
+              "response": [
+                {
+                  "name": "200 - Deletion Cancelled",
+                  "status": "OK",
+                  "code": 200,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Supplier deletion cancelled. Status set to inactive.\"\n  }\n}"
+                },
+                {
+                  "name": "400 - Not Pending Deletion",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": [\n    \"Supplier is not pending deletion\"\n  ],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
+                },
+                {
+                  "name": "404 - Supplier Not Found",
+                  "status": "Not Found",
+                  "code": 404,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"success\": false,\n  \"statusCode\": 404,\n  \"message\": [\n    \"Supplier not found\"\n  ],\n  \"timestamp\": \"2026-06-10T12:00:00.000Z\"\n}"
                 }
               ]
             }
@@ -3047,7 +3267,7 @@
                     }
                   }
                 },
-                "description": "Creates a new energy offer.\n\n**Body Fields:**\n- `name` \u2014 (required) offer name, max 255 characters\n- `description` \u2014 (optional) detailed description of the offer\n- `energyType` \u2014 (required) Enum: `electricity`, `gas`, `dual`. Type of energy this offer covers\n- `marketType` \u2014 (required) Enum: `fixed`, `variable`, `indexed`. Pricing model type\n- `pricePerKwh` \u2014 (optional) price per kilowatt-hour in EUR, decimal (precision 10, scale 6). Used for electricity offers\n- `pricePerSmc` \u2014 (optional) price per standard cubic meter in EUR, decimal. Used for gas offers\n- `fixedMonthlyFee` \u2014 (required) fixed monthly fee in EUR, decimal (precision 10, scale 2, default: 0)\n- `activationCost` \u2014 (required) one-time activation cost in EUR, decimal (precision 10, scale 2, default: 0)\n- `contractDurationMonths` \u2014 (required) contract duration in months, integer (min: 1)\n- `isGreenEnergy` \u2014 (optional) boolean, whether the offer uses renewable energy sources (default: false)\n- `validFrom` \u2014 (required) offer validity start date, ISO 8601 format\n- `validUntil` \u2014 (optional) offer validity end date, ISO 8601 format\n- `termsUrl` \u2014 (optional) URL to the full terms and conditions document\n- `target` \u2014 (optional) Enum: `personal`, `business`, `both`. Target audience for this offer (default: `both`)\n- `highlights` \u2014 (optional) array of strings, key selling points displayed on the offer card\n- `supplierId` \u2014 (required) UUID of the supplier providing this offer\n- `offerCode` \u2014 (optional) unique internal offer code, max 50 characters\n- `offerStatus` \u2014 (optional) Enum: `draft`, `active`, `expiring`, `expired`, `archived`. Defaults to `draft`\n\nOffer is created with `draft` status. Use the Change Status endpoint to publish it.\n\nRequires **admin** role."
+                "description": "Creates a new energy offer.\n\n**Body Fields:**\n- `name` \u2014 (required) offer name, max 255 characters\n- `description` \u2014 (optional) detailed description of the offer\n- `energyType` \u2014 (required) Enum: `electricity`, `gas`, `dual`. Type of energy this offer covers\n- `marketType` \u2014 (required) Enum: `fixed`, `variable`, `indexed`. Pricing model type\n- `pricePerKwh` \u2014 (optional) price per kilowatt-hour in EUR, decimal (precision 10, scale 6). Used for electricity offers\n- `pricePerSmc` \u2014 (optional) price per standard cubic meter in EUR, decimal. Used for gas offers\n- `fixedMonthlyFee` \u2014 (required) fixed monthly fee in EUR, decimal (precision 10, scale 2, default: 0)\n- `activationCost` \u2014 (required) one-time activation cost in EUR, decimal (precision 10, scale 2, default: 0)\n- `contractDurationMonths` \u2014 (required) how long the offer conditions stay valid for the customer after activation: integer 1\u201360, or `null` for indefinite. Independent of `validFrom`/`validUntil`, which only bound when the offer can be sold\n- `isGreenEnergy` \u2014 (optional) boolean, whether the offer uses renewable energy sources (default: false)\n- `validFrom` \u2014 (required) offer validity start date, ISO 8601 format\n- `validUntil` \u2014 (optional) offer validity end date, ISO 8601 format\n- `termsUrl` \u2014 (optional) URL to the full terms and conditions document\n- `target` \u2014 (optional) Enum: `personal`, `business`, `both`. Target audience for this offer (default: `both`)\n- `highlights` \u2014 (optional) array of strings, key selling points displayed on the offer card\n- `supplierId` \u2014 (required) UUID of the supplier providing this offer\n- `offerCode` \u2014 (optional) unique internal offer code, max 50 characters\n- `offerStatus` \u2014 (optional) Enum: `draft`, `active`, `expiring`, `expired`, `archived`. Defaults to `draft`\n\nOffer is created with `draft` status. Use the Change Status endpoint to publish it.\n\nRequires **admin** role."
               },
               "response": [
                 {
@@ -3240,7 +3460,7 @@
                     }
                   }
                 },
-                "description": "Updates an existing offer's details. All fields are optional \u2014 only provided fields are updated.\n\n**Body Fields (all optional):**\n- `name` \u2014 offer name, max 255 characters\n- `description` \u2014 offer description\n- `pricePerKwh` \u2014 price per kWh in EUR, decimal\n- `pricePerSmc` \u2014 price per Smc in EUR, decimal\n- `fixedMonthlyFee` \u2014 monthly fee in EUR, decimal\n- `activationCost` \u2014 activation cost in EUR, decimal\n- `contractDurationMonths` \u2014 duration in months, integer\n- `isGreenEnergy` \u2014 boolean\n- `validFrom` / `validUntil` \u2014 ISO 8601 dates\n- `termsUrl` \u2014 URL to terms document\n- `target` \u2014 Enum: `personal`, `business`, `both`\n- `highlights` \u2014 array of strings\n- `offerCode` \u2014 unique offer code, max 50 characters\n\nRequires **admin** role."
+                "description": "Updates an existing offer's details. All fields are optional \u2014 only provided fields are updated.\n\n**Body Fields (all optional):**\n- `name` \u2014 offer name, max 255 characters\n- `description` \u2014 offer description\n- `pricePerKwh` \u2014 price per kWh in EUR, decimal\n- `pricePerSmc` \u2014 price per Smc in EUR, decimal\n- `fixedMonthlyFee` \u2014 monthly fee in EUR, decimal\n- `activationCost` \u2014 activation cost in EUR, decimal\n- `contractDurationMonths` \u2014 how long the offer conditions stay valid for the customer after activation: integer 1\u201360, or `null` for indefinite. Independent of `validFrom`/`validUntil`, which only bound when the offer can be sold\n- `isGreenEnergy` \u2014 boolean\n- `validFrom` / `validUntil` \u2014 ISO 8601 dates\n- `termsUrl` \u2014 URL to terms document\n- `target` \u2014 Enum: `personal`, `business`, `both`\n- `highlights` \u2014 array of strings\n- `offerCode` \u2014 unique offer code, max 50 characters\n\nRequires **admin** role."
               },
               "response": [
                 {

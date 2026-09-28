@@ -34,6 +34,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserRole } from '../../common/enums/role.enum';
+import { Locale, resolveLocale } from '../../common/middleware/locale.middleware';
 
 const TEMPLATE_EXAMPLE = {
   id: 'nt1a2b3c-d4e5-6789-abcd-ef0123456789',
@@ -88,9 +89,8 @@ export class NotificationTemplatesController {
   constructor(private readonly templatesService: NotificationTemplatesService) {}
 
   /** Italian unless the caller asks otherwise — the dashboard's default. */
-  private localeOf(req: any): 'it' | 'en' {
-    const header = String(req?.headers?.['accept-language'] || '').toLowerCase();
-    return header.startsWith('en') ? 'en' : 'it';
+  private localeOf(req: any): Locale {
+    return resolveLocale(req?.headers?.['accept-language']);
   }
 
   // Literal segments first. Declared below `:id` they would never be reached —

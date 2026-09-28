@@ -102,6 +102,10 @@ the table or column does not exist yet — it runs on empty databases too.
 Destructive operations go in `scripts/` as documented manual SQL instead; see
 `scripts/drop-legacy-contract-tables.sql`.
 
+### Language (Italian first)
+
+Italian is the default for every user-facing output: `resolveLocale()` in `src/common/middleware/locale.middleware.ts` returns `'it'` unless `Accept-Language` asks for English, and emails, push notifications and the `/r/:code` referral page follow it. Exception and validation messages stay in English because the mobile app matches some of them verbatim; the clients translate them. When you add or reword one, update the dashboard's catalogue in `EasyRisparmio_dashboard/src/utils/apiError.ts`.
+
 ### Italian Energy Domain Terms
 
 POD = electricity delivery point ID. PDR = gas delivery point ID. Codice Fiscale = tax ID. Partita IVA = VAT number. PUN/GME = energy market price indices.

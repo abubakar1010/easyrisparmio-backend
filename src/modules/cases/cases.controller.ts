@@ -31,6 +31,7 @@ import { CreateCaseDto } from './dto/create-case.dto';
 import { UpdateCaseDto } from './dto/update-case.dto';
 import { QueryCasesDto } from './dto/query-cases.dto';
 import { UploadDocumentDto } from './dto/upload-document.dto';
+import { RejectDocumentDto } from './dto/reject-document.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -249,7 +250,9 @@ export class CasesController {
     summary: 'Upload a document for a case',
     description:
       'Attaches a document to a switching case. The file must be uploaded first via the file-upload service; ' +
-      'this endpoint stores the file reference. Document uploads are logged as case events.',
+      'this endpoint stores the file reference. Document uploads are logged as case events. ' +
+      'Customers may only upload to their own cases. Pass `replacesDocumentId` to answer a rejection: ' +
+      'the rejected document goes back to review and the admins are notified.',
   })
   @ApiBody({ type: UploadDocumentDto })
   @ApiCreatedResponse({
@@ -260,15 +263,16 @@ export class CasesController {
   @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT', content: { 'application/json': { example: ERROR_401 } } })
   uploadDocument(
     @Param('id', ParseUUIDPipe) caseId: string,
-    @CurrentUser('id') userId: string,
+    @CurrentUser() user: { id: string; role: UserRole },
     @Body() dto: UploadDocumentDto,
   ) {
     return this.casesService.uploadDocument(
       caseId,
-      userId,
+      user,
       dto.documentType,
       dto.fileUrl,
       dto.fileName,
+      dto.replacesDocumentId,
     );
   }
 
@@ -368,6 +372,53 @@ export class CasesController {
   ) {
     const result = await this.casesService.verifyDocument(caseId, docId, userId);
     void this.activityLogService.log(userId, 'Document Verified', 'case', caseId, { documentId: docId });
+    return result;
+  }
+
+  @Patch(':id/documents/:docId/reject')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Reject a case document and request a new one (admin)',
+    description:
+      'Marks a document as not acceptable, with a reason (`expired`, `unreadable`, `incomplete`, ' +
+      '`wrong_document`, `other`) and an optional note — required for `other`. The customer is notified ' +
+      'that a replacement is needed and uploads it with `POST /cases/:id/documents` and `replacesDocumentId`. ' +
+      'Clears any earlier verification. A document that has already been replaced cannot be rejected.',
+  })
+  @ApiBody({ type: RejectDocumentDto })
+  @ApiOkResponse({
+    description: 'Document rejected',
+    content: {
+      'application/json': {
+        example: {
+          success: true,
+          data: {
+            ...DOCUMENT_EXAMPLE,
+            verified: false,
+            rejectedAt: '2026-06-10T14:00:00.000Z',
+            rejectedById: 'admin-uuid',
+            rejectionReason: 'expired',
+            rejectionNote: null,
+          },
+        },
+      },
+    },
+  })
+  @ApiBadRequestResponse({ description: 'Invalid reason, missing note for `other`, or document already replaced' })
+  @ApiNotFoundResponse({ description: 'Document not found', content: { 'application/json': { example: { success: false, statusCode: 404, message: ['Document not found'], timestamp: '2026-06-10T12:00:00.000Z' } } } })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT', content: { 'application/json': { example: ERROR_401 } } })
+  @ApiForbiddenResponse({ description: 'User does not have admin role', content: { 'application/json': { example: ERROR_403 } } })
+  async rejectDocument(
+    @Param('id', ParseUUIDPipe) caseId: string,
+    @Param('docId', ParseUUIDPipe) docId: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: RejectDocumentDto,
+  ) {
+    const result = await this.casesService.rejectDocument(caseId, docId, userId, dto.reason, dto.note);
+    void this.activityLogService.log(userId, 'Document Rejected', 'case', caseId, {
+      documentId: docId,
+      reason: dto.reason,
+    });
     return result;
   }
 

@@ -26,7 +26,7 @@ import { PaginatedResponseDto } from '../../common/dto/pagination.dto';
 import { CaseStatus, CLOSED_CASE_STATUSES } from '../../common/enums/case.enum';
 import { CaseEventType } from '../../common/enums/case-event.enum';
 import { UserRole } from '../../common/enums/role.enum';
-import { DocumentType } from '../../common/enums/user.enum';
+import { DocumentRejectionReason, DocumentType } from '../../common/enums/user.enum';
 import { BillStatus, BillType } from '../../common/enums/bill.enum';
 import { NotificationEventsService } from '../notifications/notification-events.service';
 import { SupplierStatus } from '../../common/enums/supplier.enum';
@@ -653,10 +653,11 @@ export class CasesService {
 
   async uploadDocument(
     caseId: string,
-    uploadedById: string,
+    uploader: { id: string; role: UserRole },
     documentType: DocumentType,
     fileUrl: string,
     fileName: string,
+    replacesDocumentId?: string,
   ): Promise<CaseDocument> {
     const switchCase = await this.caseRepository.findOne({
       where: { id: caseId },
@@ -666,26 +667,52 @@ export class CasesService {
       throw new NotFoundException('Case not found');
     }
 
+    // A customer may only add to their own case — the replacement path makes
+    // this a customer-facing upload, not just the one the request form does.
+    if (uploader.role !== UserRole.ADMIN && switchCase.userId !== uploader.id) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    let replaced: CaseDocument | null = null;
+    if (replacesDocumentId) {
+      replaced = await this.documentRepository.findOne({
+        where: { id: replacesDocumentId, caseId },
+      });
+      if (!replaced) {
+        throw new NotFoundException('Document not found');
+      }
+      if (!replaced.rejectedAt) {
+        throw new BadRequestException('Only a rejected document can be replaced');
+      }
+    }
+
     const document = this.documentRepository.create({
       caseId,
       documentType,
       fileUrl,
       fileName,
-      uploadedById,
+      uploadedById: uploader.id,
+      replacesDocumentId: replaced?.id ?? null,
     });
 
     const saved = await this.documentRepository.save(document);
 
     await this.logEvent(caseId, CaseEventType.DOCUMENT_UPLOADED, `Document uploaded: ${fileName}`, {
-      actorId: uploadedById,
-      metadata: { documentType, fileName },
+      actorId: uploader.id,
+      metadata: {
+        documentType,
+        fileName,
+        ...(replaced ? { replacesDocumentId: replaced.id } : {}),
+      },
     });
 
-    // No notification. The admin rule is "the customer uploaded a document we
-    // asked for", and a CaseDocument has no requested state — nobody asked for
-    // this, so its arrival is not work landing on anyone's desk. Requested
-    // documents run through BillVerification, which does notify on submit.
-    // The upload is still on the case timeline via the event logged above.
+    // An unprompted upload notifies nobody: nobody asked for it, so its arrival
+    // is not work landing on anyone's desk. A replacement is the answer to a
+    // rejection, which is exactly when an operator needs to pick the case back
+    // up — the same rule as a submitted bill verification.
+    if (replaced && uploader.role !== UserRole.ADMIN) {
+      await this.notificationEvents.adminDocumentResubmitted(replaced, switchCase);
+    }
 
     return saved;
   }
@@ -701,7 +728,7 @@ export class CasesService {
 
     return this.documentRepository.find({
       where: { caseId },
-      relations: ['uploadedBy', 'verifiedBy'],
+      relations: ['uploadedBy', 'verifiedBy', 'rejectedBy'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -711,17 +738,16 @@ export class CasesService {
     docId: string,
     verifiedById: string,
   ): Promise<CaseDocument> {
-    const document = await this.documentRepository.findOne({
-      where: { id: docId, caseId },
-    });
-
-    if (!document) {
-      throw new NotFoundException('Document not found');
-    }
+    const document = await this.findReviewableDocument(caseId, docId);
 
     document.verified = true;
     document.verifiedById = verifiedById;
     document.verifiedAt = new Date();
+    // An admin who rejected by mistake can take it back by verifying.
+    document.rejectedAt = null;
+    document.rejectedById = null;
+    document.rejectionReason = null;
+    document.rejectionNote = null;
 
     const saved = await this.documentRepository.save(document);
 
@@ -731,6 +757,72 @@ export class CasesService {
     });
 
     return saved;
+  }
+
+  /**
+   * Turns a document down and asks the customer for a new one — the case-side
+   * counterpart of a bill verification request. The document is kept; the
+   * customer's replacement points back at it and returns it to review.
+   */
+  async rejectDocument(
+    caseId: string,
+    docId: string,
+    rejectedById: string,
+    reason: DocumentRejectionReason,
+    note?: string,
+  ): Promise<CaseDocument> {
+    const document = await this.findReviewableDocument(caseId, docId);
+
+    document.verified = false;
+    document.verifiedById = null;
+    document.verifiedAt = null;
+    document.rejectedAt = new Date();
+    document.rejectedById = rejectedById;
+    document.rejectionReason = reason;
+    document.rejectionNote = note?.trim() || null;
+
+    const saved = await this.documentRepository.save(document);
+
+    await this.logEvent(caseId, CaseEventType.DOCUMENT_REJECTED, `Document rejected: ${document.fileName}`, {
+      actorId: rejectedById,
+      metadata: {
+        documentId: docId,
+        documentType: document.documentType,
+        reason,
+        note: saved.rejectionNote,
+      },
+    });
+
+    const switchCase = await this.caseRepository.findOne({ where: { id: caseId } });
+    if (switchCase) {
+      await this.notificationEvents.documentRejected(saved, switchCase);
+    }
+
+    return saved;
+  }
+
+  /**
+   * A document an admin may still rule on. Once a replacement has come in the
+   * replacement is what is reviewed; ruling on the old one would tell the
+   * customer something about a file they have already swapped out.
+   */
+  private async findReviewableDocument(caseId: string, docId: string): Promise<CaseDocument> {
+    const document = await this.documentRepository.findOne({
+      where: { id: docId, caseId },
+    });
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    const replacement = await this.documentRepository.findOne({
+      where: { caseId, replacesDocumentId: docId },
+    });
+    if (replacement) {
+      throw new BadRequestException('This document has already been replaced');
+    }
+
+    return document;
   }
 
   /**

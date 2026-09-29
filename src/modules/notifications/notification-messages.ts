@@ -21,6 +21,7 @@ export type MessageKey =
   | 'application_cancelled'
   | 'bill_verification_required'
   | 'document_reminder'
+  | 'document_rejected'
   | 'support_reply'
   | 'ticket_resolved'
   | 'ticket_closed'
@@ -31,6 +32,7 @@ export type MessageKey =
   | 'admin_bill_uploaded'
   | 'admin_bill_email_requested'
   | 'admin_verification_submitted'
+  | 'admin_document_resubmitted'
   | 'admin_offer_accepted'
   | 'admin_ticket_created'
   | 'admin_ticket_replied'
@@ -45,6 +47,24 @@ interface MessageDef {
   title: string;
   body: string | ((...args: any[]) => string);
 }
+
+/** How each DocumentRejectionReason reads inside a sentence. */
+const REJECTION_REASONS: Record<Lang, Record<string, string>> = {
+  it: {
+    expired: 'è scaduto',
+    unreadable: 'non è leggibile',
+    incomplete: 'è incompleto',
+    wrong_document: 'non è il documento richiesto',
+    other: 'non può essere accettato',
+  },
+  en: {
+    expired: 'it has expired',
+    unreadable: 'it is not readable',
+    incomplete: 'it is incomplete',
+    wrong_document: 'it is not the document we asked for',
+    other: 'it does not meet our requirements',
+  },
+};
 
 const MESSAGES: Record<MessageKey, Record<Lang, MessageDef>> = {
   // ───────────────────────────────────────────────────────────
@@ -142,6 +162,23 @@ const MESSAGES: Record<MessageKey, Record<Lang, MessageDef>> = {
    * arrived. Repeats what was asked for so the customer does not have to go
    * back and find the original notification.
    */
+  /**
+   * An admin turned down a document on the case. The reason arrives as a code
+   * so each language names it in its own words; the admin's note, if any,
+   * follows it.
+   */
+  document_rejected: {
+    it: {
+      title: 'Documento da sostituire',
+      body: (reason: string, note: string) =>
+        `Il documento che hai caricato non è valido: ${REJECTION_REASONS.it[reason] ?? REJECTION_REASONS.it.other}.${note ? ` ${note}` : ''} Caricane uno nuovo dalla tua richiesta.`,
+    },
+    en: {
+      title: 'Document needs replacing',
+      body: (reason: string, note: string) =>
+        `The document you uploaded can't be accepted: ${REJECTION_REASONS.en[reason] ?? REJECTION_REASONS.en.other}.${note ? ` ${note}` : ''} Upload a new one from your request.`,
+    },
+  },
   document_reminder: {
     it: {
       title: 'Promemoria: documento mancante',
@@ -233,6 +270,18 @@ const MESSAGES: Record<MessageKey, Record<Lang, MessageDef>> = {
       title: 'Email bill request',
       body: (name: string) =>
         `${name} asked to send their bill by email. Upload the document once it arrives.`,
+    },
+  },
+  admin_document_resubmitted: {
+    it: {
+      title: 'Documento sostitutivo ricevuto',
+      body: (name: string, caseNumber: string) =>
+        `${name} ha caricato un nuovo documento per la pratica ${caseNumber}. Da rivedere.`,
+    },
+    en: {
+      title: 'Replacement document received',
+      body: (name: string, caseNumber: string) =>
+        `${name} uploaded a new document for case ${caseNumber}. Ready for review.`,
     },
   },
   admin_verification_submitted: {

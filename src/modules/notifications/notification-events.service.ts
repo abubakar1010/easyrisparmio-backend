@@ -36,6 +36,12 @@ export interface CaseRef {
   caseNumber: string | null;
 }
 
+export interface CaseDocumentRef {
+  id: string;
+  rejectionReason: string | null;
+  rejectionNote: string | null;
+}
+
 export interface TicketRef {
   id: string;
   userId: string;
@@ -181,6 +187,33 @@ export class NotificationEventsService {
         verificationId: verification.id,
         entityType: 'bill',
         entityId: bill.id,
+      },
+    });
+  }
+
+  /**
+   * An admin turned down a document on the case and needs a replacement. Keyed
+   * to the document, so rejecting it twice does not send twice — a new upload
+   * is a new document and can be rejected (and announced) on its own.
+   */
+  async documentRejected(
+    document: CaseDocumentRef,
+    caseRow: CaseRef,
+  ): Promise<void> {
+    await this.toCustomer({
+      userId: caseRow.userId,
+      messageKey: 'document_rejected',
+      bodyParams: [document.rejectionReason ?? 'other', document.rejectionNote ?? ''],
+      // Lands on the request the case belongs to, where the replacement is
+      // uploaded — the same screen case updates already open.
+      type: NotificationType.CASE_UPDATE,
+      dedupeKey: `case-document:${document.id}:rejected`,
+      data: {
+        billId: caseRow.billId,
+        caseId: caseRow.id,
+        documentId: document.id,
+        entityType: 'case',
+        entityId: caseRow.id,
       },
     });
   }
@@ -368,6 +401,33 @@ export class NotificationEventsService {
         userId: bill.userId,
         entityType: 'bill',
         entityId: bill.id,
+      },
+    });
+  }
+
+  /**
+   * The customer uploaded a replacement for a document an admin rejected.
+   * Keyed to the rejected document, so a replacement sent as several files
+   * (front and back) is one piece of work, not one per file.
+   */
+  async adminDocumentResubmitted(
+    rejected: { id: string },
+    caseRow: CaseRef,
+  ): Promise<void> {
+    const customerName = await this.adminNotifications.describeUser(caseRow.userId);
+
+    await this.adminNotifications.notifyAdmins({
+      messageKey: 'admin_document_resubmitted',
+      type: NotificationType.ADMIN_VERIFICATION,
+      bodyParams: [customerName, caseRow.caseNumber || caseRow.id],
+      dedupeKey: `case-document:${rejected.id}:admin_resubmitted`,
+      data: {
+        caseId: caseRow.id,
+        billId: caseRow.billId,
+        userId: caseRow.userId,
+        documentId: rejected.id,
+        entityType: 'case',
+        entityId: caseRow.id,
       },
     });
   }

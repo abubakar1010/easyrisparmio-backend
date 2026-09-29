@@ -30,6 +30,19 @@ export enum DocumentType {
   IDENTITY_DOCUMENT = 'identity_document',
 }
 
+/**
+ * Why an admin turned a case document down. The customer is told the reason
+ * in their own language, so it travels as a code; `other` carries the
+ * admin's own words in the rejection note instead.
+ */
+export enum DocumentRejectionReason {
+  EXPIRED = 'expired',
+  UNREADABLE = 'unreadable',
+  INCOMPLETE = 'incomplete',
+  WRONG_DOCUMENT = 'wrong_document',
+  OTHER = 'other',
+}
+
 export enum AuthProvider {
   LOCAL = 'local',
   GOOGLE = 'google',

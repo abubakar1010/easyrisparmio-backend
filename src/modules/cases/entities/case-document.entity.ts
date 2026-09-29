@@ -5,7 +5,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { BaseEntity } from '../../../common/entities/base.entity';
-import { DocumentType } from '../../../common/enums/user.enum';
+import { DocumentRejectionReason, DocumentType } from '../../../common/enums/user.enum';
 import { SwitchCase } from './switch-case.entity';
 import { User } from '../../users/entities/user.entity';
 
@@ -34,10 +34,41 @@ export class CaseDocument extends BaseEntity {
   verified: boolean;
 
   @Column({ name: 'verified_by_id', type: 'uuid', nullable: true })
-  verifiedById: string;
+  verifiedById: string | null;
 
   @Column({ name: 'verified_at', type: 'timestamptz', nullable: true })
-  verifiedAt: Date;
+  verifiedAt: Date | null;
+
+  /**
+   * Set when an admin turns the document down. A rejected document is kept, not
+   * deleted: the customer's replacement points back at it, and the pair is the
+   * record of what was asked for and what came back. Verifying clears these.
+   */
+  @Column({ name: 'rejected_at', type: 'timestamptz', nullable: true })
+  rejectedAt: Date | null;
+
+  @Column({ name: 'rejected_by_id', type: 'uuid', nullable: true })
+  rejectedById: string | null;
+
+  @Column({
+    name: 'rejection_reason',
+    type: 'enum',
+    enum: DocumentRejectionReason,
+    nullable: true,
+  })
+  rejectionReason: DocumentRejectionReason | null;
+
+  /** The admin's own words, shown to the customer beside the reason. */
+  @Column({ name: 'rejection_note', type: 'text', nullable: true })
+  rejectionNote: string | null;
+
+  /**
+   * The rejected document this one was uploaded to replace. Several files may
+   * point at the same one — a new ID often arrives as a front and a back — and
+   * a rejected document with at least one replacement is back in review.
+   */
+  @Column({ name: 'replaces_document_id', type: 'uuid', nullable: true })
+  replacesDocumentId: string | null;
 
   @Column({ name: 'file_size_bytes', type: 'bigint', nullable: true })
   fileSizeBytes: number | null;
@@ -58,4 +89,12 @@ export class CaseDocument extends BaseEntity {
   @ManyToOne(() => User, { eager: false })
   @JoinColumn({ name: 'verified_by_id' })
   verifiedBy: User;
+
+  @ManyToOne(() => User, { eager: false })
+  @JoinColumn({ name: 'rejected_by_id' })
+  rejectedBy: User;
+
+  @ManyToOne(() => CaseDocument, { onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'replaces_document_id' })
+  replacesDocument: CaseDocument;
 }

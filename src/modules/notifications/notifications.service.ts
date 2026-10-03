@@ -745,6 +745,24 @@ export class NotificationsService {
               },
             }
           : {}),
+        // The OS shows a push itself while the app is in the background, so
+        // the app's own sound has to be named here as well. The files ship in
+        // the mobile app: res/raw/notification_sound (Android, played through
+        // the vyzi_alerts channel) and notification_sound.wav (iOS bundle).
+        // An older build without them falls back to the system sound.
+        ...(pt.platform === Platform.ANDROID
+          ? {
+              android: {
+                notification: {
+                  channelId: 'vyzi_alerts',
+                  sound: 'notification_sound',
+                },
+              },
+            }
+          : {}),
+        ...(pt.platform === Platform.IOS
+          ? { apns: { payload: { aps: { sound: 'notification_sound.wav' } } } }
+          : {}),
       };
     });
 

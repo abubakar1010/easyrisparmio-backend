@@ -694,6 +694,7 @@ export class AuthService {
       deviceInfo?: string;
       role?: UserRole;
       allowSignUp?: boolean;
+      acceptedTerms?: boolean;
     },
   ) {
     const decodedToken = await this.firebaseService.verifyIdToken(idToken);
@@ -831,6 +832,21 @@ export class AuthService {
 
     if (!user) {
       throw new BadRequestException('Failed to create or retrieve user');
+    }
+
+    // The consent line beside the social buttons is the social equivalent of
+    // the sign-up checkbox. Recorded here, before the app opens, so a Google or
+    // Apple user is not met by the full-screen acceptance prompt right after
+    // signing in — the same treatment an email sign-up already gets.
+    if (meta?.acceptedTerms === true) {
+      await this.legalService.recordAcceptanceFor(
+        user.id,
+        user.role,
+        this.legalService.registrationSlugs(),
+        LegalAcceptanceSource.SOCIAL_LOGIN,
+        undefined,
+        { ipAddress: meta.ipAddress, userAgent: meta.deviceInfo },
+      );
     }
 
     const tokens = await this.generateTokens(user, meta);

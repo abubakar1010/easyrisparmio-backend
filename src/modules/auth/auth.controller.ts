@@ -320,7 +320,9 @@ export class AuthController {
       'is left untouched — the account type is settled at sign-up and never changes. ' +
       'Send `allowSignUp: false` to make the call login-only: with no matching ' +
       'account it returns 404 instead of creating one. The sign-in screen sends it, ' +
-      'having no account type to ask for.',
+      'having no account type to ask for. Send `acceptedTerms: true` when the ' +
+      'screen showed the privacy and terms consent line: the current versions are ' +
+      'then recorded as accepted, so `GET /legal/pending` has nothing to ask.',
   })
   @ApiBody({ type: SocialLoginDto })
   @ApiOkResponse({
@@ -483,6 +485,7 @@ export class AuthController {
       // Only consulted when the account is created; see `AuthService.socialLogin`.
       role: dto.role as unknown as UserRole | undefined,
       allowSignUp: dto.allowSignUp,
+      acceptedTerms: dto.acceptedTerms,
     });
   }
 

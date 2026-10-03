@@ -48,4 +48,21 @@ export class SocialLoginDto {
   @IsOptional()
   @IsBoolean()
   allowSignUp?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'Whether the user was shown the consent line next to the social buttons ' +
+      '("By continuing, you declare that you have read the Privacy Policy and ' +
+      'accept the Terms") — the ticked checkbox on the sign-up screen, the line ' +
+      'itself on the sign-in screen. When true the current versions of the ' +
+      'privacy policy and the terms and conditions are recorded against the ' +
+      'account, so the app does not stop the user with the acceptance prompt ' +
+      'straight after signing in. Omitted by older clients, which leave the ' +
+      'prompt to ask on first launch.',
+    example: true,
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  acceptedTerms?: boolean;
 }

@@ -21,6 +21,7 @@ import { ResendOtpDto } from './dto/resend-otp.dto';
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../../common/enums/role.enum';
 import { AuthProvider, OtpType, UserStatus } from '../../common/enums/user.enum';
+import { LegalAcceptanceSource } from '../../common/enums/legal.enum';
 
 /**
  * Covers the password-reset flow end to end against in-memory repositories.
@@ -706,6 +707,10 @@ describe('AuthService — social login', () => {
     };
 
     const verifyIdToken = jest.fn();
+    const legalService = {
+      recordAcceptanceFor: jest.fn(async () => undefined),
+      registrationSlugs: () => ['privacy-policy', 'terms-conditions'],
+    };
 
     // Positional, matching the constructor: refreshToken, otp, businessProfile,
     // users, jwt, config, firebase, referrals, email, legal, dataSource.
@@ -719,12 +724,42 @@ describe('AuthService — social login', () => {
       { verifyIdToken } as any,
       {} as any,
       {} as any,
-      {} as any,
+      legalService as any,
       {} as any,
     );
 
-    return { service, usersService, verifyIdToken };
+    return { service, usersService, verifyIdToken, legalService };
   };
+
+  it('records privacy and terms consent when the consent line was shown', async () => {
+    // Without this a Google user was signed in and then stopped by the
+    // full-screen acceptance prompt, while an email sign-up never was.
+    const { service, verifyIdToken, legalService } = buildService(null);
+    verifyIdToken.mockResolvedValue(token());
+
+    await service.socialLogin('id-token', {
+      acceptedTerms: true,
+      ipAddress: '10.0.0.1',
+    });
+
+    expect(legalService.recordAcceptanceFor).toHaveBeenCalledWith(
+      'user-new',
+      UserRole.PERSONAL,
+      ['privacy-policy', 'terms-conditions'],
+      LegalAcceptanceSource.SOCIAL_LOGIN,
+      undefined,
+      expect.objectContaining({ ipAddress: '10.0.0.1' }),
+    );
+  });
+
+  it('records no consent for a client that did not show the consent line', async () => {
+    const { service, verifyIdToken, legalService } = buildService(makeSocialUser());
+    verifyIdToken.mockResolvedValue(token());
+
+    await service.socialLogin('id-token');
+
+    expect(legalService.recordAcceptanceFor).not.toHaveBeenCalled();
+  });
 
   it('links an unlinked account and stamps the login in a single write', async () => {
     const existing = makeSocialUser();

@@ -10,7 +10,7 @@ export enum SocialSignupRole {
 
 export class SocialLoginDto {
   @ApiProperty({
-    description: 'Firebase ID token obtained from the mobile app after social sign-in (Google, Facebook, or Apple)',
+    description: 'Firebase ID token obtained from the mobile app after social sign-in (Google or Apple)',
     example: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20v...',
   })
   @IsString()

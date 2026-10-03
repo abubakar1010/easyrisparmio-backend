@@ -307,6 +307,31 @@ async function retireBusinessTerms(ds: DataSource): Promise<void> {
 }
 
 /**
+ * Retires the `facebook` auth provider: Facebook sign-in was removed from the
+ * app, and `synchronize` rebuilds the enum without the label, which fails
+ * while any row still holds it.
+ *
+ * Those accounts become `local`. Their email is unchanged, so the owner gets
+ * back in with Google or Apple on the same address (linked by email) or by
+ * resetting the password.
+ */
+async function retireFacebookAuthProvider(ds: DataSource): Promise<void> {
+  if (!(await columnExists(ds, 'users', 'auth_provider'))) return;
+
+  const result = await ds.query(
+    `UPDATE users SET auth_provider = 'local'
+      WHERE auth_provider::text = 'facebook'`,
+  );
+  const moved = result?.[1] ?? 0;
+  if (moved > 0) {
+    logger.log(
+      `Moved ${moved} Facebook-registered account(s) to the local provider — ` +
+        `Facebook sign-in has been removed`,
+    );
+  }
+}
+
+/**
  * Makes `status` the only thing that says whether a supplier is usable.
  *
  * Suppliers used to carry two flags: `status` (active / warning / inactive /
@@ -487,6 +512,7 @@ export async function runPreSyncMigrations(ds: DataSource): Promise<void> {
     await realignAccountAddressTypes(ds);
     await addOfferContractDurationMonths(ds);
     await foldSupplierActiveFlagIntoStatus(ds);
+    await retireFacebookAuthProvider(ds);
   } catch (error: any) {
     logger.error(`Pre-sync migration failed: ${error?.message ?? error}`);
     throw error;

@@ -763,16 +763,16 @@ describe('AuthService — social login', () => {
   });
 
   it('will not hand over an existing account on an unverified provider email', async () => {
-    // Google always verifies. Facebook returns whatever is on the profile, and
-    // this endpoint is shared by every provider — so an unverified address used
-    // to be enough to be given the account that happens to use it.
+    // The verified claim is the provider's word, and this endpoint is shared
+    // by every provider — so an unverified address used to be enough to be
+    // given the account that happens to use it.
     const victim = makeSocialUser({ passwordHash: 'a-real-bcrypt-hash' } as any);
     const { service, usersService, verifyIdToken } = buildService(victim);
     verifyIdToken.mockResolvedValue(
       token({
         uid: 'firebase-uid-attacker',
         email_verified: false,
-        firebase: { sign_in_provider: 'facebook.com' },
+        firebase: { sign_in_provider: 'apple.com' },
       }),
     );
 
@@ -780,6 +780,22 @@ describe('AuthService — social login', () => {
       UnauthorizedException,
     );
     expect(victim.firebaseUid).toBeNull();
+    expect(usersService.update).not.toHaveBeenCalled();
+    expect(usersService.create).not.toHaveBeenCalled();
+  });
+
+  it('refuses a provider the app no longer offers', async () => {
+    // Facebook was dropped from the app but can still be enabled in the
+    // Firebase console; its tokens must not fall through to a `local` login.
+    const existing = makeSocialUser();
+    const { service, usersService, verifyIdToken } = buildService(existing);
+    verifyIdToken.mockResolvedValue(
+      token({ firebase: { sign_in_provider: 'facebook.com' } }),
+    );
+
+    await expect(service.socialLogin('id-token')).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
     expect(usersService.update).not.toHaveBeenCalled();
     expect(usersService.create).not.toHaveBeenCalled();
   });

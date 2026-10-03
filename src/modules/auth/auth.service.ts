@@ -698,6 +698,23 @@ export class AuthService {
   ) {
     const decodedToken = await this.firebaseService.verifyIdToken(idToken);
 
+    // Only Google and Apple are offered. Facebook used to be, and stays
+    // switchable in the Firebase console, so a provider the app no longer
+    // shows is refused here rather than quietly signed in as `local`.
+    const provider = this.mapFirebaseProvider(
+      decodedToken.firebase?.sign_in_provider,
+    );
+    if (!provider) {
+      this.logger.warn(
+        `Rejected social login: unsupported provider ` +
+          `${decodedToken.firebase?.sign_in_provider}`,
+      );
+      throw new UnauthorizedException(
+        'This sign-in method is not supported. Please sign in with Google, ' +
+          'Apple, or your email and password.',
+      );
+    }
+
     const email = decodedToken.email;
     if (!email) {
       throw new BadRequestException(
@@ -706,9 +723,8 @@ export class AuthService {
     }
 
     // Firebase reports whether the provider actually *proved* ownership of the
-    // address. Google always does. Facebook hands back whatever is on the
-    // profile, verified or not, and this endpoint is shared by all three
-    // providers — so without this check, signing in with an unverified address
+    // address. Google always does, but the claim is the provider's word, not
+    // ours, and this endpoint is shared by every provider — so without this check, signing in with an unverified address
     // was enough to be handed an existing account that happened to use it.
     // The same claim is what marks the account email-verified below, so it has
     // to be trustworthy in both directions.
@@ -724,9 +740,6 @@ export class AuthService {
     }
 
     const firebaseUid = decodedToken.uid;
-    const provider = this.mapFirebaseProvider(
-      decodedToken.firebase.sign_in_provider,
-    );
     const name = decodedToken.name || '';
     const [firstName, ...lastParts] = name.split(' ');
     const lastName = lastParts.join(' ') || '';
@@ -838,16 +851,16 @@ export class AuthService {
     }
   }
 
-  private mapFirebaseProvider(signInProvider: string): AuthProvider {
+  private mapFirebaseProvider(
+    signInProvider: string | undefined,
+  ): AuthProvider | null {
     switch (signInProvider) {
       case 'google.com':
         return AuthProvider.GOOGLE;
-      case 'facebook.com':
-        return AuthProvider.FACEBOOK;
       case 'apple.com':
         return AuthProvider.APPLE;
       default:
-        return AuthProvider.LOCAL;
+        return null;
     }
   }
 

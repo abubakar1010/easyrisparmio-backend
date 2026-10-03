@@ -308,10 +308,10 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({
-    summary: 'Login or register via social provider (Google, Facebook, Apple)',
+    summary: 'Login or register via social provider (Google, Apple)',
     description:
       'Authenticates using a Firebase ID token obtained from the mobile app after ' +
-      'social sign-in (Google, Facebook, or Apple). The token must carry a verified ' +
+      'social sign-in (Google or Apple); any other provider is refused with 401. The token must carry a verified ' +
       'email — an unverified address is refused with 401, because matching on it ' +
       'would hand the caller any existing account that uses it. If the user does not ' +
       'exist, a new account is created with `status: active` and the `role` from the ' +
@@ -357,7 +357,7 @@ export class AuthController {
             },
           },
           existing_user_linked: {
-            summary: 'Existing local user linked via Facebook',
+            summary: 'Existing local user linked via Google',
             value: {
               success: true,
               data: {

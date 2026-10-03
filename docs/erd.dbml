@@ -14,7 +14,6 @@ Enum user_role {
 Enum auth_provider {
   local
   google
-  facebook
   apple
 }
 
@@ -376,7 +375,7 @@ Table users [headercolor: #3498db] {
     firebase_uid [unique]
   }
 
-  Note: 'Core user table. Supports personal, business, admin roles. Social login via Firebase (Google, Facebook, Apple). Soft-deletable via deleted_at.'
+  Note: 'Core user table. Supports personal, business, admin roles. Social login via Firebase (Google, Apple). Soft-deletable via deleted_at.'
 }
 
 Table refresh_tokens [headercolor: #3498db] {

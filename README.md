@@ -238,7 +238,7 @@ The API supports three authentication methods:
 Standard registration and login with bcrypt-hashed passwords and email verification via OTP.
 
 ### Social Login
-Google, Facebook, and Apple sign-in via Firebase. The mobile app sends a Firebase ID token to `POST /api/v1/auth/social-login`, and the server verifies it using Firebase Admin SDK.
+Google and Apple sign-in via Firebase. The mobile app sends a Firebase ID token to `POST /api/v1/auth/social-login`, and the server verifies it using Firebase Admin SDK.
 
 ### User Roles
 

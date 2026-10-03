@@ -1,6 +1,6 @@
 # Authentication
 
-EasyRisparmio supports two authentication methods: **email/password** and **social login** (Google, Facebook, Apple via Firebase). OTP codes are delivered by email over authenticated SMTP. All auth endpoints are prefixed with `/api/v1/auth`.
+EasyRisparmio supports two authentication methods: **email/password** and **social login** (Google and Apple via Firebase). OTP codes are delivered by email over authenticated SMTP. All auth endpoints are prefixed with `/api/v1/auth`.
 
 ## Table of Contents
 
@@ -193,7 +193,7 @@ Social-only users (no password set) attempting email/password login will receive
 
 ## Social Login (Firebase)
 
-Social login supports **Google**, **Facebook**, and **Apple** via Firebase Authentication. The mobile app handles the provider-specific auth UI and obtains a Firebase ID token, which is sent to the backend for verification.
+Social login supports **Google** and **Apple** via Firebase Authentication. A token from any other Firebase provider is refused with 401. The mobile app handles the provider-specific auth UI and obtains a Firebase ID token, which is sent to the backend for verification.
 
 ```
 POST /api/v1/auth/social-login
@@ -237,7 +237,7 @@ POST /api/v1/auth/social-login
 
 ### How It Works
 
-1. Mobile app initiates social sign-in (Google/Facebook/Apple) using Firebase Auth SDK
+1. Mobile app initiates social sign-in (Google/Apple) using Firebase Auth SDK
 2. Firebase returns an ID token to the mobile app
 3. Mobile app sends the ID token to `POST /auth/social-login`
 4. Server verifies the token with `firebase-admin` SDK
@@ -255,7 +255,6 @@ The `authProvider` field indicates how the user originally created their account
 |----------|-------|-----------------------------|
 | Email/Password | `local` | - |
 | Google | `google` | `google.com` |
-| Facebook | `facebook` | `facebook.com` |
 | Apple | `apple` | `apple.com` |
 
 **Error Responses:**

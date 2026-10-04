@@ -1,0 +1,21 @@
+# Production image: compile in one stage, run the compiled output with
+# production dependencies only. The dev Dockerfile runs `nest start --watch`.
+FROM node:24-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM node:24-alpine AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+COPY package*.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+COPY --from=build /app/dist ./dist
+# Uploads are bind-mounted from the host; the directory must be writable by
+# the `node` user (uid 1000).
+RUN mkdir -p uploads && chown -R node:node /app
+USER node
+EXPOSE 3000
+CMD ["node", "dist/src/main"]

@@ -1,0 +1,54 @@
+# Production stack for a single VPS. Usage (from this directory):
+#   docker compose -f docker-compose.prod.yml up -d --build
+# Nginx on the host terminates TLS and proxies to 127.0.0.1:3000.
+# Neither port is reachable from the internet: Postgres publishes nothing and
+# the API listens on loopback only.
+name: easyrisparmio
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-easyrisparmio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-easyrisparmio}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      APP_ENV: production
+      APP_PORT: "3000"
+      # No migrations exist: the schema is kept by TypeORM synchronize.
+      DB_SYNCHRONIZE: "true"
+      DB_SSL: "false"
+      DATABASE_URL: postgresql://${POSTGRES_USER:-easyrisparmio}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-easyrisparmio}
+      TRUST_PROXY: "1"
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./uploads:/app/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- -T 3 http://127.0.0.1:3000/api/docs >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:

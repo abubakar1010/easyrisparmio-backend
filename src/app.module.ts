@@ -58,7 +58,9 @@ import { DeepLinkModule } from './modules/deep-link/deep-link.module';
           type: 'postgres' as const,
           ssl: ssl ? { rejectUnauthorized: false } : false,
           autoLoadEntities: true,
-          synchronize: isDev,
+          synchronize:
+            isDev ||
+            configService.get<boolean>('database.synchronize') === true,
           logging: isDev,
         };
 

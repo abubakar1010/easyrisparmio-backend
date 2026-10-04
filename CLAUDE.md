@@ -86,7 +86,7 @@ Query DTOs extend `PaginationDto` (page, limit, search). Services return `Pagina
 
 `@nestjs/config` with `registerAs()` pattern. Three config namespaces: `app`, `database`, `jwt`. Accessed via `configService.get('database.host')`. Environment variables defined in `.env.example`.
 
-Database uses `autoLoadEntities: true` and `synchronize: true` in dev mode only.
+Database uses `autoLoadEntities: true`. `synchronize` runs in dev mode, and in production only when `DB_SYNCHRONIZE=true` (the production compose file sets it, since there are no migrations).
 
 ### Schema changes without migrations
 

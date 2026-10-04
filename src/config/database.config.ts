@@ -8,4 +8,7 @@ export default registerAs('database', () => ({
   password: process.env.DB_PASSWORD || 'postgres',
   database: process.env.DB_NAME || 'easyresparmio',
   ssl: process.env.DB_SSL === 'true',
+  // The project has no migrations: the schema is kept by `synchronize`, which
+  // runs automatically in development. Production must opt in explicitly.
+  synchronize: process.env.DB_SYNCHRONIZE === 'true',
 }));

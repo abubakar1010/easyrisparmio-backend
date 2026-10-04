@@ -13,6 +13,12 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const configService = app.get(ConfigService);
 
+  // Behind a reverse proxy every request arrives from the proxy's address, so
+  // the auth rate limiter would put all users in one bucket. TRUST_PROXY is
+  // the number of proxy hops whose X-Forwarded-For Express may believe.
+  const trustProxy = parseInt(configService.get<string>('TRUST_PROXY') ?? '', 10);
+  if (trustProxy > 0) app.set('trust proxy', trustProxy);
+
   // CORS (must be before helmet)
   const corsOrigins = configService.get<string>('CORS_ORIGINS');
   app.enableCors({

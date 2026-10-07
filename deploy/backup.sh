@@ -4,7 +4,7 @@
 # (RESTIC_REPOSITORY, RESTIC_PASSWORD and the storage provider's keys).
 set -euo pipefail
 
-APP_DIR="${APP_DIR:-/opt/vyzi/moreno-server}"
+APP_DIR="${APP_DIR:-/opt/vyzi/backend}"
 STAGING="${STAGING:-/var/backups/vyzi}"
 
 set -a

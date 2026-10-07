@@ -61,7 +61,7 @@ Returns only active suppliers (`isActive = true`), ordered alphabetically by nam
       {
         "id": "s1a2b3c4-d5e6-7890-abcd-ef1234567890",
         "name": "Enel Energia",
-        "logoUrl": "https://cdn.vyzi.app/logos/enel-energia.png",
+        "logoUrl": "https://cdn.vyzi.it/logos/enel-energia.png",
         "description": "Leading Italian energy supplier since 1962",
         "rating": "4.50",
         "isActive": true,
@@ -99,7 +99,7 @@ Returns a single supplier with its associated offers. 404 if not found.
   "data": {
     "id": "s1a2b3c4-d5e6-7890-abcd-ef1234567890",
     "name": "Enel Energia",
-    "logoUrl": "https://cdn.vyzi.app/logos/enel-energia.png",
+    "logoUrl": "https://cdn.vyzi.it/logos/enel-energia.png",
     "description": "Leading Italian energy supplier since 1962",
     "rating": "4.50",
     "isActive": true,
@@ -165,7 +165,7 @@ Content-Type: application/json
 ```json
 {
   "name": "Enel Energia",
-  "logoUrl": "https://cdn.vyzi.app/logos/enel-energia.png",
+  "logoUrl": "https://cdn.vyzi.it/logos/enel-energia.png",
   "description": "Leading Italian energy supplier since 1962",
   "rating": 4.5,
   "contactEmail": "info@enelenergia.it",

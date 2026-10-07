@@ -482,7 +482,7 @@ The admin account cannot be created through any API endpoint. It is auto-seeded 
 ### Configuration
 
 ```env
-ADMIN_EMAIL=admin@vyzi.app
+ADMIN_EMAIL=admin@vyzi.it
 ADMIN_PASSWORD=ChangeThisSecurePassword123!
 ```
 

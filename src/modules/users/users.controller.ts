@@ -355,7 +355,7 @@ export class UsersController {
               id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
               firstName: 'Giulia',
               lastName: 'Bianchi',
-              email: 'giulia.bianchi@vyzi.app',
+              email: 'giulia.bianchi@vyzi.it',
             },
           ],
         },

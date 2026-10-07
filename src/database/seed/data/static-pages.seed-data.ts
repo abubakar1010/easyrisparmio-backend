@@ -20,7 +20,7 @@ export async function seedStaticPages(ds: DataSource): Promise<void> {
 <p>La presente Informativa sulla Privacy descrive come VYZI ("noi", "nostro" o "la Società") raccoglie, utilizza e protegge i dati personali degli utenti in conformità con il Regolamento Generale sulla Protezione dei Dati (GDPR - Regolamento UE 2016/679) e il Codice in materia di protezione dei dati personali (D.Lgs. 196/2003, come modificato dal D.Lgs. 101/2018).</p>
 
 <h3>1. Titolare del Trattamento</h3>
-<p>Il Titolare del trattamento dei dati personali è VYZI S.r.l., con sede legale in Italia. Per qualsiasi richiesta relativa al trattamento dei dati personali, è possibile contattarci all'indirizzo email: privacy@vyzi.app</p>
+<p>Il Titolare del trattamento dei dati personali è VYZI S.r.l., con sede legale in Italia. Per qualsiasi richiesta relativa al trattamento dei dati personali, è possibile contattarci all'indirizzo email: privacy@vyzi.it</p>
 
 <h3>2. Dati Raccolti</h3>
 <p>Raccogliamo le seguenti categorie di dati personali:</p>
@@ -77,7 +77,7 @@ export async function seedStaticPages(ds: DataSource): Promise<void> {
 <p>This Privacy Policy describes how VYZI ("we", "our" or "the Company") collects, uses, and protects users' personal data in compliance with the General Data Protection Regulation (GDPR - EU Regulation 2016/679) and the Italian Data Protection Code (Legislative Decree 196/2003, as amended by Legislative Decree 101/2018).</p>
 
 <h3>1. Data Controller</h3>
-<p>The Data Controller is VYZI S.r.l., with registered office in Italy. For any request regarding personal data processing, you can contact us at: privacy@vyzi.app</p>
+<p>The Data Controller is VYZI S.r.l., with registered office in Italy. For any request regarding personal data processing, you can contact us at: privacy@vyzi.it</p>
 
 <h3>2. Data Collected</h3>
 <p>We collect the following categories of personal data:</p>

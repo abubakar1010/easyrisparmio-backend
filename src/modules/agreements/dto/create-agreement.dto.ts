@@ -30,7 +30,7 @@ export class CreateAgreementDto {
   @MaxLength(255)
   partnerName: string;
 
-  @ApiPropertyOptional({ description: 'Partner logo URL', example: 'https://cdn.vyzi.app/partners/enel-x.png', maxLength: 500 })
+  @ApiPropertyOptional({ description: 'Partner logo URL', example: 'https://cdn.vyzi.it/partners/enel-x.png', maxLength: 500 })
   @IsOptional()
   @IsUrl()
   @MaxLength(500)

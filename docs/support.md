@@ -152,7 +152,7 @@ Content-Type: application/json
 ```json
 {
   "message": "I tried again and the upload still fails. Here is a screenshot.",
-  "attachments": ["https://cdn.vyzi.app/uploads/screenshot-error.png"]
+  "attachments": ["https://cdn.vyzi.it/uploads/screenshot-error.png"]
 }
 ```
 

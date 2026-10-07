@@ -182,7 +182,7 @@ Content-Type: application/json
 ```json
 {
   "documentType": "id_card",
-  "fileUrl": "https://storage.vyzi.app/docs/id-card-front.pdf",
+  "fileUrl": "https://storage.vyzi.it/docs/id-card-front.pdf",
   "fileName": "carta-identita-fronte.pdf"
 }
 ```

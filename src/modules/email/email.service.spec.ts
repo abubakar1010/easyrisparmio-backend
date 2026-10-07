@@ -28,7 +28,7 @@ const EMAIL_ENV_KEYS = [
 const GMAIL: Record<string, string> = {
   SMTP_HOST: 'smtp.gmail.com',
   SMTP_PORT: '587',
-  SMTP_USER: 'noreply@vyzi.app',
+  SMTP_USER: 'noreply@vyzi.it',
   SMTP_PASSWORD: 'abcdefghijklmnop',
 };
 
@@ -91,7 +91,7 @@ describe('EmailService', () => {
         port: 587,
         secure: false,
         requireTLS: true,
-        auth: { user: 'noreply@vyzi.app', pass: 'abcdefghijklmnop' },
+        auth: { user: 'noreply@vyzi.it', pass: 'abcdefghijklmnop' },
       });
     });
 
@@ -151,13 +151,13 @@ describe('EmailService', () => {
         'email_verification',
       );
 
-      expect(sentMessage().from).toEqual({ name: 'VYZI', address: 'noreply@vyzi.app' });
+      expect(sentMessage().from).toEqual({ name: 'VYZI', address: 'noreply@vyzi.it' });
     });
 
     it('prefers an explicit EMAIL_FROM', async () => {
       const service = buildService({
         ...GMAIL,
-        EMAIL_FROM: 'VYZI <noreply@vyzi.app>',
+        EMAIL_FROM: 'VYZI <noreply@vyzi.it>',
       });
       await service.sendOtpEmail(
         'user@example.com',
@@ -165,14 +165,14 @@ describe('EmailService', () => {
         'email_verification',
       );
 
-      expect(sentMessage().from).toEqual({ name: 'VYZI', address: 'noreply@vyzi.app' });
+      expect(sentMessage().from).toEqual({ name: 'VYZI', address: 'noreply@vyzi.it' });
     });
 
     it('warns when EMAIL_FROM does not match the account domain', async () => {
       const warn = jest.spyOn(Logger.prototype, 'warn');
       const service = buildService({
         ...GMAIL,
-        EMAIL_FROM: 'VYZI <noreply@vyzi.it>',
+        EMAIL_FROM: 'VYZI <noreply@other-domain.it>',
       });
 
       await service.onModuleInit();

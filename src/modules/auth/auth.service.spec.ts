@@ -929,14 +929,14 @@ describe('AuthService — social login', () => {
 
   it('keeps a profile picture the user already has', async () => {
     const existing = makeSocialUser({
-      avatar: 'https://cdn.vyzi.app/me.png',
+      avatar: 'https://cdn.vyzi.it/me.png',
     } as Partial<User>);
     const { service, verifyIdToken } = buildService(existing);
     verifyIdToken.mockResolvedValue(token());
 
     await service.socialLogin('id-token');
 
-    expect(existing.avatar).toBe('https://cdn.vyzi.app/me.png');
+    expect(existing.avatar).toBe('https://cdn.vyzi.it/me.png');
   });
 
   it('drops a non-HTTPS avatar rather than storing it', async () => {

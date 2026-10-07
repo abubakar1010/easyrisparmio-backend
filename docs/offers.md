@@ -144,7 +144,7 @@ Returns only offers with `offerStatus = active` and `isActive = true`, with supp
         "supplier": {
           "id": "s1a2b3c4...",
           "name": "Enel Energia",
-          "logoUrl": "https://cdn.vyzi.app/logos/enel-energia.png"
+          "logoUrl": "https://cdn.vyzi.it/logos/enel-energia.png"
         }
       }
     ],

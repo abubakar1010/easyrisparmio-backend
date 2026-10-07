@@ -395,7 +395,7 @@ Remove `?mode=developer` before releasing to production.
 
 ## Key Files
 
-### Backend (`moreno-server/`)
+### Backend (`vyzi_backend/`)
 
 | File | Purpose |
 |------|---------|

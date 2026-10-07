@@ -104,7 +104,7 @@ Destructive operations go in `scripts/` as documented manual SQL instead; see
 
 ### Language (Italian first)
 
-Italian is the default for every user-facing output: `resolveLocale()` in `src/common/middleware/locale.middleware.ts` returns `'it'` unless `Accept-Language` asks for English, and emails, push notifications and the `/r/:code` referral page follow it. Exception and validation messages stay in English because the mobile app matches some of them verbatim; the clients translate them. When you add or reword one, update the dashboard's catalogue in `vyzi_dashboard/src/utils/apiError.ts`.
+Italian is the default for every user-facing output: `resolveLocale()` in `src/common/middleware/locale.middleware.ts` returns `'it'` unless `Accept-Language` asks for English, and emails, push notifications and the `/r/:code` referral page follow it. Exception and validation messages stay in English because the mobile app matches some of them verbatim; the clients translate them. When you add or reword one, update the dashboard's catalogue in `vyzi-dashboard/src/utils/apiError.ts`.
 
 ### Italian Energy Domain Terms
 

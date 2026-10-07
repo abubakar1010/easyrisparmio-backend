@@ -163,7 +163,7 @@ HTML landing page for referral links. Serves as both the deep link target and th
 
 ### DeepLinkService
 
-**File**: `vyzi_app/lib/core/services/deep_link_service.dart`
+**File**: `vyzi-app/lib/core/services/deep_link_service.dart`
 
 Singleton service initialized in `main.dart`, registered via `Get.put<DeepLinkService>()`.
 
@@ -188,7 +188,7 @@ Firebase → CacheService → StorageService → DeepLinkService → LanguageCon
 
 ### Splash Screen Integration
 
-**File**: `vyzi_app/lib/features/splash/spalsh_screen.dart`
+**File**: `vyzi-app/lib/features/splash/spalsh_screen.dart`
 
 The splash screen's `_checkUserSession()` method checks for a pending referral code after the 3-second delay:
 
@@ -202,7 +202,7 @@ Wait 3s → Check auth state → Check pending referral code
 
 ### Registration Screen
 
-**File**: `vyzi_app/lib/features/auth/create_account.dart`
+**File**: `vyzi-app/lib/features/auth/create_account.dart`
 
 No changes were needed. The screen already reads `Get.arguments?['referralCode']` in `initState()` and pre-fills the referral code text field. The field remains editable.
 
@@ -212,7 +212,7 @@ No changes were needed. The screen already reads `Get.arguments?['referralCode']
 
 ### Android — App Links
 
-**File**: `vyzi_app/android/app/src/main/AndroidManifest.xml`
+**File**: `vyzi-app/android/app/src/main/AndroidManifest.xml`
 
 An intent-filter with `android:autoVerify="true"` is added to the main activity:
 
@@ -234,7 +234,7 @@ An intent-filter with `android:autoVerify="true"` is added to the main activity:
 
 ### iOS — Universal Links
 
-**File**: `vyzi_app/ios/Runner/Runner.entitlements`
+**File**: `vyzi-app/ios/Runner/Runner.entitlements`
 
 The associated domains entitlement is added:
 
@@ -331,7 +331,7 @@ Without this step, iOS Universal Links will not work.
 
 If your production backend domain is NOT `api.vyzi.app`, update the host in:
 
-**File**: `vyzi_app/android/app/src/main/AndroidManifest.xml`
+**File**: `vyzi-app/android/app/src/main/AndroidManifest.xml`
 ```xml
 <data
     android:scheme="https"
@@ -343,7 +343,7 @@ If your production backend domain is NOT `api.vyzi.app`, update the host in:
 
 If your production backend domain is NOT `api.vyzi.app`, update:
 
-**File**: `vyzi_app/ios/Runner/Runner.entitlements`
+**File**: `vyzi-app/ios/Runner/Runner.entitlements`
 ```xml
 <string>applinks:YOUR_ACTUAL_DOMAIN</string>
 ```
@@ -395,7 +395,7 @@ Remove `?mode=developer` before releasing to production.
 
 ## Key Files
 
-### Backend (`vyzi_backend/`)
+### Backend (`vyzi-backend/`)
 
 | File | Purpose |
 |------|---------|
@@ -407,7 +407,7 @@ Remove `?mode=developer` before releasing to production.
 | `src/modules/referrals/referrals.service.ts` | Share link format (`/r/{code}`) |
 | `.env.example` | Environment variable template |
 
-### Flutter App (`vyzi_app/`)
+### Flutter App (`vyzi-app/`)
 
 | File | Purpose |
 |------|---------|

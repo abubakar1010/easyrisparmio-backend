@@ -74,7 +74,7 @@ import { DeepLinkModule } from './modules/deep-link/deep-link.module';
           port: configService.get<number>('database.port') || 5432,
           username: configService.get<string>('database.username') || 'postgres',
           password: configService.get<string>('database.password') || 'postgres',
-          database: configService.get<string>('database.database') || 'easyresparmio',
+          database: configService.get<string>('database.database') || 'vyzi',
         };
       },
       // Synchronisation is taken over from TypeORM so that raw SQL can run

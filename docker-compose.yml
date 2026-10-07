@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: easyresparmio
+      POSTGRES_DB: vyzi
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -78,7 +78,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/easyresparmio
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/vyzi
     volumes:
       - .:/app
       - /app/node_modules

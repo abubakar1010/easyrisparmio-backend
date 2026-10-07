@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # Nightly off-site backup: database dump, uploads and .env into an encrypted
-# restic repository. Credentials come from /etc/easyrisparmio-backup.env
+# restic repository. Credentials come from /etc/vyzi-backup.env
 # (RESTIC_REPOSITORY, RESTIC_PASSWORD and the storage provider's keys).
 set -euo pipefail
 
-APP_DIR="${APP_DIR:-/opt/easyrisparmio/moreno-server}"
-STAGING="${STAGING:-/var/backups/easyrisparmio}"
+APP_DIR="${APP_DIR:-/opt/vyzi/moreno-server}"
+STAGING="${STAGING:-/var/backups/vyzi}"
 
 set -a
 # shellcheck disable=SC1091
-. /etc/easyrisparmio-backup.env
+. /etc/vyzi-backup.env
 set +a
 
 compose() {
@@ -25,8 +25,8 @@ compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -F
   > "$STAGING/db.dump.tmp"
 mv "$STAGING/db.dump.tmp" "$STAGING/db.dump"
 
-restic backup --tag easyrisparmio \
+restic backup --tag vyzi \
   "$STAGING/db.dump" "$APP_DIR/uploads" "$APP_DIR/.env"
 
-restic forget --tag easyrisparmio \
+restic forget --tag vyzi \
   --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --prune

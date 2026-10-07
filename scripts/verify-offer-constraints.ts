@@ -37,7 +37,7 @@ import { SupplierStatus } from '../src/common/enums/supplier.enum';
 import { EnergyType, MarketType, UserTarget } from '../src/common/enums/offer.enum';
 
 const ADMIN_HOST = 'postgresql://postgres:postgres@localhost:5433/postgres';
-const VERIFY_DB = 'easyresparmio_shipverify';
+const VERIFY_DB = 'vyzi_shipverify';
 const VERIFY_URL = `postgresql://postgres:postgres@localhost:5433/${VERIFY_DB}`;
 
 const results: Array<{ name: string; ok: boolean; detail: string }> = [];

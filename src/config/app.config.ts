@@ -3,7 +3,6 @@ import { registerAs } from '@nestjs/config';
 export default registerAs('app', () => ({
   port: parseInt(process.env.APP_PORT || '3000', 10),
   env: process.env.APP_ENV || 'development',
-  name: process.env.APP_NAME || 'VYZI',
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3001',
   // Where a web-push notification opens. Defaults to the frontend URL so a
   // deployment that only sets FRONTEND_URL still deep-links correctly.

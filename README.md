@@ -94,7 +94,7 @@ For Gmail or Google Workspace:
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_SECURE=false
-SMTP_USER=noreply@yourdomain.it
+SMTP_USER=noreply@vyzi.app
 SMTP_PASSWORD=xxxxxxxxxxxxxxxx
 ```
 

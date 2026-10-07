@@ -14,7 +14,6 @@ const createTransport = nodemailer.createTransport as unknown as jest.Mock;
  * leaking in from the developer's shell cannot change what a test asserts.
  */
 const EMAIL_ENV_KEYS = [
-  'APP_NAME',
   'EMAIL_FROM',
   'EMAIL_REPLY_TO',
   'SMTP_HOST',
@@ -27,7 +26,6 @@ const EMAIL_ENV_KEYS = [
 ];
 
 const GMAIL: Record<string, string> = {
-  APP_NAME: 'VYZI',
   SMTP_HOST: 'smtp.gmail.com',
   SMTP_PORT: '587',
   SMTP_USER: 'noreply@vyzi.app',

@@ -53,8 +53,8 @@ Serves a mobile app (personal and business users) and an admin web panel for man
 ### 1. Clone the repository
 
 ```bash
-git clone git@github.com:abubakar1010/easyrisparmio-backend.git
-cd easyrisparmio-backend
+git clone git@github.com:abubakar1010/vyzi-backend.git
+cd vyzi-backend
 ```
 
 ### 2. Install dependencies

@@ -14,7 +14,7 @@ export async function seedAgreements(
     {
       title: '20% di Sconto su Tutta la Pizza',
       description:
-        "L'Antica Pizzeria Da Michele, fondata nel 1870 a Napoli, è rinomata in tutto il mondo per la sua pizza margherita preparata con ingredienti freschi e la tradizionale cottura nel forno a legna. Grazie alla convenzione EasyRisparmio, tutti i nostri clienti possono gustare le migliori pizze napoletane a prezzo scontato.",
+        "L'Antica Pizzeria Da Michele, fondata nel 1870 a Napoli, è rinomata in tutto il mondo per la sua pizza margherita preparata con ingredienti freschi e la tradizionale cottura nel forno a legna. Grazie alla convenzione VYZI, tutti i nostri clienti possono gustare le migliori pizze napoletane a prezzo scontato.",
       partnerName: "L'Antica Pizzeria Da Michele",
       partnerLogoUrl:
         'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=400&h=400&fit=crop&q=80',
@@ -39,7 +39,7 @@ export async function seedAgreements(
     {
       title: '15% su Pranzo e Cena',
       description:
-        'Osteria Francescana dello Chef Massimo Bottura, tre stelle Michelin a Modena. Cucina italiana contemporanea che reinterpreta i classici emiliani con creatività e rispetto della tradizione. Convenzione esclusiva per i clienti EasyRisparmio.',
+        'Osteria Francescana dello Chef Massimo Bottura, tre stelle Michelin a Modena. Cucina italiana contemporanea che reinterpreta i classici emiliani con creatività e rispetto della tradizione. Convenzione esclusiva per i clienti VYZI.',
       partnerName: 'Osteria Francescana',
       partnerLogoUrl:
         'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&h=400&fit=crop&q=80',
@@ -48,7 +48,7 @@ export async function seedAgreements(
       discountHeadline: '15%',
       discountCode: 'BOTTURA15',
       howToUse: [
-        'Prenota il tavolo indicando la convenzione EasyRisparmio',
+        'Prenota il tavolo indicando la convenzione VYZI',
         'Comunica il codice BOTTURA15 al momento della prenotazione',
         'Lo sconto del 15% viene applicato sul conto finale',
       ],
@@ -64,7 +64,7 @@ export async function seedAgreements(
     {
       title: 'Catering Aziendale Scontato 25%',
       description:
-        "Eataly offre un servizio di catering aziendale con prodotti italiani di alta qualità, dalla pasta fresca ai formaggi DOP. L'accordo è riservato alle aziende clienti EasyRisparmio per eventi aziendali, meeting e pranzi di lavoro.",
+        "Eataly offre un servizio di catering aziendale con prodotti italiani di alta qualità, dalla pasta fresca ai formaggi DOP. L'accordo è riservato alle aziende clienti VYZI per eventi aziendali, meeting e pranzi di lavoro.",
       partnerName: 'Eataly',
       partnerLogoUrl:
         'https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=400&h=400&fit=crop&q=80',
@@ -90,7 +90,7 @@ export async function seedAgreements(
     {
       title: '10% su Gelato Artigianale',
       description:
-        'Grom, la famosa gelateria artigianale fondata a Torino, utilizza solo ingredienti naturali e frutta di stagione. Sconto valido in tutti i punti vendita Grom in Italia per tutti i clienti EasyRisparmio.',
+        'Grom, la famosa gelateria artigianale fondata a Torino, utilizza solo ingredienti naturali e frutta di stagione. Sconto valido in tutti i punti vendita Grom in Italia per tutti i clienti VYZI.',
       partnerName: 'Grom Gelato',
       partnerLogoUrl:
         'https://images.unsplash.com/photo-1501443762994-82bd5dace89a?w=400&h=400&fit=crop&q=80',
@@ -115,7 +115,7 @@ export async function seedAgreements(
     {
       title: 'Sconto 30% sul Primo Ordine',
       description:
-        'Rossopomodoro porta la tradizione della cucina napoletana autentica in tutta Italia. Pizze cotte nel forno a legna, pasta fresca fatta a mano e ingredienti DOP. Sconto speciale di benvenuto per i nuovi clienti EasyRisparmio.',
+        'Rossopomodoro porta la tradizione della cucina napoletana autentica in tutta Italia. Pizze cotte nel forno a legna, pasta fresca fatta a mano e ingredienti DOP. Sconto speciale di benvenuto per i nuovi clienti VYZI.',
       partnerName: 'Rossopomodoro',
       partnerLogoUrl:
         'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400&h=400&fit=crop&q=80',
@@ -165,7 +165,7 @@ export async function seedAgreements(
     {
       title: 'Colazione Gratuita con Brunch',
       description:
-        "Caffè Florian, il caffè più antico d'Italia fondato nel 1720 in Piazza San Marco a Venezia. Un'esperienza unica tra storia e gusto. Ogni brunch prenotato include la colazione completa in omaggio per i clienti EasyRisparmio.",
+        "Caffè Florian, il caffè più antico d'Italia fondato nel 1720 in Piazza San Marco a Venezia. Un'esperienza unica tra storia e gusto. Ogni brunch prenotato include la colazione completa in omaggio per i clienti VYZI.",
       partnerName: 'Caffè Florian',
       partnerLogoUrl:
         'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400&h=400&fit=crop&q=80',
@@ -190,7 +190,7 @@ export async function seedAgreements(
     {
       title: '15% su Menu Degustazione',
       description:
-        "Le Calandre, ristorante tre stelle Michelin dei fratelli Alajmo a Rubano (Padova). Cucina d'avanguardia che celebra le materie prime del territorio veneto. Sconto esclusivo sul menu degustazione per i clienti EasyRisparmio.",
+        "Le Calandre, ristorante tre stelle Michelin dei fratelli Alajmo a Rubano (Padova). Cucina d'avanguardia che celebra le materie prime del territorio veneto. Sconto esclusivo sul menu degustazione per i clienti VYZI.",
       partnerName: 'Le Calandre',
       partnerLogoUrl:
         'https://images.unsplash.com/photo-1544025162-d76694265947?w=400&h=400&fit=crop&q=80',
@@ -215,7 +215,7 @@ export async function seedAgreements(
     {
       title: 'Iscrizione Gratuita + 20% sull’Abbonamento Annuale',
       description:
-        'Virgin Active gestisce club fitness premium in tutta Italia con piscine, aree functional training, oltre 100 corsi a settimana e personal trainer qualificati. La convenzione EasyRisparmio azzera la quota di iscrizione e sconta l’abbonamento annuale in tutti i club aderenti.',
+        'Virgin Active gestisce club fitness premium in tutta Italia con piscine, aree functional training, oltre 100 corsi a settimana e personal trainer qualificati. La convenzione VYZI azzera la quota di iscrizione e sconta l’abbonamento annuale in tutti i club aderenti.',
       partnerName: 'Virgin Active Italia',
       partnerLogoUrl:
         'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=400&h=400&fit=crop&q=80',
@@ -225,7 +225,7 @@ export async function seedAgreements(
       discountCode: 'EASYFIT20',
       howToUse: [
         'Presentati in reception in uno dei club aderenti',
-        'Mostra il codice EASYFIT20 dall\'app EasyRisparmio',
+        'Mostra il codice EASYFIT20 dall\'app VYZI',
         'La quota di iscrizione viene azzerata e lo sconto applicato all\'abbonamento annuale',
         'Offerta valida per nuovi iscritti, non cumulabile con altre promozioni',
       ],
@@ -241,7 +241,7 @@ export async function seedAgreements(
     {
       title: 'Sconto Carburante 5 Cent al Litro',
       description:
-        'Q8 (Kuwait Petroleum Italia) conta oltre 2.800 stazioni di servizio sul territorio nazionale. Con la convenzione EasyRisparmio i clienti ottengono uno sconto immediato sul rifornimento di benzina e diesel presso tutte le stazioni Q8 e Q8 Easy aderenti, cumulabile con la app Q8.',
+        'Q8 (Kuwait Petroleum Italia) conta oltre 2.800 stazioni di servizio sul territorio nazionale. Con la convenzione VYZI i clienti ottengono uno sconto immediato sul rifornimento di benzina e diesel presso tutte le stazioni Q8 e Q8 Easy aderenti, cumulabile con la app Q8.',
       partnerName: 'Q8 - Kuwait Petroleum Italia',
       partnerLogoUrl:
         'https://images.unsplash.com/photo-1545262810-77515befe149?w=400&h=400&fit=crop&q=80',
@@ -267,7 +267,7 @@ export async function seedAgreements(
     {
       title: '30% sulle Lenti da Vista + Visita Gratuita',
       description:
-        'Salmoiraghi & Viganò, catena ottica italiana attiva dal 1865 con più di 400 negozi, offre occhiali da vista e da sole delle migliori marche. La convenzione EasyRisparmio include il controllo della vista gratuito con optometrista e uno sconto dedicato sulle lenti oftalmiche.',
+        'Salmoiraghi & Viganò, catena ottica italiana attiva dal 1865 con più di 400 negozi, offre occhiali da vista e da sole delle migliori marche. La convenzione VYZI include il controllo della vista gratuito con optometrista e uno sconto dedicato sulle lenti oftalmiche.',
       partnerName: 'Salmoiraghi & Viganò',
       partnerLogoUrl:
         'https://images.unsplash.com/photo-1574258495973-f010dfbb5371?w=400&h=400&fit=crop&q=80',
@@ -292,7 +292,7 @@ export async function seedAgreements(
     {
       title: '15% su Abbigliamento e Attrezzatura Sportiva',
       description:
-        'Decathlon Italia propone attrezzatura e abbigliamento per oltre 70 sport a prezzi accessibili, con i marchi propri Quechua, Domyos, Kipsta e Btwin. Lo sconto EasyRisparmio è valido nei negozi fisici e sull’e-commerce, esclusi i prodotti già in promozione.',
+        'Decathlon Italia propone attrezzatura e abbigliamento per oltre 70 sport a prezzi accessibili, con i marchi propri Quechua, Domyos, Kipsta e Btwin. Lo sconto VYZI è valido nei negozi fisici e sull’e-commerce, esclusi i prodotti già in promozione.',
       partnerName: 'Decathlon Italia',
       partnerLogoUrl:
         'https://images.unsplash.com/photo-1517649763962-0c623066013b?w=400&h=400&fit=crop&q=80',
@@ -317,7 +317,7 @@ export async function seedAgreements(
     {
       title: 'Noleggio Aziendale -20% e Secondo Guidatore Gratis',
       description:
-        'Europcar Italia mette a disposizione una flotta aziendale con oltre 400 punti di noleggio in Italia, inclusi aeroporti e stazioni ferroviarie. La convenzione è riservata alle aziende clienti EasyRisparmio per trasferte di lavoro e noleggi a breve termine.',
+        'Europcar Italia mette a disposizione una flotta aziendale con oltre 400 punti di noleggio in Italia, inclusi aeroporti e stazioni ferroviarie. La convenzione è riservata alle aziende clienti VYZI per trasferte di lavoro e noleggi a breve termine.',
       partnerName: 'Europcar Italia',
       partnerLogoUrl:
         'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?w=400&h=400&fit=crop&q=80',

@@ -45,7 +45,7 @@ export class AdminSeederService implements OnApplicationBootstrap {
       email: adminEmail,
       passwordHash,
       firstName: 'Admin',
-      lastName: 'EasyRisparmio',
+      lastName: 'VYZI',
       role: UserRole.ADMIN,
       status: UserStatus.ACTIVE,
       emailVerified: true,

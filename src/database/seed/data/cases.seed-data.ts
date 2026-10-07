@@ -158,7 +158,7 @@ export async function seedCaseEvents(
       oldStatus: CaseStatus.NEW,
       newStatus: CaseStatus.IN_PROGRESS,
       actorId: admin.id,
-      actorLabel: 'Admin EasyRisparmio',
+      actorLabel: 'Admin VYZI',
     },
     {
       caseId: ctx.cases[0].id,
@@ -177,7 +177,7 @@ export async function seedCaseEvents(
       oldStatus: CaseStatus.CONTRACT_SENT,
       newStatus: CaseStatus.AWAITING_ACTIVATION,
       actorId: admin.id,
-      actorLabel: 'Admin EasyRisparmio',
+      actorLabel: 'Admin VYZI',
     },
     {
       caseId: ctx.cases[2].id, // SEED-CASE-003

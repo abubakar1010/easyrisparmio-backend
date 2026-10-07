@@ -24,9 +24,9 @@ export async function seedUsers(
 
   const usersData = [
     {
-      email: 'admin@easyresparmio.it',
+      email: 'admin@vyzi.app',
       firstName: 'Admin',
-      lastName: 'EasyRisparmio',
+      lastName: 'VYZI',
       role: UserRole.ADMIN,
       status: UserStatus.ACTIVE,
       emailVerified: true,

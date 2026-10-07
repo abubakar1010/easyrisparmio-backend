@@ -7,7 +7,7 @@ export class CreateMessageDto {
   @IsNotEmpty()
   message: string;
 
-  @ApiPropertyOptional({ description: 'Attachment URLs', example: ['https://cdn.easyresparmio.it/uploads/screenshot-error.png'], type: [String] })
+  @ApiPropertyOptional({ description: 'Attachment URLs', example: ['https://cdn.vyzi.app/uploads/screenshot-error.png'], type: [String] })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })

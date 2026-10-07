@@ -8,7 +8,7 @@ async function run(): Promise<void> {
   process.env.SKIP_AUTO_SEED = 'true';
 
   console.log('\n========================================');
-  console.log('  EasyRisparmio — Seed Suppliers Only');
+  console.log('  VYZI — Seed Suppliers Only');
   console.log('========================================\n');
 
   const app = await NestFactory.createApplicationContext(AppModule, {

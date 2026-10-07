@@ -305,7 +305,7 @@ async function seedNotificationsForUser(
   const notifications = [
     {
       userId: user.id,
-      title: 'Benvenuto su EasyRisparmio',
+      title: 'Benvenuto su VYZI',
       body: `Ciao ${user.firstName}, benvenuto sulla piattaforma! Carica la tua prima bolletta per iniziare a risparmiare.`,
       type: NotificationType.GENERAL,
       isRead: true,
@@ -391,7 +391,7 @@ async function run(): Promise<void> {
   process.env.SKIP_AUTO_SEED = 'true';
 
   console.log('\n========================================');
-  console.log('  EasyRisparmio — Seed All Existing Users');
+  console.log('  VYZI — Seed All Existing Users');
   console.log('========================================\n');
 
   const app = await NestFactory.createApplicationContext(AppModule, {

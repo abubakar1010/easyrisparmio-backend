@@ -413,7 +413,7 @@ export class NotificationsController {
                   id: 'ad1a2b3c-d4e5-6789-abcd-ef0123456789',
                   firstName: 'Giulia',
                   lastName: 'Bianchi',
-                  email: 'giulia@easyrisparmio.it',
+                  email: 'giulia@vyzi.app',
                 },
                 templateId: 'nt1a2b3c-d4e5-6789-abcd-ef0123456789',
                 templateName: 'Promo switch luce',

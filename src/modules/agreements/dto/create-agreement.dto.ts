@@ -20,7 +20,7 @@ export class CreateAgreementDto {
   @MaxLength(255)
   title: string;
 
-  @ApiPropertyOptional({ description: 'Agreement description', example: 'Exclusive discount on smart home energy monitoring devices for EasyRisparmio users' })
+  @ApiPropertyOptional({ description: 'Agreement description', example: 'Exclusive discount on smart home energy monitoring devices for VYZI users' })
   @IsOptional()
   @IsString()
   description?: string | null;
@@ -30,7 +30,7 @@ export class CreateAgreementDto {
   @MaxLength(255)
   partnerName: string;
 
-  @ApiPropertyOptional({ description: 'Partner logo URL', example: 'https://cdn.easyresparmio.it/partners/enel-x.png', maxLength: 500 })
+  @ApiPropertyOptional({ description: 'Partner logo URL', example: 'https://cdn.vyzi.app/partners/enel-x.png', maxLength: 500 })
   @IsOptional()
   @IsUrl()
   @MaxLength(500)
@@ -77,7 +77,7 @@ export class CreateAgreementDto {
   @MaxLength(300, { each: true })
   howToUse?: string[] | null;
 
-  @ApiPropertyOptional({ description: 'URL to full terms and conditions', example: 'https://www.enelx.com/terms/easy-risparmio', maxLength: 500 })
+  @ApiPropertyOptional({ description: 'URL to full terms and conditions', example: 'https://www.enelx.com/terms/vyzi', maxLength: 500 })
   @IsOptional()
   @IsUrl()
   @MaxLength(500)

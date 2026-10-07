@@ -1,6 +1,6 @@
 # Support
 
-The Support module provides a ticketing system and FAQ for the EasyRisparmio mobile app. Users create tickets and exchange messages with support agents; admins manage tickets, assign agents, and maintain FAQs. Accessed from Profile → Supporto in the mobile app. All endpoints are prefixed with `/api/v1/support`.
+The Support module provides a ticketing system and FAQ for the VYZI mobile app. Users create tickets and exchange messages with support agents; admins manage tickets, assign agents, and maintain FAQs. Accessed from Profile → Supporto in the mobile app. All endpoints are prefixed with `/api/v1/support`.
 
 ## Table of Contents
 
@@ -152,7 +152,7 @@ Content-Type: application/json
 ```json
 {
   "message": "I tried again and the upload still fails. Here is a screenshot.",
-  "attachments": ["https://cdn.easyresparmio.it/uploads/screenshot-error.png"]
+  "attachments": ["https://cdn.vyzi.app/uploads/screenshot-error.png"]
 }
 ```
 

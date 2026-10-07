@@ -1,6 +1,6 @@
 # Authentication
 
-EasyRisparmio supports two authentication methods: **email/password** and **social login** (Google and Apple via Firebase). OTP codes are delivered by email over authenticated SMTP. All auth endpoints are prefixed with `/api/v1/auth`.
+VYZI supports two authentication methods: **email/password** and **social login** (Google and Apple via Firebase). OTP codes are delivered by email over authenticated SMTP. All auth endpoints are prefixed with `/api/v1/auth`.
 
 ## Table of Contents
 
@@ -482,7 +482,7 @@ The admin account cannot be created through any API endpoint. It is auto-seeded 
 ### Configuration
 
 ```env
-ADMIN_EMAIL=admin@easyresparmio.it
+ADMIN_EMAIL=admin@vyzi.app
 ADMIN_PASSWORD=ChangeThisSecurePassword123!
 ```
 

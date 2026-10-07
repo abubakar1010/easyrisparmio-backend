@@ -113,7 +113,7 @@ async function run(): Promise<void> {
   process.env.SKIP_AUTO_SEED = 'true';
 
   console.log('\n========================================');
-  console.log('  EasyRisparmio Database Seeder');
+  console.log('  VYZI Database Seeder');
   console.log(`  Mode: ${isReset ? 'RESET (clear + seed)' : 'SEED (idempotent)'}`);
   console.log('========================================\n');
 

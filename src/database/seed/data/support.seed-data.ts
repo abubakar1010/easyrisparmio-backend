@@ -64,7 +64,7 @@ export async function seedFaqs(ds: DataSource): Promise<void> {
       category: 'Cambio Fornitore',
       question: 'Come funziona il cambio fornitore di energia?',
       answer:
-        'Il cambio fornitore è completamente gratuito e senza interruzione del servizio. Basta caricare una bolletta recente, confrontare le offerte disponibili e scegliere quella più conveniente. EasyRisparmio si occupa di tutta la pratica: dalla raccolta dei documenti alla comunicazione con il nuovo fornitore. Il passaggio avviene in media in 4-6 settimane.',
+        'Il cambio fornitore è completamente gratuito e senza interruzione del servizio. Basta caricare una bolletta recente, confrontare le offerte disponibili e scegliere quella più conveniente. VYZI si occupa di tutta la pratica: dalla raccolta dei documenti alla comunicazione con il nuovo fornitore. Il passaggio avviene in media in 4-6 settimane.',
       sortOrder: 1,
       isActive: true,
       locale: 'it',
@@ -84,7 +84,7 @@ export async function seedFaqs(ds: DataSource): Promise<void> {
       category: 'Cambio Fornitore',
       question: 'Ci sono costi o penali per cambiare fornitore?',
       answer:
-        'No, il cambio fornitore è sempre gratuito per i clienti del mercato libero. Non sono previste penali di uscita dal contratto attuale, salvo rari casi di contratti business con clausole specifiche. Il servizio EasyRisparmio è completamente gratuito per l\'utente finale.',
+        'No, il cambio fornitore è sempre gratuito per i clienti del mercato libero. Non sono previste penali di uscita dal contratto attuale, salvo rari casi di contratti business con clausole specifiche. Il servizio VYZI è completamente gratuito per l\'utente finale.',
       sortOrder: 3,
       isActive: true,
       locale: 'it',
@@ -94,7 +94,7 @@ export async function seedFaqs(ds: DataSource): Promise<void> {
       category: 'Cambio Fornitore',
       question: 'Posso tornare al vecchio fornitore se non sono soddisfatto?',
       answer:
-        'Sì, puoi cambiare fornitore in qualsiasi momento senza vincoli. Se non sei soddisfatto del nuovo fornitore, puoi avviare un nuovo cambio tramite EasyRisparmio. Inoltre, hai sempre il diritto di recesso entro 14 giorni dalla firma del contratto.',
+        'Sì, puoi cambiare fornitore in qualsiasi momento senza vincoli. Se non sei soddisfatto del nuovo fornitore, puoi avviare un nuovo cambio tramite VYZI. Inoltre, hai sempre il diritto di recesso entro 14 giorni dalla firma del contratto.',
       sortOrder: 4,
       isActive: true,
       locale: 'it',
@@ -116,7 +116,7 @@ export async function seedFaqs(ds: DataSource): Promise<void> {
       category: 'Bollette',
       question: 'Come leggo la mia bolletta della luce?',
       answer:
-        'La bolletta della luce si compone di quattro voci principali: spesa per la materia energia (il costo effettivo dell\'elettricità), trasporto e gestione del contatore (costi di rete), oneri di sistema (costi regolamentati) e imposte (IVA e accise). Carica la tua bolletta su EasyRisparmio e il nostro sistema AI la analizzerà in dettaglio, evidenziando eventuali anomalie e opportunità di risparmio.',
+        'La bolletta della luce si compone di quattro voci principali: spesa per la materia energia (il costo effettivo dell\'elettricità), trasporto e gestione del contatore (costi di rete), oneri di sistema (costi regolamentati) e imposte (IVA e accise). Carica la tua bolletta su VYZI e il nostro sistema AI la analizzerà in dettaglio, evidenziando eventuali anomalie e opportunità di risparmio.',
       sortOrder: 6,
       isActive: true,
       locale: 'it',

@@ -1,6 +1,6 @@
 # Cases (Switch Requests)
 
-Cases represent supplier-switching requests on the EasyRisparmio platform. Users create a case by selecting an offer for their uploaded bill. The case tracks the full lifecycle from request through document collection to activation. Contract signing itself happens with the supplier, outside this application — the case only records that it was handed over and, once the supplier confirms, the activation and expiry dates. All endpoints are prefixed with `/api/v1/cases`.
+Cases represent supplier-switching requests on the VYZI platform. Users create a case by selecting an offer for their uploaded bill. The case tracks the full lifecycle from request through document collection to activation. Contract signing itself happens with the supplier, outside this application — the case only records that it was handed over and, once the supplier confirms, the activation and expiry dates. All endpoints are prefixed with `/api/v1/cases`.
 
 ## Table of Contents
 
@@ -182,7 +182,7 @@ Content-Type: application/json
 ```json
 {
   "documentType": "id_card",
-  "fileUrl": "https://storage.easyresparmio.it/docs/id-card-front.pdf",
+  "fileUrl": "https://storage.vyzi.app/docs/id-card-front.pdf",
   "fileName": "carta-identita-fronte.pdf"
 }
 ```

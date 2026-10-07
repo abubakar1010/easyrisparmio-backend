@@ -1,8 +1,8 @@
 {
   "name": "moreno-server",
   "version": "0.0.1",
-  "description": "EasyRisparmio - Italian energy utility comparison & switching platform backend",
-  "author": "EasyRisparmio",
+  "description": "VYZI - Italian energy utility comparison & switching platform backend",
+  "author": "VYZI",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {

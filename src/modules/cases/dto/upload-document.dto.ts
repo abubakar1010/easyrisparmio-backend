@@ -8,7 +8,7 @@ export class UploadDocumentDto {
   @IsEnum(DocumentType)
   documentType: DocumentType;
 
-  @ApiProperty({ description: 'URL of the uploaded file', example: 'https://storage.easyresparmio.it/docs/id-card-front.pdf', maxLength: 500 })
+  @ApiProperty({ description: 'URL of the uploaded file', example: 'https://storage.vyzi.app/docs/id-card-front.pdf', maxLength: 500 })
   @IsNotEmpty()
   @IsString()
   @MaxLength(500)

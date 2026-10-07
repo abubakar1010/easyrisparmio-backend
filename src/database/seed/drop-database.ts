@@ -13,7 +13,7 @@ async function run(): Promise<void> {
   process.env.SKIP_AUTO_SEED = 'true';
 
   console.log('\n========================================');
-  console.log('  EasyRisparmio — DROP DATABASE');
+  console.log('  VYZI — DROP DATABASE');
   console.log('  ⚠  This will destroy ALL data!');
   console.log('========================================\n');
 

@@ -1,6 +1,6 @@
 # Bills
 
-Bills represent uploaded energy bills (electricity or gas) on the EasyRisparmio platform. Users upload bills for analysis, which calculates potential savings and recommends offers. Admins can view all user bills. All endpoints are prefixed with `/api/v1/bills`.
+Bills represent uploaded energy bills (electricity or gas) on the VYZI platform. Users upload bills for analysis, which calculates potential savings and recommends offers. Admins can view all user bills. All endpoints are prefixed with `/api/v1/bills`.
 
 ## Table of Contents
 

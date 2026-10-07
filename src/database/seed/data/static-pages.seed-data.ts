@@ -17,10 +17,10 @@ export async function seedStaticPages(ds: DataSource): Promise<void> {
       audience: LegalAudience.ALL,
       content: `
 <h2>Informativa sulla Privacy</h2>
-<p>La presente Informativa sulla Privacy descrive come EasyRisparmio ("noi", "nostro" o "la Società") raccoglie, utilizza e protegge i dati personali degli utenti in conformità con il Regolamento Generale sulla Protezione dei Dati (GDPR - Regolamento UE 2016/679) e il Codice in materia di protezione dei dati personali (D.Lgs. 196/2003, come modificato dal D.Lgs. 101/2018).</p>
+<p>La presente Informativa sulla Privacy descrive come VYZI ("noi", "nostro" o "la Società") raccoglie, utilizza e protegge i dati personali degli utenti in conformità con il Regolamento Generale sulla Protezione dei Dati (GDPR - Regolamento UE 2016/679) e il Codice in materia di protezione dei dati personali (D.Lgs. 196/2003, come modificato dal D.Lgs. 101/2018).</p>
 
 <h3>1. Titolare del Trattamento</h3>
-<p>Il Titolare del trattamento dei dati personali è EasyRisparmio S.r.l., con sede legale in Italia. Per qualsiasi richiesta relativa al trattamento dei dati personali, è possibile contattarci all'indirizzo email: privacy@easyresparmio.it</p>
+<p>Il Titolare del trattamento dei dati personali è VYZI S.r.l., con sede legale in Italia. Per qualsiasi richiesta relativa al trattamento dei dati personali, è possibile contattarci all'indirizzo email: privacy@vyzi.app</p>
 
 <h3>2. Dati Raccolti</h3>
 <p>Raccogliamo le seguenti categorie di dati personali:</p>
@@ -74,10 +74,10 @@ export async function seedStaticPages(ds: DataSource): Promise<void> {
       audience: LegalAudience.ALL,
       content: `
 <h2>Privacy Policy</h2>
-<p>This Privacy Policy describes how EasyRisparmio ("we", "our" or "the Company") collects, uses, and protects users' personal data in compliance with the General Data Protection Regulation (GDPR - EU Regulation 2016/679) and the Italian Data Protection Code (Legislative Decree 196/2003, as amended by Legislative Decree 101/2018).</p>
+<p>This Privacy Policy describes how VYZI ("we", "our" or "the Company") collects, uses, and protects users' personal data in compliance with the General Data Protection Regulation (GDPR - EU Regulation 2016/679) and the Italian Data Protection Code (Legislative Decree 196/2003, as amended by Legislative Decree 101/2018).</p>
 
 <h3>1. Data Controller</h3>
-<p>The Data Controller is EasyRisparmio S.r.l., with registered office in Italy. For any request regarding personal data processing, you can contact us at: privacy@easyresparmio.it</p>
+<p>The Data Controller is VYZI S.r.l., with registered office in Italy. For any request regarding personal data processing, you can contact us at: privacy@vyzi.app</p>
 
 <h3>2. Data Collected</h3>
 <p>We collect the following categories of personal data:</p>
@@ -131,10 +131,10 @@ export async function seedStaticPages(ds: DataSource): Promise<void> {
       audience: LegalAudience.ALL,
       content: `
 <h2>Termini e Condizioni di Utilizzo</h2>
-<p>I presenti Termini e Condizioni regolano l'utilizzo dell'applicazione mobile e della piattaforma web EasyRisparmio. Utilizzando i nostri servizi, l'utente accetta integralmente le presenti condizioni.</p>
+<p>I presenti Termini e Condizioni regolano l'utilizzo dell'applicazione mobile e della piattaforma web VYZI. Utilizzando i nostri servizi, l'utente accetta integralmente le presenti condizioni.</p>
 
 <h3>1. Descrizione del Servizio</h3>
-<p>EasyRisparmio è una piattaforma di confronto e switching per utenze energetiche (luce e gas) che permette agli utenti di:</p>
+<p>VYZI è una piattaforma di confronto e switching per utenze energetiche (luce e gas) che permette agli utenti di:</p>
 <ul>
   <li>Caricare e analizzare le proprie bollette energetiche tramite tecnologia OCR</li>
   <li>Confrontare le offerte dei principali fornitori di energia italiani</li>
@@ -151,20 +151,20 @@ export async function seedStaticPages(ds: DataSource): Promise<void> {
   <li>Fornire informazioni accurate e aggiornate</li>
   <li>Non utilizzare il servizio per scopi illeciti o fraudolenti</li>
   <li>Non tentare di accedere in modo non autorizzato ai sistemi della piattaforma</li>
-  <li>Rispettare i diritti di proprietà intellettuale di EasyRisparmio</li>
+  <li>Rispettare i diritti di proprietà intellettuale di VYZI</li>
 </ul>
 
 <h3>4. Processo di Switching</h3>
-<p>EasyRisparmio agisce come intermediario nel processo di cambio fornitore. Il contratto di fornitura viene stipulato direttamente tra l'utente e il nuovo fornitore. EasyRisparmio non è responsabile per variazioni di prezzo, interruzioni del servizio o inadempimenti del fornitore.</p>
+<p>VYZI agisce come intermediario nel processo di cambio fornitore. Il contratto di fornitura viene stipulato direttamente tra l'utente e il nuovo fornitore. VYZI non è responsabile per variazioni di prezzo, interruzioni del servizio o inadempimenti del fornitore.</p>
 
 <h3>5. Limitazione di Responsabilità</h3>
-<p>EasyRisparmio si impegna a fornire informazioni accurate e aggiornate, ma non garantisce l'assenza di errori. Le analisi e i confronti hanno carattere indicativo e non costituiscono consulenza finanziaria o contrattuale.</p>
+<p>VYZI si impegna a fornire informazioni accurate e aggiornate, ma non garantisce l'assenza di errori. Le analisi e i confronti hanno carattere indicativo e non costituiscono consulenza finanziaria o contrattuale.</p>
 
 <h3>6. Proprietà Intellettuale</h3>
-<p>Tutti i contenuti della piattaforma, inclusi testi, grafica, loghi, algoritmi e software, sono di proprietà esclusiva di EasyRisparmio e sono protetti dalle leggi sul diritto d'autore.</p>
+<p>Tutti i contenuti della piattaforma, inclusi testi, grafica, loghi, algoritmi e software, sono di proprietà esclusiva di VYZI e sono protetti dalle leggi sul diritto d'autore.</p>
 
 <h3>7. Modifiche ai Termini</h3>
-<p>EasyRisparmio si riserva il diritto di modificare i presenti Termini in qualsiasi momento. Le modifiche saranno comunicate tramite l'app e entreranno in vigore dalla data di pubblicazione.</p>
+<p>VYZI si riserva il diritto di modificare i presenti Termini in qualsiasi momento. Le modifiche saranno comunicate tramite l'app e entreranno in vigore dalla data di pubblicazione.</p>
 
 <h3>8. Legge Applicabile e Foro Competente</h3>
 <p>I presenti Termini sono regolati dalla legge italiana. Per qualsiasi controversia sarà competente il Foro del luogo di residenza del consumatore, ai sensi del D.Lgs. 206/2005 (Codice del Consumo).</p>
@@ -182,10 +182,10 @@ export async function seedStaticPages(ds: DataSource): Promise<void> {
       audience: LegalAudience.ALL,
       content: `
 <h2>Terms and Conditions of Use</h2>
-<p>These Terms and Conditions govern the use of the EasyRisparmio mobile application and web platform. By using our services, the user fully accepts these conditions.</p>
+<p>These Terms and Conditions govern the use of the VYZI mobile application and web platform. By using our services, the user fully accepts these conditions.</p>
 
 <h3>1. Service Description</h3>
-<p>EasyRisparmio is a comparison and switching platform for energy utilities (electricity and gas) that allows users to:</p>
+<p>VYZI is a comparison and switching platform for energy utilities (electricity and gas) that allows users to:</p>
 <ul>
   <li>Upload and analyze energy bills using OCR technology</li>
   <li>Compare offers from major Italian energy suppliers</li>
@@ -202,20 +202,20 @@ export async function seedStaticPages(ds: DataSource): Promise<void> {
   <li>Provide accurate and up-to-date information</li>
   <li>Not use the service for unlawful or fraudulent purposes</li>
   <li>Not attempt unauthorized access to platform systems</li>
-  <li>Respect EasyRisparmio's intellectual property rights</li>
+  <li>Respect VYZI's intellectual property rights</li>
 </ul>
 
 <h3>4. Switching Process</h3>
-<p>EasyRisparmio acts as an intermediary in the supplier switching process. The supply contract is entered into directly between the user and the new supplier. EasyRisparmio is not responsible for price changes, service interruptions, or supplier defaults.</p>
+<p>VYZI acts as an intermediary in the supplier switching process. The supply contract is entered into directly between the user and the new supplier. VYZI is not responsible for price changes, service interruptions, or supplier defaults.</p>
 
 <h3>5. Limitation of Liability</h3>
-<p>EasyRisparmio strives to provide accurate and up-to-date information but does not guarantee the absence of errors. Analyses and comparisons are indicative and do not constitute financial or contractual advice.</p>
+<p>VYZI strives to provide accurate and up-to-date information but does not guarantee the absence of errors. Analyses and comparisons are indicative and do not constitute financial or contractual advice.</p>
 
 <h3>6. Intellectual Property</h3>
-<p>All platform content, including text, graphics, logos, algorithms, and software, is the exclusive property of EasyRisparmio and is protected by copyright laws.</p>
+<p>All platform content, including text, graphics, logos, algorithms, and software, is the exclusive property of VYZI and is protected by copyright laws.</p>
 
 <h3>7. Changes to Terms</h3>
-<p>EasyRisparmio reserves the right to modify these Terms at any time. Changes will be communicated through the app and will take effect from the date of publication.</p>
+<p>VYZI reserves the right to modify these Terms at any time. Changes will be communicated through the app and will take effect from the date of publication.</p>
 
 <h3>8. Applicable Law and Jurisdiction</h3>
 <p>These Terms are governed by Italian law. For any dispute, the court of the consumer's place of residence shall have jurisdiction, pursuant to Legislative Decree 206/2005 (Consumer Code).</p>
@@ -230,7 +230,7 @@ export async function seedStaticPages(ds: DataSource): Promise<void> {
       isActive: true,
       content: `
 <h2>Chi Siamo</h2>
-<p>EasyRisparmio è la piattaforma italiana che semplifica il risparmio sulle bollette energetiche. La nostra missione è rendere il mercato dell'energia accessibile e trasparente per tutti.</p>
+<p>VYZI è la piattaforma italiana che semplifica il risparmio sulle bollette energetiche. La nostra missione è rendere il mercato dell'energia accessibile e trasparente per tutti.</p>
 
 <h3>La Nostra Missione</h3>
 <p>Crediamo che ogni consumatore meriti di pagare il giusto prezzo per l'energia. Per questo abbiamo creato una piattaforma che analizza le bollette, confronta le offerte dei fornitori e gestisce l'intero processo di switching, tutto in modo semplice e gratuito.</p>
@@ -263,7 +263,7 @@ export async function seedStaticPages(ds: DataSource): Promise<void> {
       isActive: true,
       content: `
 <h2>About Us</h2>
-<p>EasyRisparmio is the Italian platform that simplifies saving on energy bills. Our mission is to make the energy market accessible and transparent for everyone.</p>
+<p>VYZI is the Italian platform that simplifies saving on energy bills. Our mission is to make the energy market accessible and transparent for everyone.</p>
 
 <h3>Our Mission</h3>
 <p>We believe every consumer deserves to pay a fair price for energy. That's why we created a platform that analyzes bills, compares supplier offers, and manages the entire switching process — all simply and free of charge.</p>

@@ -38,7 +38,7 @@ export async function seedNotifications(
     },
     {
       userId: laura.id,
-      title: 'Benvenuta su EasyRisparmio',
+      title: 'Benvenuta su VYZI',
       body: 'Completa la verifica del tuo account per iniziare a risparmiare sulle bollette.',
       type: NotificationType.GENERAL,
       isRead: false,
@@ -178,7 +178,7 @@ export async function seedNotificationTemplates(
       category: NotificationTemplateCategory.CASE_UPDATE,
       type: NotificationType.ACTIVATION_COMPLETE,
       title: 'La tua fornitura {{utility_type}} è attiva',
-      body: 'Ciao {{name}}, la fornitura {{utility_type}} con {{provider}} è ora attiva. Grazie per aver scelto EasyRisparmio.',
+      body: 'Ciao {{name}}, la fornitura {{utility_type}} con {{provider}} è ora attiva. Grazie per aver scelto VYZI.',
     },
     {
       name: 'Comunicazione personalizzata',
@@ -186,7 +186,7 @@ export async function seedNotificationTemplates(
         'Punto di partenza vuoto: saluto già impostato, il resto lo scrive l\'operatore.',
       category: NotificationTemplateCategory.CUSTOM,
       type: NotificationType.GENERAL,
-      title: 'Comunicazione da EasyRisparmio',
+      title: 'Comunicazione da VYZI',
       body: 'Ciao {{name}},\n\n',
     },
   ];

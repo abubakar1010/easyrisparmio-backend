@@ -1,6 +1,6 @@
-# EasyRisparmio API
+# VYZI API
 
-Backend server for **EasyRisparmio** — an Italian energy utility comparison and switching platform. Built with [NestJS](https://nestjs.com/), [TypeORM](https://typeorm.io/), and [PostgreSQL](https://www.postgresql.org/).
+Backend server for **VYZI** — an Italian energy utility comparison and switching platform. Built with [NestJS](https://nestjs.com/), [TypeORM](https://typeorm.io/), and [PostgreSQL](https://www.postgresql.org/).
 
 Serves a mobile app (personal and business users) and an admin web panel for managing energy offers, supplier contracts, switching cases, and commissions.
 

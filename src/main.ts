@@ -72,7 +72,7 @@ async function bootstrap() {
 
   // Swagger API documentation
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('EasyRisparmio API')
+    .setTitle('VYZI API')
     .setDescription(
       'Italian energy utility comparison & switching platform API',
     )
@@ -103,7 +103,7 @@ async function bootstrap() {
   // has `bindv6only=0` — on a host where that is off, the container looks
   // healthy while the published port refuses every connection.
   await app.listen(port, '0.0.0.0');
-  console.log(`EasyRisparmio API running on port ${port}`);
+  console.log(`VYZI API running on port ${port}`);
   console.log(`Swagger docs: http://localhost:${port}/api/docs`);
 }
 bootstrap();

@@ -74,7 +74,7 @@ const DOCUMENT_EXAMPLE = {
   id: 'dc1a2b3c-d5e6-7890-abcd-ef1234567890',
   caseId: 'cs1a2b3c-d5e6-7890-abcd-ef1234567890',
   documentType: 'identity_document',
-  fileUrl: 'https://storage.easyresparmio.it/docs/id-card-front.pdf',
+  fileUrl: 'https://storage.vyzi.app/docs/id-card-front.pdf',
   fileName: 'carta-identita-fronte.pdf',
   uploadedById: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
   verified: false,

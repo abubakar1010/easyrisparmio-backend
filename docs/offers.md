@@ -1,6 +1,6 @@
 # Offers
 
-Offers represent energy plans from suppliers on the EasyRisparmio platform. Public users browse active offers and compare them; authenticated users get bill-based recommendations; admins manage the full lifecycle. All endpoints are prefixed with `/api/v1/offers`.
+Offers represent energy plans from suppliers on the VYZI platform. Public users browse active offers and compare them; authenticated users get bill-based recommendations; admins manage the full lifecycle. All endpoints are prefixed with `/api/v1/offers`.
 
 ## Table of Contents
 
@@ -144,7 +144,7 @@ Returns only offers with `offerStatus = active` and `isActive = true`, with supp
         "supplier": {
           "id": "s1a2b3c4...",
           "name": "Enel Energia",
-          "logoUrl": "https://cdn.easyresparmio.it/logos/enel-energia.png"
+          "logoUrl": "https://cdn.vyzi.app/logos/enel-energia.png"
         }
       }
     ],

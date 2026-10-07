@@ -173,7 +173,7 @@ async function run(): Promise<void> {
   process.env.SKIP_AUTO_SEED = 'true';
 
   console.log('\n========================================');
-  console.log(`  EasyRisparmio — Seed: ${entityName}`);
+  console.log(`  VYZI — Seed: ${entityName}`);
   console.log('========================================\n');
 
   const app = await NestFactory.createApplicationContext(AppModule, {

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-EasyRisparmio backend - an Italian energy utility comparison & switching platform. NestJS + PostgreSQL (TypeORM). Serves a mobile app (personal + business users) and an admin web panel.
+VYZI backend - an Italian energy utility comparison & switching platform. NestJS + PostgreSQL (TypeORM). Serves a mobile app (personal + business users) and an admin web panel.
 
 ## Commands
 

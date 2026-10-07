@@ -133,7 +133,7 @@ iOS Universal Links verification file. Apple's CDN fetches this to verify the ap
     "apps": [],
     "details": [
       {
-        "appID": "{APPLE_TEAM_ID}.com.homecraft.service",
+        "appID": "{APPLE_TEAM_ID}.com.vyzi",
         "paths": ["/r/*"]
       }
     ]
@@ -320,7 +320,7 @@ Set this as `APPLE_TEAM_ID` in your `.env`.
 ### 4. Enable Associated Domains in Apple Developer Portal
 
 1. Go to [Apple Developer Portal](https://developer.apple.com/account) → Certificates, Identifiers & Profiles → Identifiers
-2. Find the App ID: `com.homecraft.service`
+2. Find the App ID: `com.vyzi`
 3. Click on it → scroll to "Associated Domains"
 4. Enable the checkbox
 5. Click "Save"
@@ -471,8 +471,8 @@ curl https://app-site-association.cdn-apple.com/a/v1/YOUR_DOMAIN
 ### iOS: Link opens in browser instead of app
 
 - Verify AASA file is accessible: `curl https://YOUR_DOMAIN/.well-known/apple-app-site-association`
-- Verify `APPLE_TEAM_ID` is correct and `appID` format is `{TEAM_ID}.com.homecraft.service`
-- Enable Associated Domains capability in Apple Developer Portal for `com.homecraft.service`
+- Verify `APPLE_TEAM_ID` is correct and `appID` format is `{TEAM_ID}.com.vyzi`
+- Enable Associated Domains capability in Apple Developer Portal for `com.vyzi`
 - Check entitlements file has `applinks:YOUR_DOMAIN`
 - Apple caches AASA aggressively — wait up to 24 hours or use `?mode=developer`
 - Long-press the link on iOS to see "Open in VYZI" option

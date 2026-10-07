@@ -38,7 +38,7 @@ export class DeepLinkService {
         apps: [],
         details: [
           {
-            appID: `${teamId}.com.homecraft.service`,
+            appID: `${teamId}.com.vyzi`,
             paths: ['/r/*'],
           },
         ],
